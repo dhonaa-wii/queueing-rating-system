@@ -26,7 +26,7 @@ class CategorySetupLock
 {
     public static function guard(PresentationCategory $category, string $action): void
     {
-        if ($category->isCompleted()) {
+        if ($category->isEnded()) {
             throw ValidationException::withMessages([
                 'category' => "Cannot {$action} — this category has ended.",
             ]);

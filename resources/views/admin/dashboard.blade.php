@@ -941,7 +941,7 @@
                                 @endphp
                                 <li>
                                     @php
-                                        $reportTitle = $substitute ? $substitute . ' → replace ' . $original : $original . ' is unavailable';
+                                        $reportTitle = $substitute ? $substitute . ' → replace ' . $original : $original . ($request->originalPanelist?->trashed() ? ' was deleted' : ' is unavailable');
                                         $reportSub = $reqGroup?->group_reference . ' · ' . $reqGroup?->category?->name . ' · ' . $request->created_at?->diffForHumans(null, true, true);
                                     @endphp
                                     @if (! $substitute && $reqGroup?->category)

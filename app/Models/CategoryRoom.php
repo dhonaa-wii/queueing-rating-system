@@ -30,7 +30,7 @@ class CategoryRoom extends Model
 
     public function addedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'added_by');
+        return $this->belongsTo(User::class, 'added_by')->withTrashed();
     }
 
     /** The tracks this room is limited to. None: it takes the groups no track room takes. */

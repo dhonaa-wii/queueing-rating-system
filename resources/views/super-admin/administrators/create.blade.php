@@ -18,7 +18,7 @@
                 <div class="aac-section-label">Account</div>
                 <div class="row g-2 mb-3">
                     <div class="col-md-6">
-                        <label for="username" class="form-label">Username</label>
+                        <label for="username" class="form-label">Username <span class="text-brand-accent">*</span></label>
                         <input type="text" name="username" id="username" class="form-control @error('username') is-invalid @enderror" value="{{ old('username') }}" required autofocus>
                         @error('username') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
@@ -32,7 +32,7 @@
                 <div class="aac-section-label">Personal Information</div>
                 <div class="row g-2 mb-2">
                     <div class="col-md-4">
-                        <label for="first_name" class="form-label">First Name</label>
+                        <label for="first_name" class="form-label">First Name <span class="text-brand-accent">*</span></label>
                         <input type="text" name="first_name" id="first_name" class="form-control" value="{{ old('first_name') }}" required>
                     </div>
                     <div class="col-md-4">
@@ -40,22 +40,22 @@
                         <input type="text" name="middle_name" id="middle_name" class="form-control" value="{{ old('middle_name') }}">
                     </div>
                     <div class="col-md-4">
-                        <label for="last_name" class="form-label">Last Name</label>
+                        <label for="last_name" class="form-label">Last Name <span class="text-brand-accent">*</span></label>
                         <input type="text" name="last_name" id="last_name" class="form-control" value="{{ old('last_name') }}" required>
                     </div>
                 </div>
                 <div class="row g-2 mb-3">
                     <div class="col-md-6">
-                        <label for="contact_number" class="form-label">Contact Number</label>
+                        <label for="contact_number" class="form-label">Contact Number (optional)</label>
                         <input type="text" name="contact_number" id="contact_number" class="form-control" value="{{ old('contact_number') }}">
                     </div>
                     <div class="col-md-6">
-                        <label for="employee_reference" class="form-label">Employee Reference</label>
+                        <label for="employee_reference" class="form-label">Employee Reference (optional)</label>
                         <input type="text" name="employee_reference" id="employee_reference" class="form-control" value="{{ old('employee_reference') }}">
                     </div>
                 </div>
 
-                <div class="aac-section-label">College</div>
+                <div class="aac-section-label">College <span class="text-brand-accent">*</span></div>
                 <div class="mb-3">
                     <select name="college_id" id="college_id" class="form-select @error('college_id') is-invalid @enderror" required @if($colleges->isEmpty()) disabled @endif>
                         <option value="">Select&hellip;</option>

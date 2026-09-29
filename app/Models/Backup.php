@@ -41,7 +41,7 @@ class Backup extends Model
 
     public function triggeredBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'triggered_by');
+        return $this->belongsTo(User::class, 'triggered_by')->withTrashed();
     }
 
     public function isRunning(): bool

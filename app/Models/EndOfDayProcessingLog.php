@@ -34,6 +34,6 @@ class EndOfDayProcessingLog extends Model
 
     public function processedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'processed_by');
+        return $this->belongsTo(User::class, 'processed_by')->withTrashed();
     }
 }

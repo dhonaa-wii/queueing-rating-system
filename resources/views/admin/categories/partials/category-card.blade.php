@@ -144,15 +144,22 @@
             </div>
 
             <div class="category-card-actions mt-auto">
-                <a href="{{ route('admin.categories.show', $category) }}" class="btn-card-action btn-card-solid">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-                    {{ $setupComplete ? 'Edit Setup' : 'Open Setup' }}
-                </a>
+                @if ($category->isEnded())
+                    <a href="{{ route('admin.categories.show', $category) }}" class="btn-card-action btn-card-solid">
+                        <x-icon name="eye" />
+                        View Setup
+                    </a>
+                @else
+                    <a href="{{ route('admin.categories.show', $category) }}" class="btn-card-action btn-card-solid">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                        {{ $setupComplete ? 'Edit Setup' : 'Open Setup' }}
+                    </a>
 
-                <a href="{{ route('admin.categories.show', $category) }}#tab-announcements" class="btn-card-action btn-card-outline">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-                    Announce
-                </a>
+                    <a href="{{ route('admin.categories.show', $category) }}#tab-announcements" class="btn-card-action btn-card-outline">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                        Announce
+                    </a>
+                @endif
 
                 @if ($category->categoryStatus->code !== 'ARCHIVED')
                     <button type="button" class="btn-card-action btn-card-ghost"
@@ -181,7 +188,7 @@
                 @endif
 
                 <button type="button" class="btn-card-action btn-card-danger"
-                        @if ($category->isCompleted()) disabled title="This category has ended — archive it instead." @else data-bs-toggle="modal" data-bs-target="#delete-category-{{ $category->id }}" @endif>
+                        data-bs-toggle="modal" data-bs-target="#delete-category-{{ $category->id }}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                     Delete
                 </button>
@@ -205,11 +212,19 @@
                     Current status:
                     <span class="badge {{ $category->categoryStatus->code === 'ARCHIVED' ? 'badge-muted-tint' : 'badge-brand-tint' }}">{{ $category->statusDisplayName() }}</span>
                 </p>
-                <p class="text-brand-muted small mb-0">
-                    This removes its schedules, rooms, queue/payment/evaluation configuration, and
-                    announcements, and cannot be undone. If research groups are already registered
-                    under this category, deletion will be blocked &mdash; archive it instead.
-                </p>
+                @if (in_array($category->categoryStatus->code, ['COMPLETED', 'ARCHIVED'], true))
+                    <p class="text-danger-brand small mb-0">
+                        This also deletes every registered group, its queue and schedule history,
+                        submitted evaluations, and grades. They will no longer appear in Reports.
+                        This cannot be undone.
+                    </p>
+                @else
+                    <p class="text-brand-muted small mb-0">
+                        This removes its schedules, rooms, queue/payment/evaluation configuration, and
+                        announcements, and cannot be undone. If research groups are already registered
+                        under this category, deletion will be blocked &mdash; archive it instead.
+                    </p>
+                @endif
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-brand" data-bs-dismiss="modal">Cancel</button>

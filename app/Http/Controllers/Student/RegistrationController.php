@@ -54,7 +54,7 @@ class RegistrationController extends Controller
         // automatic actions. A capacity shortfall or similar just leaves
         // the group unqueued for now — it registered successfully either
         // way, and an admin can resolve it later.
-        $queueService->syncAfterRegistrationChange($category->fresh(), $category->created_by);
+        $queueService->syncAfterRegistrationChange($category->fresh(), $category->actingUserId());
 
         return redirect()->route('student.categories.registration.confirmation', [$category, $researchGroup->group_reference]);
     }

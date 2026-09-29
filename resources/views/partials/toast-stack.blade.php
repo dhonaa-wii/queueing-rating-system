@@ -14,7 +14,11 @@
     text. theme-head.blade.php is a plain <style> block included directly in
     <head>, so it's always in time.
 --}}
-<div id="app-toast-stack" class="app-toast-stack"></div>
+{{-- The flash is also carried as data so partials/soft-submit-script can
+     read a saved page's outcome before deciding to swap it in. --}}
+<div id="app-toast-stack" class="app-toast-stack"
+     data-flash-status="{{ session('status') }}"
+     data-flash-error="{{ session('error') ?: ($errors->any() ? $errors->first() : '') }}"></div>
 
 @push('scripts')
     <script>

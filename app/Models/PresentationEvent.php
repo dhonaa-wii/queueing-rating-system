@@ -39,12 +39,12 @@ class PresentationEvent extends Model
 
     public function startedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'started_by');
+        return $this->belongsTo(User::class, 'started_by')->withTrashed();
     }
 
     public function endedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'ended_by');
+        return $this->belongsTo(User::class, 'ended_by')->withTrashed();
     }
 
     public function roomSessions(): HasMany

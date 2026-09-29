@@ -582,6 +582,9 @@ class QueueGenerationService
         DB::transaction(function () use ($attemptIds) {
             RoomSession::whereIn('current_attempt_id', $attemptIds)->update(['current_attempt_id' => null]);
             AttemptPanelAssignment::whereIn('presentation_attempt_id', $attemptIds)->delete();
+            $substitutionRequestIds = \App\Models\PanelSubstitutionRequest::whereIn('presentation_attempt_id', $attemptIds)->pluck('id');
+            \App\Models\Notification::where('related_type', \App\Models\PanelSubstitutionRequest::class)->whereIn('related_id', $substitutionRequestIds)->delete();
+            \App\Models\PanelSubstitutionRequest::whereIn('id', $substitutionRequestIds)->delete();
             ProposedTitle::whereIn('presentation_attempt_id', $attemptIds)->update(['presentation_attempt_id' => null]);
 
             $scheduleIds = AttemptSchedule::whereIn('presentation_attempt_id', $attemptIds)->pluck('id');

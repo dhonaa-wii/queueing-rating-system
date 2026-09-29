@@ -36,7 +36,7 @@ class TerminalConnection extends Model
 
     public function panelist(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'panelist_user_id');
+        return $this->belongsTo(User::class, 'panelist_user_id')->withTrashed();
     }
 
     public function connectionStatus(): BelongsTo

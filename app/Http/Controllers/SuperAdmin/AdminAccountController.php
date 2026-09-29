@@ -181,6 +181,43 @@ class AdminAccountController extends Controller
         return back()->with('status', "\"{$admin->username}\" deactivated.");
     }
 
+    /**
+     * Permanently deletes an Admin account, at any time (user-directed
+     * 2026-09-30). The user row and everything that belongs to it (profile,
+     * roles, notifications, sessions) are removed. Records that merely name
+     * this admin as the one who did something — categories, schedules, queue
+     * changes, audit entries — stay, with that "done by" column cleared by
+     * the database (ON DELETE SET NULL, migration 2026_09_30_000001).
+     * Categories belong to a college, so its other admins carry on with them;
+     * automatic changes on them fall back to PresentationCategory::
+     * actingUserId().
+     */
+    public function destroy(Request $request, User $admin)
+    {
+        $this->ensureIsAdmin($admin);
+
+        DB::transaction(function () use ($admin) {
+            DB::table('sessions')->where('user_id', $admin->id)->delete();
+            DB::table('notifications')->where('user_id', $admin->id)->delete();
+            DB::table('administrator_profiles')->where('user_id', $admin->id)->delete();
+
+            // user_profiles and user_roles cascade with the user row.
+            $admin->forceDelete();
+        });
+
+        AuditLog::create([
+            'user_id' => $request->user()->id,
+            'action' => 'ADMIN_ACCOUNT_DELETED',
+            'entity_type' => User::class,
+            'entity_id' => $admin->id,
+            'new_values' => ['username' => $admin->username],
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        return redirect()->route('super-admin.administrators.index')->with('status', "\"{$admin->username}\" deleted.");
+    }
+
     public function resetPassword(Request $request, User $admin)
     {
         $this->ensureIsAdmin($admin);

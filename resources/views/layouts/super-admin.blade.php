@@ -91,24 +91,6 @@
             font-weight: 600;
         }
 
-        .admin-nav-link.disabled {
-            color: var(--brand-muted);
-            opacity: 0.55;
-            cursor: default;
-            pointer-events: none;
-        }
-
-        .admin-nav-badge {
-            margin-left: auto;
-            font-size: 0.65rem;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-            padding: 0.15rem 0.4rem;
-            border-radius: 0.3rem;
-            background-color: var(--brand-surface-alt);
-            color: var(--brand-muted);
-        }
-
         .admin-main {
             flex: 1;
             min-width: 0;
@@ -200,18 +182,6 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
                     <span>Security Settings</span>
                 </a>
-
-                <span class="admin-nav-link disabled">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
-                    <span>Presentation Oversight</span>
-                    <span class="admin-nav-badge">Soon</span>
-                </span>
-
-                <span class="admin-nav-link disabled">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="M18 17V9M13 17V5M8 17v-3"></path></svg>
-                    <span>Reports &amp; Analytics</span>
-                    <span class="admin-nav-badge">Soon</span>
-                </span>
 
                 <a href="{{ route('super-admin.audit-logs.index') }}" class="admin-nav-link {{ request()->routeIs('super-admin.audit-logs.*') ? 'active' : '' }}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M8 13h8M8 17h5"></path></svg>

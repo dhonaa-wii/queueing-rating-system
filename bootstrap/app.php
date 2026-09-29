@@ -26,6 +26,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->appendToGroup('web', [
             \App\Http\Middleware\EnforceMaintenanceMode::class,
             \App\Http\Middleware\RunAdminMaintenanceSweeps::class,
+            // Audit trail for every successful Admin save (2026-09-30).
+            \App\Http\Middleware\RecordAdminAudit::class,
         ]);
 
         // The restore step authenticates itself with a per-run token instead

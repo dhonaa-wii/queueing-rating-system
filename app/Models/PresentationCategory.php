@@ -45,7 +45,7 @@ class PresentationCategory extends Model
 
     public function createdBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(User::class, 'created_by')->withTrashed();
     }
 
     public function academicYear(): BelongsTo
@@ -169,9 +169,45 @@ class PresentationCategory extends Model
      * (Group & Panel Assignment / Event Control drop it; Reports keeps it)
      * is its own separate decision made where each list is built.
      */
+    /**
+     * The user an automatic change on this category (end-of-day sweeps,
+     * registration queue placement) is recorded as. The category's creator,
+     * unless that admin was deleted — then another active admin of the same
+     * college, then any Super Admin.
+     */
+    public function actingUserId(): int
+    {
+        if ($this->created_by) {
+            return (int) $this->created_by;
+        }
+
+        $admin = User::whereHas('userRoles.role', fn ($q) => $q->where('code', 'ADMIN'))
+            ->whereHas('administratorProfile', fn ($q) => $q->where('college_id', $this->college_id))
+            ->orderBy('id')
+            ->value('id');
+
+        return (int) ($admin ?? User::whereHas('userRoles.role', fn ($q) => $q->where('code', 'SUPER_ADMIN'))->orderBy('id')->value('id'));
+    }
+
     public function isCompleted(): bool
     {
         return $this->categoryStatus?->code === 'COMPLETED';
+    }
+
+    /**
+     * Ended, including an ended category that was then archived — archiving
+     * swaps the status to ARCHIVED and keeps the old one in
+     * status_before_archive_id, so isCompleted() alone would unlock it.
+     * Drives Presentation Setup's view-only state (CategorySetupLock).
+     */
+    public function isEnded(): bool
+    {
+        if ($this->isCompleted()) {
+            return true;
+        }
+
+        return $this->categoryStatus?->code === 'ARCHIVED'
+            && $this->statusBeforeArchive?->code === 'COMPLETED';
     }
 
     /**

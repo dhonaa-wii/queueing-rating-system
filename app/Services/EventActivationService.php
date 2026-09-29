@@ -193,7 +193,7 @@ class EventActivationService
      * PresentationEvent/started_by to attribute the resulting queue
      * adjustments to (queue_adjustments.approved_by is a required FK), so
      * this attributes them to the category's own creating admin instead
-     * (presentation_categories.created_by, always present) — the closest
+     * (PresentationCategory::actingUserId() — its creator, or a stand-in if that admin was deleted) — the closest
      * thing to a responsible actor for a category-level automatic action.
      */
     public function autoCancelNeverStarted(): void
@@ -208,7 +208,7 @@ class EventActivationService
             ->get();
 
         foreach ($dates as $date) {
-            $performedByUserId = $date->category->created_by;
+            $performedByUserId = $date->category->actingUserId();
 
             DB::transaction(function () use ($date) {
                 $cancelledStatus = EventDateStatus::where('code', 'CANCELLED')->firstOrFail();

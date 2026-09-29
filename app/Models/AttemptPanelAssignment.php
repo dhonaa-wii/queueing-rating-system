@@ -37,7 +37,7 @@ class AttemptPanelAssignment extends Model
 
     public function panelist(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'panelist_user_id');
+        return $this->belongsTo(User::class, 'panelist_user_id')->withTrashed();
     }
 
     public function assignmentKind(): BelongsTo
@@ -52,7 +52,7 @@ class AttemptPanelAssignment extends Model
 
     public function assignedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'assigned_by');
+        return $this->belongsTo(User::class, 'assigned_by')->withTrashed();
     }
 
     /**

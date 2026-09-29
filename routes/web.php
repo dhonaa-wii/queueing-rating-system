@@ -302,6 +302,7 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::post('/{admin}/activate', [AdminAccountController::class, 'activate'])->name('activate');
         Route::post('/{admin}/deactivate', [AdminAccountController::class, 'deactivate'])->name('deactivate');
         Route::post('/{admin}/reset-password', [AdminAccountController::class, 'resetPassword'])->name('reset-password');
+        Route::delete('/{admin}', [AdminAccountController::class, 'destroy'])->name('destroy');
     });
 
     Route::prefix('/super-admin/panelists')->name('super-admin.panelists.')->middleware('role:SUPER_ADMIN')->group(function () {

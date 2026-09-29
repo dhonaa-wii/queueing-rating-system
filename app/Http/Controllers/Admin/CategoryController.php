@@ -15,6 +15,7 @@ use App\Models\PresentationMode;
 use App\Models\QueueStrategy;
 use App\Models\Semester;
 use App\Services\CapacityAnalysisService;
+use App\Services\CategoryDeletionService;
 use App\Services\QueueGenerationService;
 use App\Services\ResearchGroupRegistrationService;
 use App\Support\CategorySetupLock;
@@ -178,17 +179,19 @@ class CategoryController extends Controller
     /**
      * Permanently removes a category and its own setup data (dates, rooms, breaks,
      * announcements, queue/schedule/payment settings, evaluation-form assignments).
-     * Blocked if research groups have already registered under it — those are real
-     * student data, not setup data, so deletion is refused and Archive is the
-     * intended path for a category that has reached that point. Also blocked once
-     * the category has ended — archive it instead (user-directed 2026-09-17, same
-     * "no further writes once ended" rule as every other Presentation Setup action).
+     * Blocked if research groups have already registered under it — archive it
+     * instead. An ended (or archived) category is the exception: it is deleted
+     * with all of its records, groups, evaluations and grades included
+     * (user-directed 2026-09-30).
      */
-    public function destroy(PresentationCategory $category)
+    public function destroy(PresentationCategory $category, CategoryDeletionService $deletion)
     {
-        if ($category->isCompleted()) {
-            return redirect()->route('admin.categories.index')
-                ->with('error', 'Cannot delete this category — it has ended. Archive it instead.');
+        if (in_array($category->categoryStatus?->code, ['COMPLETED', 'ARCHIVED'], true)) {
+            $result = $deletion->deleteCompletedCategory($category);
+
+            return $result['ok']
+                ? redirect()->route('admin.categories.index')->with('status', 'Category and all of its records deleted.')
+                : redirect()->route('admin.categories.index')->with('error', $result['error']);
         }
 
         try {

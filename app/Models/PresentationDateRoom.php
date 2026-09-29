@@ -71,17 +71,17 @@ class PresentationDateRoom extends Model
 
     public function addedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'added_by');
+        return $this->belongsTo(User::class, 'added_by')->withTrashed();
     }
 
     public function closureRequestedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'closure_requested_by');
+        return $this->belongsTo(User::class, 'closure_requested_by')->withTrashed();
     }
 
     public function closedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'closed_by');
+        return $this->belongsTo(User::class, 'closed_by')->withTrashed();
     }
 
     public function scheduleBreaks(): HasMany

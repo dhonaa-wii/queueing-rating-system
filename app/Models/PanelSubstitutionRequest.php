@@ -34,17 +34,17 @@ class PanelSubstitutionRequest extends Model
 
     public function originalPanelist(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'original_panelist_user_id');
+        return $this->belongsTo(User::class, 'original_panelist_user_id')->withTrashed();
     }
 
     public function requestedSubstitute(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'requested_substitute_user_id');
+        return $this->belongsTo(User::class, 'requested_substitute_user_id')->withTrashed();
     }
 
     public function requestedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'requested_by');
+        return $this->belongsTo(User::class, 'requested_by')->withTrashed();
     }
 
     public function status(): BelongsTo
@@ -54,6 +54,6 @@ class PanelSubstitutionRequest extends Model
 
     public function reviewedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'reviewed_by');
+        return $this->belongsTo(User::class, 'reviewed_by')->withTrashed();
     }
 }

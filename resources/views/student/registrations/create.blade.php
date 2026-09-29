@@ -77,10 +77,12 @@
                     &mdash; leave a row blank to skip it. If you fill in a member, every field in that row is required.
                 </p>
 
+                @include('partials.person-fields-head', ['trackRequired' => $category->research_track_required])
+
                 @for ($i = 0; $i < $memberSlots; $i++)
                     <div class="member-row">
-                        <div class="member-row-label">Member {{ $i + 1 }}</div>
                         @include('partials.person-fields', [
+                            'rowLabel' => $i + 1,
                             'nameFor' => fn ($field) => "members[$i][$field]",
                             'idBase' => "member_$i",
                             'values' => collect($personFields)->mapWithKeys(fn ($f) => [$f => old("members.$i.$f")])->all(),
@@ -163,11 +165,11 @@
 
 @push('styles')
     <style>
-        @media (min-width: 1200px) {
-            .reg-shell {
-                width: 85%;
-                margin-inline: auto;
-            }
+        /* Capped so the one-line person rows keep name-sized fields instead
+           of stretching across a wide screen. */
+        .reg-shell {
+            max-width: 62rem;
+            margin-inline: auto;
         }
 
         /* Same surface, radius, type scale and compact controls as the
@@ -241,19 +243,14 @@
             font-weight: 600;
         }
 
-        .member-row + .member-row {
-            margin-top: 0.7rem;
-            padding-top: 0.7rem;
-            border-top: 1px dashed var(--brand-border);
+        /* Member rows are compact one-liners under a single label header
+           (partials.person-fields-head); they only need a small gap. */
+        .person-fields-head {
+            margin-bottom: 0.3rem;
         }
 
-        .member-row-label {
-            margin-bottom: 0.3rem;
-            font-size: var(--reg-fs-xs);
-            font-weight: 600;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-            color: var(--brand-muted);
+        .member-row + .member-row {
+            margin-top: 0.45rem;
         }
 
         .reg-shell .form-label {

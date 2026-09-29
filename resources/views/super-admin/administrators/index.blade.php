@@ -94,25 +94,45 @@
                                                         </button>
                                                     </form>
                                                 @else
-                                                    <form method="POST" action="{{ route('super-admin.administrators.deactivate', $admin) }}"
-                                                          onsubmit="return confirm('Deactivate {{ addslashes($admin->username) }}?');">
-                                                        @csrf
-                                                        <button type="submit" class="dropdown-item d-flex align-items-center gap-2 w-100">
-                                                            <x-icon name="power" class="dropdown-item-icon" />
-                                                            Deactivate
-                                                        </button>
-                                                    </form>
+                                                    <button type="button" class="dropdown-item d-flex align-items-center gap-2 w-100"
+                                                            data-bs-toggle="modal" data-bs-target="#confirm-action-modal"
+                                                            data-confirm-action="{{ route('super-admin.administrators.deactivate', $admin) }}"
+                                                            data-confirm-method="POST"
+                                                            data-confirm-title="Deactivate Admin Account"
+                                                            data-confirm-message="Deactivate {{ $admin->username }}? They won't be able to sign in until the account is activated again."
+                                                            data-confirm-submit-label="Deactivate"
+                                                            data-confirm-variant="btn-outline-danger-brand">
+                                                        <x-icon name="power" class="dropdown-item-icon" />
+                                                        Deactivate
+                                                    </button>
                                                 @endif
                                             </li>
                                             <li>
-                                                <form method="POST" action="{{ route('super-admin.administrators.reset-password', $admin) }}"
-                                                      onsubmit="return confirm('Reset password for {{ addslashes($admin->username) }}?');">
-                                                    @csrf
-                                                    <button type="submit" class="dropdown-item d-flex align-items-center gap-2 w-100">
-                                                        <x-icon name="key" class="dropdown-item-icon" />
-                                                        Reset Password
-                                                    </button>
-                                                </form>
+                                                <button type="button" class="dropdown-item d-flex align-items-center gap-2 w-100"
+                                                        data-bs-toggle="modal" data-bs-target="#confirm-action-modal"
+                                                        data-confirm-action="{{ route('super-admin.administrators.reset-password', $admin) }}"
+                                                        data-confirm-method="POST"
+                                                        data-confirm-title="Reset Password"
+                                                        data-confirm-message="Issue a new temporary password for {{ $admin->username }}? Their current password stops working."
+                                                        data-confirm-submit-label="Reset Password"
+                                                        data-confirm-variant="btn-brand">
+                                                    <x-icon name="key" class="dropdown-item-icon" />
+                                                    Reset Password
+                                                </button>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <button type="button" class="dropdown-item d-flex align-items-center gap-2 w-100 text-danger-brand"
+                                                        data-bs-toggle="modal" data-bs-target="#confirm-action-modal"
+                                                        data-confirm-action="{{ route('super-admin.administrators.destroy', $admin) }}"
+                                                        data-confirm-method="DELETE"
+                                                        data-confirm-title="Delete Admin Account"
+                                                        data-confirm-message="Permanently delete {{ $admin->username }}? The account is removed and signed out. Categories, schedules and records they worked on stay with the college. This cannot be undone."
+                                                        data-confirm-submit-label="Delete"
+                                                        data-confirm-variant="btn-outline-danger-brand">
+                                                    <x-icon name="trash" class="dropdown-item-icon" />
+                                                    Delete
+                                                </button>
                                             </li>
                                         </ul>
                                     </div>
@@ -124,6 +144,8 @@
             </div>
         @endif
     </div>
+
+    @include('admin.partials.confirm-action-modal')
 
     @push('scripts')
         <script>

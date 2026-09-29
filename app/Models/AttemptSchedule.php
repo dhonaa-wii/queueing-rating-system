@@ -71,7 +71,7 @@ class AttemptSchedule extends Model
 
     public function scheduledBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'scheduled_by');
+        return $this->belongsTo(User::class, 'scheduled_by')->withTrashed();
     }
 
     public function changeReason(): BelongsTo

@@ -213,7 +213,11 @@
                     return;
                 }
                 var activating = currentAccountStatus === 'INACTIVE';
-                if (!activating && !confirm('Deactivate this panelist?')) {
+                if (!activating) {
+                    var deactivateModal = document.getElementById('deactivate-panelist-' + currentId);
+                    if (deactivateModal) {
+                        bootstrap.Modal.getOrCreateInstance(deactivateModal).show();
+                    }
                     return;
                 }
                 statusForm.action = '{{ url('admin/panelists') }}/' + currentId + '/' + (activating ? 'activate' : 'deactivate');

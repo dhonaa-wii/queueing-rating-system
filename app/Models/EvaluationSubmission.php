@@ -42,7 +42,7 @@ class EvaluationSubmission extends Model
 
     public function panelist(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'panelist_user_id');
+        return $this->belongsTo(User::class, 'panelist_user_id')->withTrashed();
     }
 
     public function evaluationFormVersion(): BelongsTo
@@ -67,7 +67,7 @@ class EvaluationSubmission extends Model
 
     public function reopenedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'reopened_by');
+        return $this->belongsTo(User::class, 'reopened_by')->withTrashed();
     }
 
     public function evaluationScores(): HasMany

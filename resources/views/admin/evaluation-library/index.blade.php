@@ -283,6 +283,14 @@
                     var(--brand-shadow-lifted);
             }
 
+            /* The hover lift (transform) gives each card its own stacking
+               layer, and a later card paints over an earlier one — so the
+               card whose actions menu is open has to sit above the rest, or
+               the card below covers the menu. */
+            .el-sheet:hover,
+            .el-sheet:focus-within { z-index: 2; }
+            .el-sheet:has(.dropdown-menu.show) { z-index: 3; }
+
             .el-sheet.is-archived { opacity: 0.72; }
 
             .el-sheet-head {

@@ -36,6 +36,6 @@ class AttemptRatingSummary extends Model
 
     public function finalizedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'finalized_by');
+        return $this->belongsTo(User::class, 'finalized_by')->withTrashed();
     }
 }

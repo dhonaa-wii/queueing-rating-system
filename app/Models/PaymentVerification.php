@@ -59,7 +59,7 @@ class PaymentVerification extends Model
 
     public function initiallyCheckedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'initially_checked_by');
+        return $this->belongsTo(User::class, 'initially_checked_by')->withTrashed();
     }
 
     public function terminalConnection(): BelongsTo
@@ -69,11 +69,11 @@ class PaymentVerification extends Model
 
     public function referredBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'referred_by');
+        return $this->belongsTo(User::class, 'referred_by')->withTrashed();
     }
 
     public function resolvedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'resolved_by');
+        return $this->belongsTo(User::class, 'resolved_by')->withTrashed();
     }
 }

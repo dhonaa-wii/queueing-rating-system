@@ -10,6 +10,8 @@ use App\Models\AttemptRequirement;
 use App\Models\AttemptSchedule;
 use App\Models\EvaluationScore;
 use App\Models\EvaluationSubmission;
+use App\Models\Notification;
+use App\Models\PanelSubstitutionRequest;
 use App\Models\PaymentVerification;
 use App\Models\PresentationAction;
 use App\Models\PresentationActionType;
@@ -165,6 +167,11 @@ class PresentationAttemptAdminActionService
 
             AttemptPanelParticipation::where('presentation_attempt_id', $attempt->id)->delete();
             AttemptPanelAssignment::where('presentation_attempt_id', $attempt->id)->delete();
+            // Pending/closed substitution requests (e.g. the "needs replacement"
+            // report a deleted panelist leaves) hold a hard FK onto the attempt.
+            $substitutionRequestIds = PanelSubstitutionRequest::where('presentation_attempt_id', $attempt->id)->pluck('id');
+            Notification::where('related_type', PanelSubstitutionRequest::class)->whereIn('related_id', $substitutionRequestIds)->delete();
+            PanelSubstitutionRequest::whereIn('id', $substitutionRequestIds)->delete();
             ProposedTitle::where('presentation_attempt_id', $attempt->id)->update(['presentation_attempt_id' => null]);
             PaymentVerification::where('presentation_attempt_id', $attempt->id)->delete();
             AttemptDecision::where('presentation_attempt_id', $attempt->id)->delete();

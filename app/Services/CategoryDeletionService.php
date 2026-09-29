@@ -10,7 +10,10 @@ use App\Models\AttemptRequirement;
 use App\Models\AttemptSchedule;
 use App\Models\CapacityAnalysisSnapshot;
 use App\Models\EndOfDayProcessingLog;
+use App\Models\EvaluationScore;
 use App\Models\EvaluationSubmission;
+use App\Models\EvaluationSubmissionStudentScore;
+use App\Models\Notification;
 use App\Models\PanelSubstitutionRequest;
 use App\Models\PaymentVerification;
 use App\Models\PresentationAction;
@@ -73,11 +76,23 @@ class CategoryDeletionService
 
         $attemptIds = PresentationAttempt::whereHas('researchGroup', fn ($query) => $query->where('category_id', $category->id))->pluck('id');
 
-        if (EvaluationSubmission::whereIn('presentation_attempt_id', $attemptIds)->exists()) {
-            return $this->failure('This category has real submitted evaluations recorded against it and cannot be deleted.');
-        }
-
+        // Submitted evaluations used to block this. User-directed 2026-09-30:
+        // an ended category is deleted with everything in it — its groups,
+        // evaluations and grades included — so those go first.
         DB::transaction(function () use ($category, $attemptIds) {
+            $submissionIds = EvaluationSubmission::whereIn('presentation_attempt_id', $attemptIds)->pluck('id');
+            EvaluationScore::whereIn('evaluation_submission_id', $submissionIds)->delete();
+            EvaluationSubmissionStudentScore::whereIn('evaluation_submission_id', $submissionIds)->delete();
+            EvaluationSubmission::whereIn('id', $submissionIds)->delete();
+
+            // Both are RESTRICT FKs onto presentation_attempts: a room session
+            // still pointing at an attempt, and a re-defense pointing at the
+            // attempt before it, would block deleting the attempts below.
+            RoomSession::whereIn('current_attempt_id', $attemptIds)->update(['current_attempt_id' => null]);
+            PresentationAttempt::whereIn('id', $attemptIds)->update(['previous_attempt_id' => null]);
+
+            $substitutionRequestIds = PanelSubstitutionRequest::whereIn('presentation_attempt_id', $attemptIds)->pluck('id');
+
             $runIds = PresentationRun::whereIn('presentation_attempt_id', $attemptIds)->pluck('id');
             PresentationAction::whereIn('presentation_run_id', $runIds)->delete();
             PresentationPause::whereIn('presentation_run_id', $runIds)->delete();
@@ -131,6 +146,18 @@ class CategoryDeletionService
             $category->categoryScheduleSetting()->delete();
             $category->categoryPaymentSetting()->delete();
             $category->categoryPaymentTypes()->delete();
+            // category_room_tracks cascade with both of these.
+            $category->categoryRooms()->delete();
+            $category->researchTracks()->delete();
+
+            // Notifications have no FK (related_type/related_id), so ones about
+            // this category's rows would otherwise point at nothing.
+            Notification::where(fn ($q) => $q
+                ->where(fn ($r) => $r->where('related_type', PresentationCategory::class)->where('related_id', $category->id))
+                ->orWhere(fn ($r) => $r->where('related_type', PresentationAttempt::class)->whereIn('related_id', $attemptIds))
+                ->orWhere(fn ($r) => $r->where('related_type', PresentationDate::class)->whereIn('related_id', $dateIds))
+                ->orWhere(fn ($r) => $r->where('related_type', PanelSubstitutionRequest::class)->whereIn('related_id', $substitutionRequestIds)))
+                ->delete();
 
             $category->delete();
         });

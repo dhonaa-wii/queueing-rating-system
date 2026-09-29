@@ -124,10 +124,11 @@
 
     </div>
 
-    @if ($category && $category->isCompleted())
+    @php $setupReadOnly = $category && $category->isEnded(); @endphp
+    @if ($setupReadOnly)
         <div class="alert alert-secondary d-flex align-items-center gap-2 mb-3">
             <x-icon name="lock" />
-            <span>This category has ended — its setup is now read-only. Its records are still viewable here and in Reports; archive it once there's nothing left to review.</span>
+            <span>This category has ended — its setup is view only.</span>
         </div>
     @endif
 
@@ -218,7 +219,7 @@
         <span class="setup-tabs-indicator" id="setup-tabs-indicator"></span>
     </ul>
 
-    <div class="tab-content">
+    <div class="tab-content" @if ($setupReadOnly) data-setup-readonly @endif>
         <div class="tab-pane fade show active" id="tab-overview" role="tabpanel">
             @include('admin.categories.partials.overview')
         </div>
@@ -239,6 +240,26 @@
 
     @include('admin.categories.partials.scripts')
     @include('admin.partials.confirm-action-modal')
+
+    @if ($setupReadOnly)
+        {{-- Ended category: view only. Every control in the tabs is an edit
+             (save/add/remove/edit triggers), so all buttons go and all fields
+             are disabled; links (e.g. "go to tab") stay. The server refuses
+             writes regardless (CategorySetupLock). --}}
+        @push('styles')
+            <style>
+                [data-setup-readonly] button,
+                [data-setup-readonly] .row-actions-btn,
+                [data-setup-readonly] input[type="submit"] { display: none !important; }
+            </style>
+        @endpush
+        @push('scripts')
+            <script>
+                document.querySelectorAll('[data-setup-readonly] input, [data-setup-readonly] select, [data-setup-readonly] textarea')
+                    .forEach(function (field) { field.disabled = true; });
+            </script>
+        @endpush
+    @endif
 
     @push('styles')
         <style>

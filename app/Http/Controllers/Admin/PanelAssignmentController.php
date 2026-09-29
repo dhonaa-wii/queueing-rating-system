@@ -659,11 +659,19 @@ class PanelAssignmentController extends Controller
         $lastError = null;
 
         foreach ($schedules as $schedule) {
-            // Same rule as Move/Transfer/Defer: only a group on an ongoing or
-            // upcoming day that is not presenting right now can be deleted
-            // from here (Live Monitoring's own delete override is separate).
-            if ($blocked = $queueService->adminBlockedReason($schedule)) {
-                $lastError = $blocked;
+            // Deletable anytime — during a running day, or while "to be
+            // scheduled" on a day that is over (user-directed 2026-09-30).
+            // Only a group presenting right now is refused: its run is live
+            // on the room's tablets. A recorded outcome stays protected too.
+            $status = $schedule->presentationAttempt?->presentationStatus;
+
+            if (in_array($status?->code, ['ONGOING', 'PAUSED'], true)) {
+                $lastError = "{$schedule->presentationAttempt->researchGroup?->group_reference} is presenting right now — complete or defer it first.";
+                continue;
+            }
+
+            if ($status?->is_terminal) {
+                $lastError = 'A group with a recorded outcome cannot be deleted.';
                 continue;
             }
 
@@ -685,7 +693,7 @@ class PanelAssignmentController extends Controller
     {
         return AttemptSchedule::whereIn('id', $ids)
             ->whereHas('presentationAttempt.researchGroup', fn ($q) => $q->where('category_id', $category->id))
-            ->with('queueEntry', 'presentationDateRoom')
+            ->with('queueEntry', 'presentationDateRoom', 'presentationAttempt.presentationStatus', 'presentationAttempt.researchGroup')
             ->get();
     }
 

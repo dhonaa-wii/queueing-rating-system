@@ -39,11 +39,11 @@ class PresentationPause extends Model
 
     public function pausedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'paused_by');
+        return $this->belongsTo(User::class, 'paused_by')->withTrashed();
     }
 
     public function resumedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'resumed_by');
+        return $this->belongsTo(User::class, 'resumed_by')->withTrashed();
     }
 }

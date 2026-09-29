@@ -51,11 +51,11 @@ class AttemptDecision extends Model
 
     public function recordedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'recorded_by');
+        return $this->belongsTo(User::class, 'recorded_by')->withTrashed();
     }
 
     public function finalizedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'finalized_by');
+        return $this->belongsTo(User::class, 'finalized_by')->withTrashed();
     }
 }

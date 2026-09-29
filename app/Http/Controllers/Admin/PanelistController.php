@@ -7,6 +7,8 @@ use App\Models\AccountStatus;
 use App\Models\AttemptPanelAssignment;
 use App\Models\AttemptSchedule;
 use App\Models\PanelistProfile;
+use App\Models\PanelSubstitutionRequest;
+use App\Models\SubstitutionStatus;
 use App\Models\Role;
 use App\Models\Student;
 use App\Models\User;
@@ -165,7 +167,7 @@ class PanelistController extends Controller
             'username' => $panelist->username,
             'contactNumber' => $panelist->profile->contact_number,
             'sex' => $panelist->profile->sex,
-            'college' => $panelist->panelistProfile?->college?->name,
+            'college' => $panelist->panelistProfile?->college?->code ?: $panelist->panelistProfile?->college?->name,
             'specialization' => $panelist->panelistProfile?->specialization,
             'accountStatus' => $panelist->accountStatus?->code,
             'accountStatusName' => $panelist->accountStatus?->name,
@@ -260,13 +262,16 @@ class PanelistController extends Controller
             ]);
     }
 
-    public function destroy(User $panelist)
+    public function destroy(Request $request, User $panelist)
     {
         $this->ensureIsPanelist($panelist);
 
-        // Recorded work is history that Reports, grades and the presentation
-        // audit trail stand on; erasing the panelist would erase it too (or
-        // trip its non-cascading FKs), so a panelist who has any is refused.
+        // Seats the panelist still holds on a group that hasn't presented yet.
+        $openSeats = AttemptPanelAssignment::where('panelist_user_id', $panelist->id)
+            ->whereHas('assignmentStatus', fn ($q) => $q->whereNotIn('code', ['REPLACED', 'WITHDRAWN']))
+            ->whereHas('presentationAttempt.presentationStatus', fn ($q) => $q->where('is_terminal', false))
+            ->get();
+
         $history = DB::table('evaluation_submissions')->where('panelist_user_id', $panelist->id)->count()
             + DB::table('presentation_actions')->where('performed_by', $panelist->id)->count()
             + DB::table('presentation_pauses')
@@ -278,12 +283,22 @@ class PanelistController extends Controller
                     ->orWhere('resolved_by', $panelist->id))
                 ->count();
 
-        if ($history > 0) {
+        // A panelist with recorded work, or still seated on a group that has
+        // yet to present, is soft-deleted (user-directed 2026-09-30): the
+        // account is gone and can't sign in, but the row stays so their
+        // evaluations keep showing in Reports under their name, and every
+        // open seat becomes a pending "needs replacement" report the Admin
+        // resolves with Group & Panel Assignment's Assign Replacement.
+        if ($history > 0 || $openSeats->isNotEmpty()) {
+            $count = $this->softDeletePanelist($panelist, $openSeats, $request->user()->id);
+
             return redirect()->route('admin.panelists.index')
-                ->with('error', "\"{$panelist->username}\" can't be deleted — they have recorded evaluations or presentation actions.");
+                ->with('status', 'Panelist deleted.' . ($count > 0
+                    ? " {$count} group" . ($count === 1 ? ' needs' : 's need') . ' a replacement panelist in Group & Panel Assignment.'
+                    : ''));
         }
 
-        // Hard delete (not soft): everything the panelist owns goes with them.
+        // Nothing to keep: hard delete, everything the panelist owns goes with them.
         DB::transaction(function () use ($panelist) {
             $id = $panelist->id;
 
@@ -306,6 +321,60 @@ class PanelistController extends Controller
         });
 
         return redirect()->route('admin.panelists.index')->with('status', 'Panelist deleted.');
+    }
+
+    /**
+     * Returns how many groups were left needing a replacement. The open
+     * seats are left live on purpose: PanelSubstitutionService::applySwap()
+     * reads the seat being replaced (kind, is_lead) when the Admin fills it,
+     * so a Lead is replaced by a Lead.
+     */
+    private function softDeletePanelist(User $panelist, $openSeats, int $adminId): int
+    {
+        $pending = SubstitutionStatus::where('code', 'PENDING')->firstOrFail();
+        $cancelled = SubstitutionStatus::where('code', 'CANCELLED')->firstOrFail();
+
+        return DB::transaction(function () use ($panelist, $openSeats, $adminId, $pending, $cancelled) {
+            $created = 0;
+
+            foreach ($openSeats as $seat) {
+                $alreadyPending = PanelSubstitutionRequest::where('presentation_attempt_id', $seat->presentation_attempt_id)
+                    ->where('original_panelist_user_id', $panelist->id)
+                    ->where('status_id', $pending->id)
+                    ->exists();
+
+                if (! $alreadyPending) {
+                    PanelSubstitutionRequest::create([
+                        'presentation_attempt_id' => $seat->presentation_attempt_id,
+                        'original_panelist_user_id' => $panelist->id,
+                        'requested_substitute_user_id' => null,
+                        'requested_by' => $adminId,
+                        'reason' => 'Panelist account deleted.',
+                        'status_id' => $pending->id,
+                    ]);
+                }
+
+                $created++;
+            }
+
+            // Requests proposing this panelist as someone else's substitute
+            // can no longer be approved.
+            PanelSubstitutionRequest::where('requested_substitute_user_id', $panelist->id)
+                ->where('status_id', $pending->id)
+                ->update(['status_id' => $cancelled->id, 'reviewed_by' => $adminId, 'reviewed_at' => now()]);
+
+            DB::table('terminal_connections')
+                ->where('panelist_user_id', $panelist->id)
+                ->whereNull('disconnected_at')
+                ->update(['disconnected_at' => now()]);
+            DB::table('sessions')->where('user_id', $panelist->id)->delete();
+            DB::table('notifications')->where('user_id', $panelist->id)->delete();
+
+            $panelist->update(['account_status_id' => AccountStatus::where('code', 'INACTIVE')->firstOrFail()->id]);
+            $panelist->delete();
+
+            return $created;
+        });
     }
 
     /**

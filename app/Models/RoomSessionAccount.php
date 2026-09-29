@@ -56,16 +56,16 @@ class RoomSessionAccount extends Model
 
     public function generatedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'generated_by');
+        return $this->belongsTo(User::class, 'generated_by')->withTrashed();
     }
 
     public function credentialsResetBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'credentials_reset_by');
+        return $this->belongsTo(User::class, 'credentials_reset_by')->withTrashed();
     }
 
     public function deactivatedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'deactivated_by');
+        return $this->belongsTo(User::class, 'deactivated_by')->withTrashed();
     }
 }

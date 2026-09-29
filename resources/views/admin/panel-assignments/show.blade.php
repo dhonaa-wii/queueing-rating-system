@@ -385,7 +385,7 @@
                                                             $reporterName = trim(($report->originalPanelist->profile->first_name ?? '') . ' ' . ($report->originalPanelist->profile->last_name ?? '')) ?: ($report->originalPanelist->username ?? 'A panelist');
                                                         @endphp
                                                         <div class="mt-1">
-                                                            <span class="badge badge-danger-tint" title="{{ $reporterName }} reported unavailable — pending review">Needs Reassignment</span>
+                                                            <span class="badge badge-danger-tint" title="{{ $report->originalPanelist?->trashed() ? $reporterName . ' was deleted from the system' : $reporterName . ' reported unavailable — pending review' }}">Needs Reassignment</span>
                                                             <button type="button" class="btn btn-sm btn-outline-danger-brand mt-1" data-bs-toggle="modal" data-bs-target="#assign-replacement-modal-{{ $report->id }}">
                                                                 <x-icon name="user-check" /> Assign Replacement
                                                             </button>
@@ -419,9 +419,12 @@
                                                                 @else
                                                                     <li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#defer-modal-{{ $attempt->id }}">Defer</button></li>
                                                                 @endif
-                                                                <li><hr class="dropdown-divider"></li>
-                                                                <li><button type="button" class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#delete-modal-{{ $attempt->id }}">Delete</button></li>
                                                             @endif
+                                                            {{-- Delete works on any group not presenting right now —
+                                                               running day or "to be scheduled" included
+                                                               (user-directed 2026-09-30). --}}
+                                                            <li><hr class="dropdown-divider"></li>
+                                                            <li><button type="button" class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#delete-modal-{{ $attempt->id }}">Delete</button></li>
                                                         </ul>
                                                     </div>
                                                     @endif
@@ -513,6 +516,7 @@
                                                         <button type="button" class="btn btn-sm btn-outline-brand" data-bs-toggle="modal" data-bs-target="#verify-payment-modal-{{ $attempt->id }}"><x-icon name="shield-check" /> Verify Payment</button>
                                                     @endif
                                                     <button type="button" class="btn btn-sm btn-brand" data-bs-toggle="modal" data-bs-target="#reinsert-modal-{{ $attempt->id }}"><x-icon name="reinsert" /> Reinsert</button>
+                                                    <button type="button" class="btn btn-sm btn-outline-danger-brand" data-bs-toggle="modal" data-bs-target="#delete-deferred-modal-{{ $attempt->id }}"><x-icon name="trash" /> Delete</button>
                                                 </td>
                                             </tr>
                                         @endforeach
@@ -1287,7 +1291,7 @@
                                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                     </div>
                                     <div class="modal-body">
-                                        <p class="text-brand-muted small mb-3">{{ $reporterName }} reported unavailable for this group's panel. Pick one replacement to fill that seat &mdash; everyone else on the panel stays as-is.</p>
+                                        <p class="text-brand-muted small mb-3">{{ $reporterName }} {{ $report->originalPanelist?->trashed() ? 'was deleted from the system' : "reported unavailable for this group's panel" }}. Pick one replacement to fill that seat &mdash; everyone else on the panel stays as-is.</p>
                                         <div class="mb-0">
                                             <label class="form-label">Replacement Panelist</label>
                                             <select name="substitute_user_id" class="form-select" required>
@@ -1393,6 +1397,29 @@
                                 <div class="modal-footer">
                                     <button type="button" class="btn btn-outline-brand" data-bs-dismiss="modal">Cancel</button>
                                     <button type="submit" class="btn btn-brand"><x-icon name="reinsert" /> Reinsert</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal fade" id="delete-deferred-modal-{{ $attempt->id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <form method="POST" action="{{ route('admin.panel-assignments.schedules.destroy', $category) }}">
+                                @csrf
+                                @method('DELETE')
+                                <input type="hidden" name="schedule_ids[]" value="{{ $schedule->id }}">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Delete {{ $attempt->researchGroup->group_reference }}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p class="mb-0">Removes this deferred group's presentation from the queue entirely. This cannot be undone. The group's registration itself is not affected.</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-outline-brand" data-bs-dismiss="modal">Cancel</button>
+                                    <button type="submit" class="btn btn-outline-danger-brand"><x-icon name="trash" /> Delete</button>
                                 </div>
                             </form>
                         </div>
@@ -1652,6 +1679,7 @@
     </div>
 
     @include('admin.partials.evaluation-sheet-modal')
+    @include('partials.soft-submit-script')
 
     @push('scripts')
         <script>
@@ -2071,9 +2099,11 @@
 
                     editBtn.disabled = anyAwaiting;
                     editBtn.title = anyAwaiting ? awaitingTitle : '';
+                    // Delete works on any selectable group, a day that is over
+                    // included (user-directed 2026-09-30).
                     if (deleteBtn) {
-                        deleteBtn.disabled = anyAwaiting;
-                        deleteBtn.title = anyAwaiting ? awaitingTitle : '';
+                        deleteBtn.disabled = false;
+                        deleteBtn.title = '';
                     }
 
                     var roomIds = picked.map(function (cb) { return cb.dataset.roomId; });

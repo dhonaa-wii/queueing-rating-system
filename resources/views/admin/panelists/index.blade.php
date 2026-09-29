@@ -142,17 +142,13 @@
                                                         </button>
                                                     </form>
                                                 @else
-                                                    <form method="POST" action="{{ route('admin.panelists.deactivate', $panelist) }}"
-                                                          onsubmit="return confirm('Deactivate {{ addslashes($panelist->username) }}?');">
-                                                        @csrf
-                                                        <button type="submit" class="dropdown-item d-flex align-items-center gap-2 w-100">
-                                                            <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                                                <circle cx="12" cy="12" r="9"></circle>
-                                                                <line x1="5.5" y1="5.5" x2="18.5" y2="18.5"></line>
-                                                            </svg>
-                                                            Deactivate
-                                                        </button>
-                                                    </form>
+                                                    <button type="button" class="dropdown-item d-flex align-items-center gap-2 w-100" data-bs-toggle="modal" data-bs-target="#deactivate-panelist-{{ $panelist->id }}">
+                                                        <svg class="dropdown-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                                            <circle cx="12" cy="12" r="9"></circle>
+                                                            <line x1="5.5" y1="5.5" x2="18.5" y2="18.5"></line>
+                                                        </svg>
+                                                        Deactivate
+                                                    </button>
                                                 @endif
                                             </li>
                                             <li>
@@ -204,6 +200,31 @@
                 </div>
             </div>
 
+            <div class="modal fade" id="deactivate-panelist-{{ $panelist->id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Deactivate Panelist</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="mb-0">
+                                Deactivate
+                                <strong>{{ trim(($panelist->profile->first_name ?? '').' '.($panelist->profile->last_name ?? '')) ?: $panelist->username }}</strong>?
+                                They won't be able to sign in until the account is activated again.
+                            </p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-brand" data-bs-dismiss="modal">Cancel</button>
+                            <form method="POST" action="{{ route('admin.panelists.deactivate', $panelist) }}">
+                                @csrf
+                                <button type="submit" class="btn btn-outline-danger-brand"><x-icon name="x" /> Deactivate</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="modal fade" id="delete-panelist-{{ $panelist->id }}" tabindex="-1" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered">
                     <div class="modal-content">
@@ -215,7 +236,11 @@
                             <p class="mb-0">
                                 Are you sure you want to permanently delete
                                 <strong>{{ trim(($panelist->profile->first_name ?? '').' '.($panelist->profile->last_name ?? '')) ?: $panelist->username }}</strong>?
-                                This cannot be undone. If they're still referenced elsewhere in the system (e.g. panel assignments), deletion will be blocked.
+                                This cannot be undone.
+                            </p>
+                            <p class="text-brand-muted small mt-2 mb-0">
+                                Evaluations they already submitted stay in Reports. Groups they are still
+                                assigned to will need a replacement panelist in Group &amp; Panel Assignment.
                             </p>
                         </div>
                         <div class="modal-footer">
