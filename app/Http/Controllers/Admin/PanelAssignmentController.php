@@ -300,7 +300,8 @@ class PanelAssignmentController extends Controller
             ? $attempts->mapWithKeys(fn (PresentationAttempt $attempt) => [$attempt->id => $paymentService->summaryFor($category, $attempt)])
             : collect();
 
-        $adjustmentReasons = AdjustmentReason::where('is_active', true)->orderBy('name')->get();
+        $adjustmentReasons = AdjustmentReason::forOtherAdjustments()->get();
+        $deferReasons = AdjustmentReason::forDefer()->get();
 
         $isTitleProposal = $category->presentationMode->code === 'TITLE_PROPOSAL';
 
@@ -366,6 +367,7 @@ class PanelAssignmentController extends Controller
             'paymentTypes' => $category->categoryPaymentTypes,
             'paymentSummaryByAttempt' => $paymentSummaryByAttempt,
             'adjustmentReasons' => $adjustmentReasons,
+            'deferReasons' => $deferReasons,
             'search' => $search,
             'backupSeats' => PanelAssignmentService::BACKUP_SEATS,
             'isTitleProposal' => $isTitleProposal,
@@ -607,7 +609,7 @@ class PanelAssignmentController extends Controller
         $validated = $request->validate([
             'entry_ids' => ['required', 'array', 'min:1'],
             'entry_ids.*' => ['integer'],
-            'reason_id' => ['required', 'integer', 'exists:adjustment_reasons,id'],
+            'reason_id' => ['required', 'integer', \Illuminate\Validation\Rule::exists('adjustment_reasons', 'id')->where('is_defer_reason', true)],
             'remarks' => ['nullable', 'string', 'max:1000'],
         ]);
 

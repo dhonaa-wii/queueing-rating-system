@@ -195,7 +195,7 @@ class LiveMonitoringController extends Controller
             'featuredDate' => $featuredDate,
             'roomPanels' => $roomPanels,
             'otherDates' => $otherDates,
-            'adjustmentReasons' => AdjustmentReason::where('is_active', true)->orderBy('name')->get(),
+            'adjustmentReasons' => AdjustmentReason::forOtherAdjustments()->get(),
             'presentationOutcomes' => PresentationOutcome::where('is_active', true)->orderBy('name')->get(),
             'canCompleteCategory' => $completionBlockReason === null,
             'completionBlockReason' => $completionBlockReason,

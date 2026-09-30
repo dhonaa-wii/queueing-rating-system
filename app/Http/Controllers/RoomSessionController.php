@@ -541,7 +541,7 @@ class RoomSessionController extends Controller
             // guard QueueAdjustmentService::defer() now enforces server-
             // side, which both of those actions go through).
             'hasSubmittedEvaluation' => $attempt && app(EvaluationSubmissionService::class)->hasRealSubmission($attempt),
-            'adjustmentReasons' => AdjustmentReason::where('is_active', true)->orderBy('name')->get(),
+            'adjustmentReasons' => AdjustmentReason::forDefer()->get(),
         ];
     }
 
@@ -799,7 +799,7 @@ class RoomSessionController extends Controller
     public function deferPresentation(Request $request, PresentationControlService $service)
     {
         $validated = $request->validate([
-            'reason_id' => ['required', 'integer', 'exists:adjustment_reasons,id'],
+            'reason_id' => ['required', 'integer', \Illuminate\Validation\Rule::exists('adjustment_reasons', 'id')->where('is_defer_reason', true)],
             'remarks' => ['nullable', 'string', 'max:1000'],
         ]);
 

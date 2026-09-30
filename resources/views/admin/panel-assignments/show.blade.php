@@ -1181,7 +1181,7 @@
                                     <div class="mb-3">
                                         <label class="form-label">Reason</label>
                                         <select name="reason_id" class="form-select" required>
-                                            @foreach ($adjustmentReasons as $reason)
+                                            @foreach ($deferReasons as $reason)
                                                 <option value="{{ $reason->id }}">{{ $reason->name }}</option>
                                             @endforeach
                                         </select>
@@ -1578,7 +1578,7 @@
                             <div class="mb-3">
                                 <label class="form-label">Reason</label>
                                 <select name="reason_id" class="form-select" required>
-                                    @foreach ($adjustmentReasons as $reason)
+                                    @foreach ($deferReasons as $reason)
                                         <option value="{{ $reason->id }}">{{ $reason->name }}</option>
                                     @endforeach
                                 </select>
