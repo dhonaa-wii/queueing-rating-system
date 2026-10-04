@@ -31,6 +31,7 @@
         $researchGroup = $attempt->researchGroup;
         $students = $researchGroup->students->sortByDesc('is_leader')->values();
         $proposedTitles = $isTitleProposal ? $researchGroup->proposedTitles->sortBy('sort_order')->values() : collect();
+        $adviserName = trim((string) $researchGroup->technical_adviser_name);
 
         $scoreLookup = $submission->evaluationScores->keyBy(fn ($s) => $s->evaluation_criterion_id . ':' . ($s->proposed_title_id ?? '0'));
         $studentScoreLookup = $submission->studentScores->keyBy('student_id');
@@ -106,7 +107,7 @@
                             </td>
                         @endunless
                         @if ($loop->first)
-                            <td class="eval-remarks-cell" rowspan="{{ max($students->count(), 1) }}">
+                            <td class="eval-remarks-cell" rowspan="{{ max($students->count(), 1) + ($adviserName !== '' ? 1 : 0) }}">
                                 @forelse ($version->presentationOutcomes as $outcome)
                                     <div class="eval-remark-option">
                                         <span class="eval-checkbox-glyph">{!! $submission->presentation_outcome_id == $outcome->id ? '&#9745;' : '&#9633;' !!}</span> {{ $outcome->name }}
@@ -120,6 +121,11 @@
                 @empty
                     <tr><td colspan="{{ $isTitleProposal ? 2 : 3 }}" class="text-brand-muted">No researchers registered.</td></tr>
                 @endforelse
+                @include('admin.evaluation-library.partials.paper-adviser-row', [
+                    'adviserName' => $adviserName,
+                    'isTitleProposal' => $isTitleProposal,
+                    'remarksSpanned' => $students->isNotEmpty(),
+                ])
             </tbody>
         </table>
 
@@ -166,7 +172,6 @@
         @include('admin.evaluation-library.partials.paper-signoff', [
             'panelName' => $panelName,
             'panelRoleLabel' => $panelRoleLabel,
-            'adviserName' => $researchGroup->technical_adviser_name ?: '',
         ])
 
         @include('partials.evaluation-sheet-mark')

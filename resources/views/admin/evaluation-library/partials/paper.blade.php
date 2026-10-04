@@ -61,7 +61,7 @@
                         <td class="eval-info-value"></td>
                     @endunless
                     @if ($loop->first)
-                        <td class="eval-remarks-cell" rowspan="{{ count($illustrativeResearchers) }}">
+                        <td class="eval-remarks-cell" rowspan="{{ count($illustrativeResearchers) + 1 }}">
                             @forelse ($editingVersion->presentationOutcomes as $outcome)
                                 <div class="eval-remark-option">
                                     <span class="eval-checkbox-glyph">&#9633;</span> {{ $outcome->name }}
@@ -73,6 +73,12 @@
                     @endif
                 </tr>
             @endforeach
+            <tr class="eval-adviser-row">
+                <td class="text-brand-muted">Adviser <span class="eval-illustrative-tag">(auto-filled)</span></td>
+                @unless ($isTitleProposal)
+                    <td class="eval-info-value"></td>
+                @endunless
+            </tr>
         </tbody>
     </table>
 
@@ -122,6 +128,5 @@
     @include('admin.evaluation-library.partials.paper-signoff', [
         'panelName' => '',
         'panelRoleLabel' => 'Panelist',
-        'adviserName' => '',
     ])
 </div>

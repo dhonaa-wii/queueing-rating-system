@@ -244,8 +244,24 @@ class PresentationCategory extends Model
         return ! is_null($this->categoryQueueSetting);
     }
 
+    /**
+     * When a track is required, each track has its own evaluation form
+     * (user-directed 2026-10-04) and the category-wide form is not used.
+     */
+    public function usesTrackEvaluationForms(): bool
+    {
+        return (bool) $this->research_track_required;
+    }
+
     public function isEvaluationConfigured(): bool
     {
+        if ($this->usesTrackEvaluationForms()) {
+            $tracks = $this->researchTracks()->where('is_active', true);
+
+            return (clone $tracks)->exists()
+                && ! $tracks->whereNull('evaluation_form_version_id')->exists();
+        }
+
         return $this->categoryEvaluationForms()->exists();
     }
 

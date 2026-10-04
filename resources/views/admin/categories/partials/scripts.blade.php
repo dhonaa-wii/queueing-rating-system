@@ -46,6 +46,9 @@
             }
 
             function bindAjaxForm(form) {
+                if (form.dataset.ajaxBound) return;
+                form.dataset.ajaxBound = '1';
+
                 form.addEventListener('submit', function (event) {
                     event.preventDefault();
 
@@ -166,6 +169,9 @@
                     scrollContainer.scrollTop = scrollTop;
                 }
 
+                // Swapped-in panes carry fresh forms with no submit handler yet.
+                document.querySelectorAll('form[data-ajax]').forEach(bindAjaxForm);
+
                 document.dispatchEvent(new CustomEvent('category:soft-refreshed'));
             }
 
@@ -241,7 +247,8 @@
                     // reused for every action, so it has to be re-enabled here too.
                     restore();
                     whenModalClosed(modalEl, function () {
-                        swapFrom(html, [paneId]);
+                        // Tracks (Project Information) decide what the Evaluation tab lists.
+                        swapFrom(html, paneId === 'tab-evaluation' ? [paneId] : [paneId, 'tab-evaluation']);
                         announceToasts(html);
                     });
                 }).catch(function () {

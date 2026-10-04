@@ -3,11 +3,14 @@
 namespace App\Services;
 
 use App\Models\AttemptPanelParticipation;
+use App\Models\CategoryResearchTrack;
 use App\Models\EvaluationCriterion;
+use App\Models\EvaluationFormVersion;
 use App\Models\EvaluationScore;
 use App\Models\EvaluationSubmission;
 use App\Models\EvaluationSubmissionStudentScore;
 use App\Models\PresentationAttempt;
+use App\Models\PresentationCategory;
 use App\Models\ProposedTitle;
 use App\Models\RoomSession;
 use App\Models\Student;
@@ -40,13 +43,21 @@ class EvaluationSubmissionService
         $room = $session->presentationDateRoom;
         $category = $room->presentationDate->category;
 
-        $formVersion = $category->categoryEvaluationForms()
-            ->whereNull('effective_until')
-            ->first()
-            ?->evaluationFormVersion;
+        if ($category->usesTrackEvaluationForms()) {
+            $formVersion = $this->trackFormFor($attempt, $category, $failure);
 
-        if (! $formVersion) {
-            return $this->failure('This category has no evaluation form assigned — assign one before starting.');
+            if (! $formVersion) {
+                return $this->failure($failure);
+            }
+        } else {
+            $formVersion = $category->categoryEvaluationForms()
+                ->whereNull('effective_until')
+                ->first()
+                ?->evaluationFormVersion;
+
+            if (! $formVersion) {
+                return $this->failure('This category has no evaluation form assigned — assign one before starting.');
+            }
         }
 
         $draftStatusId = SubmissionStatus::where('code', 'DRAFT')->firstOrFail()->id;
@@ -70,6 +81,44 @@ class EvaluationSubmissionService
         }
 
         return ['ok' => true];
+    }
+
+    /**
+     * The form of the group's track (its leader's, as TrackRouting reads it)
+     * when the category requires a track. Null, with $failure set, when the
+     * group has no track on the list or that track has no form yet.
+     */
+    private function trackFormFor(PresentationAttempt $attempt, PresentationCategory $category, ?string &$failure = null): ?EvaluationFormVersion
+    {
+        $group = $attempt->researchGroup;
+        $trackKey = app(TrackRouting::class)->trackOf($group);
+        $reference = $group?->group_reference ?? 'This group';
+
+        if ($trackKey === null) {
+            $failure = "{$reference} has no research track, so there is no evaluation form for it. Set the group's track first.";
+
+            return null;
+        }
+
+        $track = $category->researchTracks()
+            ->where('is_active', true)
+            ->with('evaluationFormVersion')
+            ->get()
+            ->first(fn (CategoryResearchTrack $track) => TrackRouting::key($track->name) === $trackKey);
+
+        if (! $track) {
+            $failure = "{$reference}'s track is not on this category's track list, so there is no evaluation form for it.";
+
+            return null;
+        }
+
+        if (! $track->evaluationFormVersion) {
+            $failure = "The {$track->name} track has no evaluation form assigned — assign one before starting.";
+
+            return null;
+        }
+
+        return $track->evaluationFormVersion;
     }
 
     public function saveScore(EvaluationSubmission $submission, EvaluationCriterion $criterion, float $score, ?ProposedTitle $proposedTitle = null): array

@@ -192,6 +192,7 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::post('/{category}/tracks', [CategoryTrackController::class, 'store'])->name('tracks.store');
         Route::put('/{category}/tracks/{track}', [CategoryTrackController::class, 'update'])->name('tracks.update');
         Route::delete('/{category}/tracks/{track}', [CategoryTrackController::class, 'destroy'])->name('tracks.destroy');
+        Route::put('/{category}/tracks/{track}/evaluation-form', [CategoryController::class, 'updateTrackEvaluationConfig'])->name('tracks.evaluation-form.update');
 
         Route::post('/{category}/rooms', [CategoryRoomController::class, 'store'])->name('rooms.store');
         Route::put('/{category}/rooms/{room}', [CategoryRoomController::class, 'update'])->name('rooms.update');

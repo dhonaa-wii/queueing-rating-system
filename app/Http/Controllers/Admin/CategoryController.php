@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AcademicYear;
 use App\Models\CategoryAnnouncement;
 use App\Models\CategoryPaymentType;
+use App\Models\CategoryResearchTrack;
 use App\Models\CategoryStatus;
 use App\Models\EvaluationFormVersion;
 use App\Models\AttemptSchedule;
@@ -598,6 +599,35 @@ class CategoryController extends Controller
         return $this->respond($request, 'Evaluation form assigned.');
     }
 
+    /**
+     * A track's own evaluation form (user-directed 2026-10-04), used instead
+     * of the category-wide form while the category requires a track. A group
+     * already started keeps the sheet it was given.
+     */
+    public function updateTrackEvaluationConfig(Request $request, PresentationCategory $category, CategoryResearchTrack $track)
+    {
+        abort_unless($track->category_id === $category->id && $track->is_active, 404);
+        CategorySetupLock::guard($category, 'assign an evaluation form');
+
+        $validated = $request->validate([
+            'evaluation_form_version_id' => ['required', Rule::exists('evaluation_form_versions', 'id')],
+        ]);
+
+        abort_unless(
+            EvaluationFormVersion::whereKey($validated['evaluation_form_version_id'])
+                ->whereHas('evaluationForm', fn ($q) => $q->where('college_id', $category->college_id))
+                ->exists(),
+            422,
+            'That evaluation form belongs to another college.'
+        );
+
+        $track->update(['evaluation_form_version_id' => $validated['evaluation_form_version_id']]);
+
+        $category->refreshStatus();
+
+        return $this->respond($request, "Evaluation form assigned to the {$track->name} track.");
+    }
+
     private function respond(Request $request, string $message)
     {
         if ($request->wantsJson()) {
@@ -680,7 +710,7 @@ class CategoryController extends Controller
                 'categoryPaymentTypes',
                 'categoryRooms' => fn ($query) => $query->where('is_active', true)->orderBy('room_name'),
                 'categoryRooms.researchTracks',
-                'researchTracks',
+                'researchTracks.evaluationFormVersion.evaluationForm',
                 'categoryEvaluationForms.evaluationFormVersion.evaluationForm',
                 'categoryAnnouncements' => fn ($query) => $query->orderByDesc('created_at'),
                 'presentationDates' => fn ($query) => $query->chronological(),

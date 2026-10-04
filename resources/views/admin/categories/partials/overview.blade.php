@@ -122,7 +122,7 @@
 
                 <h3 class="h6 mb-3">Requirement Checklist</h3>
 
-                <form method="POST" action="{{ route('admin.categories.project-info-config.update', $category) }}" data-ajax="update" data-ajax-refresh="research-tracks-section,tab-schedules">
+                <form method="POST" action="{{ route('admin.categories.project-info-config.update', $category) }}" data-ajax="update" data-ajax-refresh="research-tracks-section,tab-schedules,tab-evaluation">
                     @csrf
                     @method('PUT')
 

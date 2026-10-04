@@ -448,8 +448,13 @@ class EvaluationFormBuilderService
     {
         $versionIds = $form->evaluationFormVersions()->pluck('id');
 
-        return PresentationCategory::whereHas('categoryEvaluationForms', function ($query) use ($versionIds) {
-            $query->whereNull('effective_until')->whereIn('evaluation_form_version_id', $versionIds);
+        // In use as the category's form, or as one of its tracks' forms.
+        return PresentationCategory::where(function ($query) use ($versionIds) {
+            $query->whereHas('categoryEvaluationForms', function ($query) use ($versionIds) {
+                $query->whereNull('effective_until')->whereIn('evaluation_form_version_id', $versionIds);
+            })->orWhereHas('researchTracks', function ($query) use ($versionIds) {
+                $query->where('is_active', true)->whereIn('evaluation_form_version_id', $versionIds);
+            });
         })
             ->whereHas('categoryStatus', fn ($query) => $query->whereNotIn('code', ['DRAFT', 'COMPLETED', 'ARCHIVED']))
             ->with('categoryStatus')

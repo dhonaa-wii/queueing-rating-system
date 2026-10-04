@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class CategoryResearchTrack extends Model
 {
-    protected $fillable = ['category_id', 'name', 'is_active'];
+    protected $fillable = ['category_id', 'name', 'evaluation_form_version_id', 'is_active'];
 
     protected function casts(): array
     {
@@ -18,6 +18,12 @@ class CategoryResearchTrack extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(PresentationCategory::class, 'category_id');
+    }
+
+    /** The track's own evaluation form, used when the category requires a track. */
+    public function evaluationFormVersion(): BelongsTo
+    {
+        return $this->belongsTo(EvaluationFormVersion::class);
     }
 
     public function categoryRooms(): BelongsToMany

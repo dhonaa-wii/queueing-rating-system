@@ -80,6 +80,7 @@
             $researchGroup = $attempt->researchGroup;
             $students = $researchGroup->students->sortByDesc('is_leader')->values();
             $proposedTitles = $isTitleProposal ? $researchGroup->proposedTitles->sortBy('sort_order')->values() : collect();
+            $adviserName = trim((string) $researchGroup->technical_adviser_name);
 
             $scoreLookup = $submission->evaluationScores->keyBy(fn ($s) => $s->evaluation_criterion_id . ':' . ($s->proposed_title_id ?? '0'));
             $studentScoreLookup = $submission->studentScores->keyBy('student_id');
@@ -146,7 +147,7 @@
                                 <td class="center">{{ $studentScore !== null ? $num($studentScore) : '—' }}</td>
                             @endunless
                             @if ($loop->first)
-                                <td class="remarks" rowspan="{{ max($students->count(), 1) }}">
+                                <td class="remarks" rowspan="{{ max($students->count(), 1) + ($adviserName !== '' ? 1 : 0) }}">
                                     @forelse ($version->presentationOutcomes as $outcome)
                                         <div class="remark">{!! $submission->presentation_outcome_id == $outcome->id ? '[x]' : '[&nbsp;&nbsp;]' !!} {{ $outcome->name }}</div>
                                     @empty
@@ -158,6 +159,18 @@
                     @empty
                         <tr><td colspan="{{ $isTitleProposal ? 2 : 3 }}">No researchers registered.</td></tr>
                     @endforelse
+                    {{-- The adviser listed like a member (user-directed 2026-10-04); not scored. --}}
+                    @if ($adviserName !== '')
+                        <tr>
+                            <td>{{ $adviserName }} (Adviser)</td>
+                            @unless ($isTitleProposal)
+                                <td class="center"></td>
+                            @endunless
+                            @if ($students->isEmpty())
+                                <td></td>
+                            @endif
+                        </tr>
+                    @endif
                 </tbody>
             </table>
 
@@ -192,10 +205,7 @@
                         <div class="name">{{ $panelName }}</div>
                         <div class="role">{{ $panelRoleLabel }}</div>
                     </td>
-                    <td>
-                        <div class="name">{{ $researchGroup->technical_adviser_name ?: '' }}</div>
-                        <div class="role">Technical Adviser</div>
-                    </td>
+                    <td></td>
                 </tr>
             </table>
         </div>
