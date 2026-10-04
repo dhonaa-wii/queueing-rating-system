@@ -78,7 +78,7 @@
     <div class="mb-2 p-2 rounded-3" style="background-color: var(--brand-surface-alt); font-size: 0.78rem;">
         <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
             <div>
-                <div class="text-brand-muted mb-1" style="font-size: 0.66rem;">Current Group</div>
+                <div class="text-brand-muted mb-1" style="font-size: 0.74rem;">Current Group</div>
                 <div class="fw-semibold">{{ $attempt->researchGroup->group_reference }}</div>
                 @if ($attempt->researchGroup->current_project_title)
                     <div class="text-brand-muted">{{ $attempt->researchGroup->current_project_title }}</div>
@@ -86,9 +86,9 @@
                 <div class="text-brand-muted">Leader: {{ $attempt->researchGroup->leader()?->full_name ?? '—' }}</div>
             </div>
             <div class="d-flex flex-column align-items-end gap-1">
-                <span class="badge badge-brand-tint" style="font-size: 0.66rem;">{{ $attempt->presentationStatus->name }}</span>
+                <span class="badge badge-brand-tint" style="font-size: 0.74rem;">{{ $attempt->presentationStatus->name }}</span>
                 @if ($timerMode && $run)
-                    <span class="badge {{ $timerBadge['class'] ?? 'badge-muted-tint' }}" style="font-size: 0.66rem;" data-timer-badge
+                    <span class="badge {{ $timerBadge['class'] ?? 'badge-muted-tint' }}" style="font-size: 0.74rem;" data-timer-badge
                           data-timer-mode="{{ $timerMode }}"
                           data-timer-status="{{ $run->timerStatus?->code }}"
                           data-called-at="{{ $run->called_at?->toIso8601String() }}"
@@ -105,7 +105,7 @@
         @if ($run?->started_at)
             <div class="d-flex align-items-center flex-wrap gap-3 mt-2" style="font-size: 0.7rem;">
                 <div>
-                    <div class="text-brand-muted" style="font-size: 0.6rem;">Started</div>
+                    <div class="text-brand-muted" style="font-size: 0.7rem;">Started</div>
                     <div class="fw-semibold">{{ $run->started_at->format('g:i A') }}</div>
                 </div>
             </div>
@@ -114,7 +114,7 @@
         @if ($paymentRequired)
             <div class="mt-2 d-flex align-items-center gap-2">
                 <span class="text-brand-muted">Payment:</span>
-                <span class="badge {{ $paymentSummary['badgeClass'] ?? 'badge-muted-tint' }}" style="font-size: 0.64rem;">{{ $paymentSummary['label'] ?? 'Not Checked' }}</span>
+                <span class="badge {{ $paymentSummary['badgeClass'] ?? 'badge-muted-tint' }}" style="font-size: 0.72rem;">{{ $paymentSummary['label'] ?? 'Not Checked' }}</span>
             </div>
         @endif
     </div>
@@ -130,29 +130,29 @@
     <div class="mb-2 p-2 rounded-3" style="background-color: var(--brand-surface-alt); font-size: 0.78rem;">
         <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
             <div>
-                <div class="text-brand-muted mb-1" style="font-size: 0.66rem;">Last Group</div>
+                <div class="text-brand-muted mb-1" style="font-size: 0.74rem;">Last Group</div>
                 <div class="fw-semibold">{{ $lastAttempt->researchGroup->group_reference }}</div>
                 @if ($lastAttempt->researchGroup->current_project_title)
                     <div class="text-brand-muted">{{ $lastAttempt->researchGroup->current_project_title }}</div>
                 @endif
                 <div class="text-brand-muted">Leader: {{ $lastAttempt->researchGroup->leader()?->full_name ?? '—' }}</div>
             </div>
-            <span class="badge {{ $lastOutcomeBadgeClass }}" style="font-size: 0.66rem;">{{ $lastAttempt->presentationStatus->name }}</span>
+            <span class="badge {{ $lastOutcomeBadgeClass }}" style="font-size: 0.74rem;">{{ $lastAttempt->presentationStatus->name }}</span>
         </div>
 
         <div class="d-flex flex-wrap gap-3 mt-2" style="font-size: 0.7rem;">
             @if ($lastOutcome['deferredAt'])
                 <div>
-                    <div class="text-brand-muted" style="font-size: 0.6rem;">Deferred At</div>
+                    <div class="text-brand-muted" style="font-size: 0.7rem;">Deferred At</div>
                     <div class="fw-semibold">{{ $lastOutcome['deferredAt']->format('g:i A') }}</div>
                 </div>
             @else
                 <div>
-                    <div class="text-brand-muted" style="font-size: 0.6rem;">Started</div>
+                    <div class="text-brand-muted" style="font-size: 0.7rem;">Started</div>
                     <div class="fw-semibold">{{ $lastOutcome['startedAt']?->format('g:i A') ?? '—' }}</div>
                 </div>
                 <div>
-                    <div class="text-brand-muted" style="font-size: 0.6rem;">Ended</div>
+                    <div class="text-brand-muted" style="font-size: 0.7rem;">Ended</div>
                     <div class="fw-semibold">{{ $lastOutcome['completedAt']?->format('g:i A') ?? '—' }}</div>
                 </div>
             @endif

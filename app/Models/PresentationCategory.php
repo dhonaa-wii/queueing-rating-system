@@ -434,4 +434,10 @@ class PresentationCategory extends Model
             $this->update(['category_status_id' => $status->id]);
         }
     }
+
+    /** Only the signed-in Admin's own college (AdminCollege); nothing when they have none. */
+    public function scopeForAdminCollege($query)
+    {
+        return $query->where($this->getTable().'.college_id', \App\Support\AdminCollege::id() ?? 0);
+    }
 }

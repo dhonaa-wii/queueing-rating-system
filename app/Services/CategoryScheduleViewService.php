@@ -339,8 +339,22 @@ class CategoryScheduleViewService
                 && ! $room->hasClosedForDay())
             ?? $dateRooms->last();
 
+        // The "End" card is the close of this room's last scheduled day
+        // (user-directed 2026-10-03), so it moves out on its own when the
+        // admin adds a later date. A cancelled day never runs, so it doesn't count.
+        $endDateRoom = $dateRooms
+            ->filter(fn ($room) => $room->roomUseStatus?->code !== 'REMOVED'
+                && $room->presentationDate?->eventDateStatus?->code !== 'CANCELLED')
+            ->sortBy(fn ($room) => $room->scheduledEndAt()?->timestamp ?? 0)
+            ->last() ?? $dateRooms->last();
+
         return [
             'session' => $currentSession,
+            // User-directed 2026-10-04: Active Panelist / current group / Next
+            // stay hidden until the room is live — a session is open, or the
+            // day it belongs to is running.
+            'started' => $currentSession !== null
+                || $dateRooms->contains(fn ($dateRoom) => (bool) $dateRoom->presentationDate?->isRunning()),
             'attempt' => $attempt,
             'run' => $run,
             'paymentSummary' => $attempt ? $this->paymentVerificationService->summaryFor($category, $attempt) : null,
@@ -360,6 +374,7 @@ class CategoryScheduleViewService
             'durationMinutesPerGroup' => $durationMinutesPerGroup,
             'plannedEndTime' => $plannedEndTime,
             'startTime' => $startDateRoom?->startTime(),
+            'endTime' => $endDateRoom?->scheduledEndAt(),
             'dayStats' => [
                 'registeredInCategory' => $registeredInCategory,
                 'scheduled' => $queueRows->count(),

@@ -11,6 +11,7 @@ class EvaluationForm extends Model
     const UPDATED_AT = null;
 
     protected $fillable = [
+        'college_id',
         'name',
         'description',
         'created_by',
@@ -67,5 +68,11 @@ class EvaluationForm extends Model
         return $this->activeVersion()
             ?? $this->draftVersion()
             ?? $this->evaluationFormVersions()->latest('version_number')->first();
+    }
+
+    /** Only the signed-in Admin's own college (AdminCollege); nothing when they have none. */
+    public function scopeForAdminCollege($query)
+    {
+        return $query->where($this->getTable().'.college_id', \App\Support\AdminCollege::id() ?? 0);
     }
 }

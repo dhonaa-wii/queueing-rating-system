@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Notification;
 use App\Models\User;
+use App\Support\AdminCollege;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 
@@ -32,7 +33,13 @@ class NotificationService
 
     public function notifyRole(string $roleCode, string $type, string $title, string $message, ?Model $related = null): void
     {
+        // Admins only hear about their own college (AdminCollege): a
+        // notification about a record that belongs to a college goes to that
+        // college's Admins.
+        $college = $roleCode === 'ADMIN' && $related ? AdminCollege::ownerOf($related) : false;
+
         User::whereHas('userRoles.role', fn ($query) => $query->where('code', $roleCode))
+            ->when(is_int($college), fn ($query) => $query->whereHas('administratorProfile', fn ($p) => $p->where('college_id', $college)))
             ->get()
             ->each(fn (User $user) => $this->notify($user, $type, $title, $message, $related));
     }

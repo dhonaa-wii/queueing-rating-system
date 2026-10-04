@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\AttemptPanelAssignment;
+use App\Support\AdminCollege;
 use App\Models\ConnectionStatus;
 use App\Models\PanelAssignmentKind;
 use App\Models\PanelAssignmentStatus;
@@ -74,6 +75,12 @@ class PanelSubstitutionService
 
         if (! $candidate) {
             return $this->failure('That panelist is no longer available to replace — they may have already logged in, or someone else already requested this swap.');
+        }
+
+        // A panel is drawn only from the category's own college (AdminCollege).
+        $attempt->loadMissing('researchGroup.category');
+        if (AdminCollege::panelistsOutside([$substitute->id], $attempt->researchGroup?->category?->college_id) !== []) {
+            return $this->failure('You are not registered to this college, so you can\'t take a seat on this panel.');
         }
 
         // Avoids a duplicate PENDING row (and a duplicate round of Admin
@@ -281,6 +288,11 @@ class PanelSubstitutionService
 
         if (! $substitute) {
             return $this->failure('Select a panelist to fill this seat.');
+        }
+
+        // A panel is drawn only from the category's own college (AdminCollege).
+        if (AdminCollege::panelistsOutside([$substitute->id], $attempt->researchGroup?->category?->college_id) !== []) {
+            return $this->failure('That panelist is not registered to this college.');
         }
 
         $liveAssignments = $attempt->attemptPanelAssignments

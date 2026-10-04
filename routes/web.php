@@ -24,6 +24,7 @@ use App\Http\Controllers\Panelist\NotificationController as PanelistNotification
 use App\Http\Controllers\Panelist\DashboardController as PanelistDashboardController;
 use App\Http\Controllers\Panelist\ScheduleController as PanelistScheduleController;
 use App\Http\Controllers\Panelist\TerminalScanController;
+use App\Http\Controllers\LetterheadLogoController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RoomSessionController;
 use App\Http\Controllers\Student\CategoryController as StudentCategoryController;
@@ -37,11 +38,29 @@ use App\Http\Controllers\SuperAdmin\ApplicationSettingController;
 use App\Http\Controllers\SuperAdmin\DashboardController as SuperAdminDashboardController;
 use App\Http\Controllers\SuperAdmin\PanelistOversightController;
 use App\Http\Controllers\SuperAdmin\SecuritySettingController;
+use App\Http\Controllers\LandingController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('landing');
-})->name('landing');
+Route::get('/', LandingController::class)->name('landing');
+
+// Help Center / User Guide — public on purpose: students have no accounts, and
+// someone locked out of their own needs it most. One page for every role.
+Route::view('/help', 'help.index')->name('help');
+
+// The pre-built PDF of the same page (php artisan help:export-pdf), sent as a
+// download rather than opened in the browser's print dialog.
+Route::get('/help/download', function () {
+    $path = public_path(\App\Console\Commands\ExportHelpPdf::OUTPUT);
+    abort_unless(is_file($path), 404);
+
+    return response()->download($path, 'ARPQRS User Guide.pdf', ['Content-Type' => 'application/pdf']);
+})->name('help.pdf');
+
+// Letterhead logos, served by the app so they don't depend on the
+// public/storage symlink (missing on shared hosting).
+Route::get('/letterhead/{letterhead}/logo/{slot}', [LetterheadLogoController::class, 'show'])
+    ->whereIn('slot', ['primary', 'secondary'])
+    ->name('letterhead.logo');
 
 // Public device-claim flow for the physical tablet in a room (user-directed
 // 2026-08-15) — a room_session_accounts row is a shared credential the
@@ -163,6 +182,7 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::put('/{category}/evaluation-config', [CategoryController::class, 'updateEvaluationConfig'])->name('evaluation-config.update');
 
         Route::post('/{category}/dates/span', [PresentationDateController::class, 'storeSpan'])->name('dates.span.store');
+        Route::post('/{category}/dates/exclude-weekends', [PresentationDateController::class, 'excludeWeekends'])->name('dates.weekends.exclude');
         Route::put('/{category}/dates/{date}', [PresentationDateController::class, 'update'])->name('dates.update');
         Route::delete('/{category}/dates/{date}', [PresentationDateController::class, 'destroy'])->name('dates.destroy');
         Route::delete('/{category}/dates/{date}/rooms/{room}', [PresentationDateController::class, 'destroyRoom'])->name('dates.rooms.destroy');
@@ -177,7 +197,6 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::put('/{category}/rooms/{room}', [CategoryRoomController::class, 'update'])->name('rooms.update');
         Route::delete('/{category}/rooms/{room}', [CategoryRoomController::class, 'destroy'])->name('rooms.destroy');
         Route::post('/{category}/rooms/assign-to-dates', [CategoryRoomController::class, 'assignToDates'])->name('rooms.assign-to-dates');
-        Route::post('/{category}/rooms/apply-to-all-dates', [CategoryRoomController::class, 'applyManyToAllDates'])->name('rooms.apply-many-to-all-dates');
 
         Route::post('/{category}/announcements', [CategoryAnnouncementController::class, 'store'])->name('announcements.store');
         Route::put('/{category}/announcements/{announcement}', [CategoryAnnouncementController::class, 'update'])->name('announcements.update');

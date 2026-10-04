@@ -150,6 +150,58 @@ class PresentationDateController extends Controller
         return back()->with('status', $message);
     }
 
+    /**
+     * The "No" answer to the Created modal's "Include Saturday and Sunday?"
+     * prompt: removes the Saturday/Sunday dates of the batch just created.
+     * Only dates that never started are touched, and each goes through the
+     * same removal path as Remove Date. The remaining weekdays are flashed
+     * back so the Created modal reopens on them for room assignment.
+     */
+    public function excludeWeekends(Request $request, PresentationCategory $category)
+    {
+        CategorySetupLock::guard($category, 'remove presentation dates');
+
+        $validated = $request->validate([
+            'date_ids' => ['required', 'array'],
+            'date_ids.*' => ['integer'],
+        ]);
+
+        $dates = PresentationDate::where('category_id', $category->id)
+            ->whereIn('id', $validated['date_ids'])
+            ->get();
+
+        $adjustmentService = app(QueueAdjustmentService::class);
+        $removed = 0;
+        $kept = [];
+
+        foreach ($dates as $date) {
+            if (! $date->presentation_date->isWeekend() || $date->activated_at !== null) {
+                $kept[] = $date->id;
+
+                continue;
+            }
+
+            $result = $adjustmentService->prepareDateForRemoval($date, $request->user()->id);
+            if (! $result['ok']) {
+                $kept[] = $date->id;
+
+                continue;
+            }
+
+            $date->deleteWithChildren();
+            $removed++;
+        }
+
+        $category->refreshStatus();
+        $adjustmentService->retryStuckCarryOver($category->fresh(), $request->user()->id);
+
+        if (! empty($kept)) {
+            session()->flash('newly_created_date_ids', $kept);
+        }
+
+        return back()->with('status', "Excluded {$removed} Saturday/Sunday date(s).");
+    }
+
     public function update(Request $request, PresentationCategory $category, PresentationDate $date)
     {
         abort_unless($date->category_id === $category->id, 404);

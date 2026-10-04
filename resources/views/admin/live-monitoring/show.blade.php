@@ -116,6 +116,7 @@
     </div>
 
     @include('admin.partials.confirm-action-modal')
+    @include('admin.live-monitoring.partials.terminals-guide-modal')
 @endsection
 
 @push('styles')
@@ -600,10 +601,13 @@
             if (!panel) return;
 
             panel.style.top = '0';
-            panel.style.height = '100vh';
+            panel.style.height = '100dvh';
             panel.style.left = 'auto';
             panel.style.right = '0';
-            panel.style.width = '50vw';
+            // Half the screen beside the room on a desktop; a phone has no
+            // room to share, so it takes the full width (same 768px cut as
+            // the Panelist Management drawer).
+            panel.style.width = window.matchMedia('(max-width: 767.98px)').matches ? '100vw' : '50vw';
         }
 
         document.addEventListener('click', function (event) {

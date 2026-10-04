@@ -15,7 +15,7 @@
 @endphp
 
 <div class="p-2 rounded-3" style="background-color: var(--brand-surface-alt); font-size: 0.7rem;">
-    <div class="text-brand-muted mb-2" style="font-size: 0.62rem;">Next</div>
+    <div class="text-brand-muted mb-2" style="font-size: 0.72rem;">Next</div>
 
     @if ($nextThree->isNotEmpty())
         <div class="d-flex gap-2 flex-wrap">
@@ -25,7 +25,7 @@
                     <div class="text-brand-muted" style="font-size: 0.72rem;">{{ $n->presentationAttempt->researchGroup->leader()?->full_name ?? '—' }}</div>
                     @php $expected = $n->expected_start_at ?? $n->planned_start_at; @endphp
                     @if ($expected)
-                        <div class="text-brand-muted" style="font-size: 0.68rem;">Expected {{ $expected->format('g:i A') }}</div>
+                        <div class="text-brand-muted" style="font-size: 0.76rem;">Expected {{ $expected->format('g:i A') }}</div>
                     @endif
                 </div>
             @endforeach

@@ -22,7 +22,17 @@ class PasswordChangeController extends Controller
 
         $validated = $request->validate([
             'current_password' => ['required', 'current_password'],
-            'password' => ['required', 'confirmed', Password::min(8)],
+            // Strong password: 8+ characters with an uppercase letter, a lowercase
+            // letter and a number. Must differ from the current (often temporary)
+            // password, or a first-login change would accomplish nothing.
+            'password' => [
+                'required',
+                'confirmed',
+                'different:current_password',
+                Password::min(8)->mixedCase()->numbers(),
+            ],
+        ], [
+            'password.different' => 'The new password must be different from your current password.',
         ]);
 
         $activeStatus = AccountStatus::where('code', 'ACTIVE')->firstOrFail();

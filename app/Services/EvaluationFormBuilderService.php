@@ -41,6 +41,8 @@ class EvaluationFormBuilderService
     {
         return DB::transaction(function () use ($data, $admin) {
             $form = EvaluationForm::create([
+                // A form belongs to its creator's college (AdminCollege).
+                'college_id' => $admin->administratorProfile?->college_id,
                 'name' => $data['name'],
                 'description' => $data['description'] ?? null,
                 'created_by' => $admin->id,

@@ -19,12 +19,14 @@
         .admin-shell {
             display: flex;
             height: 100vh;
+            height: 100dvh;
         }
 
         .admin-sidebar {
             width: 264px;
             flex-shrink: 0;
             height: 100vh;
+            height: 100dvh;
             background-color: var(--brand-surface-alt);
             border-right: 1px solid var(--brand-border);
             display: flex;
@@ -43,7 +45,8 @@
 
         .admin-sidebar-nav {
             flex: 1;
-            overflow: hidden;
+            min-height: 0;
+            overflow-y: auto;
             padding: 0.75rem;
         }
 
@@ -95,6 +98,7 @@
             flex: 1;
             min-width: 0;
             height: 100vh;
+            height: 100dvh;
             display: flex;
             flex-direction: column;
         }
@@ -363,6 +367,7 @@
                 </div>
 
                 <div class="d-flex align-items-center gap-2 admin-user-menu">
+                    @include('partials.help-link', ['chapter' => 'panelists', 'newTab' => true])
                     @include('panelist.partials.notification-bell')
                     <button type="button" class="settings-icon-btn" data-bs-toggle="modal" data-bs-target="#scan-modal" aria-label="Room Session">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path></svg>
@@ -433,6 +438,7 @@
             if (openBtn) openBtn.addEventListener('click', open);
             if (closeBtn) closeBtn.addEventListener('click', close);
             backdrop.addEventListener('click', close);
+            sidebar.querySelectorAll('[data-bs-toggle="modal"]').forEach(function (btn) { btn.addEventListener('click', close); });
         })();
     </script>
     <script>

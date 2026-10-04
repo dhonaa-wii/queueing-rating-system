@@ -28,6 +28,7 @@ class PanelistController extends Controller
         $selectedStatuses = array_values(array_filter((array) $request->query('status', [])));
 
         $panelists = User::whereHas('userRoles.role', fn ($q) => $q->where('code', 'PANELIST'))
+            ->whereHas('panelistProfile', fn ($q) => $q->where('college_id', \App\Support\AdminCollege::id() ?? 0))
             ->with(['profile', 'accountStatus', 'panelistProfile.college'])
             ->withCount(['attemptPanelAssignments as assigned_groups_count' => function ($q) {
                 $q->whereHas('assignmentStatus', fn ($s) => $s->whereNotIn('code', ['REPLACED', 'WITHDRAWN']))

@@ -41,7 +41,7 @@
     @elseif ($panels->isEmpty())
         <p class="text-brand-muted small mb-0">No rooms configured for this date yet.</p>
     @else
-        <ul class="nav nav-tabs mb-3 flex-nowrap overflow-auto" role="tablist">
+        <ul class="nav nav-tabs mb-3 flex-nowrap overflow-x-auto overflow-y-hidden" role="tablist">
             @foreach ($panels as $panel)
                 <li class="nav-item text-nowrap" role="presentation">
                     <button type="button" class="nav-link {{ $panel->room->id === $defaultRoomId ? 'active' : '' }}"
@@ -168,7 +168,13 @@
                         </div>
 
                         <div class="card-brand p-3 mt-3">
-                            <h4 class="h6 mb-2">Terminals</h4>
+                            <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                                <h4 class="h6 mb-0">Terminals</h4>
+                                <button type="button" class="info-icon-btn" data-bs-toggle="modal" data-bs-target="#terminals-guide-modal"
+                                        aria-label="How terminals work" title="How terminals work">
+                                    <x-icon name="info" />
+                                </button>
+                            </div>
                             @if (! $session)
                                 <p class="text-brand-muted small mb-0">Not generated yet.</p>
                             @else
@@ -265,7 +271,7 @@
                                     <div class="fw-semibold">{{ $panel->room->startTime()?->format('g:i A') ?? '—' }}</div>
                                 </div>
                                 <div>
-                                    <div class="room-data-label">Planned End</div>
+                                    <div class="room-data-label">End</div>
                                     <div class="fw-semibold">{{ $roomPlannedEnd ? \Carbon\Carbon::parse($roomPlannedEnd)->format('g:i A') : '—' }}</div>
                                 </div>
                                 <div>

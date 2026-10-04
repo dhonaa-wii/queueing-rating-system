@@ -84,6 +84,7 @@
 
                 <div class="d-flex align-items-center gap-3">
                     <a href="{{ route('landing') }}" class="small text-decoration-none text-brand-muted">Home</a>
+                    <a href="{{ route('help') }}{{ request()->routeIs('room-session.*') ? '#room-devices' : (request()->routeIs('student.*') ? '#students' : '') }}" class="small text-decoration-none text-brand-muted">Help Center</a>
                     @if (! auth()->check() || request()->routeIs('password.change'))
                         @include('partials.theme-toggle-button')
                     @endif

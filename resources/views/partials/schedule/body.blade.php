@@ -46,16 +46,16 @@
         {{-- LEFT: search + room tabs + queue list --}}
         <div class="{{ $showStatusColumn ? 'col-md-6' : 'col-12' }}">
             <div class="card-brand p-3 mb-3">
-                <form method="GET" action="{{ route($scheduleRouteName, $category) }}">
-                    <label class="form-label small mb-1" for="schedule-search">Search by leader name or project title</label>
-                    <div class="input-group">
-                        <input type="text" id="schedule-search" name="q" value="{{ $search }}" class="form-control" placeholder="e.g. Dela Cruz">
-                        <button type="submit" class="btn btn-brand"><x-icon name="search" /> Search</button>
+                <form method="GET" action="{{ route($scheduleRouteName, $category) }}" role="search">
+                    <label class="visually-hidden" for="schedule-search">Search by leader name or project title</label>
+                    <div class="sched-search">
+                        <span class="sched-search-icon"><x-icon name="search" /></span>
+                        <input type="search" id="schedule-search" name="q" value="{{ $search }}" class="sched-search-input" placeholder="Search leader name or project title" autocomplete="off">
                         @if ($search !== '')
-                            <a href="{{ route($scheduleRouteName, $category) }}" class="btn btn-outline-brand"><x-icon name="x" /> Clear</a>
+                            <a href="{{ route($scheduleRouteName, $category) }}" class="sched-search-clear" title="Clear search" aria-label="Clear search"><x-icon name="x" /></a>
                         @endif
+                        <button type="submit" class="btn btn-brand sched-search-btn">Search</button>
                     </div>
-                    <div class="form-text">Searches registered groups in this category only.</div>
                 </form>
 
                 @if ($search !== '' && $matches->isEmpty())
@@ -120,7 +120,7 @@
 
             @if ($rooms->isNotEmpty())
             <div class="card-brand p-3">
-                <ul class="nav nav-tabs mb-3 flex-nowrap overflow-auto" role="tablist">
+                <ul class="nav sched-tabs mb-3 flex-nowrap overflow-x-auto overflow-y-hidden" role="tablist">
                     @foreach ($rooms as $room)
                         <li class="nav-item text-nowrap" role="presentation">
                             <button type="button" class="nav-link {{ $room->name === $activeRoomName ? 'active' : '' }}"
@@ -193,7 +193,7 @@
             <div class="card-brand p-3">
                 @if ($selectedGroup)
                     @php
-                        $groupStatusLabelStyle = 'font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 600;';
+                        $groupStatusLabelStyle = 'font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 600;';
                         $leaderName = $leader($selectedGroup)->full_name ?? 'N/A';
                         $leaderInitials = strtoupper(collect(preg_split('/\s+/', trim($leaderName)))
                             ->filter()
@@ -241,7 +241,7 @@
                         $scheduleTimeLabel = $isCompleted ? 'Completed Date & Time'
                             : ($isDeferred ? 'Deferred Date & Time'
                             : ($isAwaitingSchedule ? 'Presentation Date & Time'
-                            : ($hasAdjustedTime ? 'Expected Date & Time' : 'Planned Date & Time')));
+                            : ($hasAdjustedTime ? 'Expected Date & Time' : 'Scheduled Date & Time')));
                         $scheduleTimeValue = $isCompleted ? $selectedAttempt->completed_at
                             : ($isDeferred ? $latestDeferAdjustment?->adjusted_at : ($isAwaitingSchedule ? null : $scheduleDisplayTime));
                         $roomLabel = ($isCompleted || $isDeferred) ? 'Room' : 'Assigned Room';
@@ -313,7 +313,7 @@
 
                         <div class="mb-3 p-2 rounded-3 d-flex flex-wrap gap-3" style="background-color: var(--brand-surface-alt); font-size: 0.7rem;">
                             <div>
-                                <div class="text-brand-muted" style="font-size: 0.6rem;">{{ $scheduleTimeLabel }}</div>
+                                <div class="text-brand-muted" style="font-size: 0.7rem;">{{ $scheduleTimeLabel }}</div>
                                 <div class="fw-semibold">
                                     @if ($isAwaitingSchedule)
                                         {{ \App\Models\AttemptSchedule::AWAITING_DATE }}
@@ -323,7 +323,7 @@
                                 </div>
                             </div>
                             <div>
-                                <div class="text-brand-muted" style="font-size: 0.6rem;">{{ $roomLabel }}</div>
+                                <div class="text-brand-muted" style="font-size: 0.7rem;">{{ $roomLabel }}</div>
                                 <div class="fw-semibold">
                                     @if ($isAwaitingSchedule)
                                         {{ \App\Models\AttemptSchedule::AWAITING_ROOM }}
@@ -334,7 +334,7 @@
                             </div>
                             @if ($isDeferred)
                                 <div>
-                                    <div class="text-brand-muted" style="font-size: 0.6rem;">Defer Reason</div>
+                                    <div class="text-brand-muted" style="font-size: 0.7rem;">Defer Reason</div>
                                     <div class="fw-semibold">
                                         {{ $latestDeferAdjustment?->reason?->name ?? 'N/A' }}
                                         @if ($latestDeferAdjustment?->remarks)
@@ -369,8 +369,10 @@
                 @foreach ($rooms as $room)
                     <div class="{{ $room->name === $activeRoomName ? '' : 'd-none' }}" data-room-status-pane="{{ $room->name }}">
                         @include('partials.schedule.status-card', ['room' => $room])
-                        @include('partials.schedule.current-group-card', ['room' => $room])
-                        @include('partials.schedule.next-preview-card', ['room' => $room])
+                        @if ($room->live['started'] ?? false)
+                            @include('partials.schedule.current-group-card', ['room' => $room])
+                            @include('partials.schedule.next-preview-card', ['room' => $room])
+                        @endif
                     </div>
                 @endforeach
             </div>
@@ -400,6 +402,123 @@
     <style>
         .border-bottom-brand {
             border-bottom: 1px solid var(--brand-border);
+        }
+
+        /* Pill search bar — icon, field, clear and submit in one rounded
+           control. */
+        .sched-search {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.3rem 0.3rem 0.3rem 0.95rem;
+            border-radius: 999px;
+            border: 1px solid var(--brand-border);
+            background-color: var(--brand-surface-alt);
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+        }
+
+        .sched-search:focus-within {
+            border-color: var(--brand-accent);
+            background-color: var(--brand-surface);
+            box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--brand-accent) 18%, transparent);
+        }
+
+        .sched-search-icon {
+            display: inline-flex;
+            color: var(--brand-muted);
+            flex-shrink: 0;
+        }
+
+        .sched-search-icon svg { width: 1.05rem; height: 1.05rem; }
+
+        .sched-search-input {
+            flex: 1 1 auto;
+            min-width: 0;
+            border: 0;
+            outline: 0;
+            background: transparent;
+            color: var(--brand-text);
+            font-size: clamp(0.85rem, 0.82rem + 0.15vw, 0.95rem);
+            padding: 0.4rem 0.35rem;
+        }
+
+        .sched-search-input::placeholder { color: var(--brand-muted); opacity: 0.85; }
+
+        /* The x is ours; hide the browser's own clear button on type=search. */
+        .sched-search-input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+
+        .sched-search-clear {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.9rem;
+            height: 1.9rem;
+            border-radius: 50%;
+            flex-shrink: 0;
+            color: var(--brand-muted);
+            text-decoration: none;
+        }
+
+        .sched-search-clear:hover {
+            background-color: var(--brand-accent-tint);
+            color: var(--brand-accent);
+        }
+
+        .sched-search-clear svg { width: 0.95rem; height: 0.95rem; }
+
+        .sched-search-btn {
+            border-radius: 999px;
+            padding: 0.45rem 1.15rem;
+            flex-shrink: 0;
+        }
+
+        /* Room tabs as rounded pills instead of Bootstrap's boxed tabs. */
+        .sched-tabs {
+            gap: 0.4rem;
+            padding: 0.25rem;
+            border-radius: 999px;
+            background-color: var(--brand-surface-alt);
+            width: fit-content;
+            max-width: 100%;
+        }
+
+        .sched-tabs .nav-link {
+            border: 0;
+            border-radius: 999px;
+            padding: 0.4rem 1rem;
+            font-size: clamp(0.8rem, 0.78rem + 0.12vw, 0.88rem);
+            font-weight: 500;
+            color: var(--brand-muted);
+            background: transparent;
+            transition: background-color 0.15s ease, color 0.15s ease;
+        }
+
+        .sched-tabs .nav-link:hover { color: var(--brand-accent); }
+
+        .sched-tabs .nav-link.active {
+            background-color: var(--brand-surface);
+            color: var(--brand-accent);
+            font-weight: 600;
+            box-shadow: var(--brand-shadow);
+        }
+
+        /* Room stats strip: label/value pairs, readable at any width. */
+        .sched-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+            gap: 0.6rem 0.9rem;
+        }
+
+        .sched-stat-label {
+            font-size: clamp(0.64rem, 0.62rem + 0.1vw, 0.7rem);
+            color: var(--brand-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .sched-stat-value {
+            font-size: clamp(0.8rem, 0.78rem + 0.15vw, 0.9rem);
+            font-weight: 600;
         }
 
         tr.table-active > * {

@@ -41,7 +41,7 @@
                                     <div class="lh-logo-row">
                                         <span class="lh-logo-thumb">
                                             @if ($letterhead->{$column})
-                                                <img src="{{ Storage::url($letterhead->{$column}) }}" alt="">
+                                                <img src="{{ $letterhead->logoUrl($column) }}" alt="">
                                             @else
                                                 <x-icon name="file-text" />
                                             @endif
@@ -91,7 +91,7 @@
                         <div class="lh-preview-sheet">
                             <div class="lh-preview-head">
                                 @if ($letterhead->logo_path)
-                                    <img src="{{ Storage::url($letterhead->logo_path) }}" alt="">
+                                    <img src="{{ $letterhead->logoUrl('logo_path') }}" alt="">
                                 @endif
                                 <div class="lh-preview-lines">
                                     @forelse ($lines as $line)
@@ -101,7 +101,7 @@
                                     @endforelse
                                 </div>
                                 @if ($letterhead->secondary_logo_path)
-                                    <img src="{{ Storage::url($letterhead->secondary_logo_path) }}" alt="">
+                                    <img src="{{ $letterhead->logoUrl('secondary_logo_path') }}" alt="">
                                 @endif
                             </div>
                             <div class="lh-preview-title">Evaluation Form</div>

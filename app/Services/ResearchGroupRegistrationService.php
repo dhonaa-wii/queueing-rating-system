@@ -133,6 +133,9 @@ class ResearchGroupRegistrationService
             'members.*.sex.in' => 'Select Male or Female.',
             'leader_research_track_name.in' => 'Select one of the listed tracks.',
             'members.*.research_track_name.in' => 'Select one of the listed tracks.',
+        ], [
+            'leader_research_track_name' => 'track',
+            'members.*.research_track_name' => 'track',
         ]);
 
         $leader = [

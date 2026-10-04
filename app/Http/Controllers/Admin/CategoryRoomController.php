@@ -18,11 +18,10 @@ use Illuminate\Validation\ValidationException;
  * Category-level room registry — a room is registered here once (by name)
  * and reused across every presentation date via checkbox selection, instead
  * of retyping the room name per date/bulk-form. Registering a room does not
- * place it on any date by itself — applyManyToAllDates()/
- * assignToDates() are the two ways a registered room actually shows up on a
- * day's schedule, both driven by the rooms currently checked in the registry
- * list (user-directed 2026-09-21/25: checkbox the room(s) and the day(s),
- * then Assign to Selected Days — or just Apply to Every Day).
+ * place it on any date by itself — assignToDates() is how a registered room
+ * shows up on a day's schedule, driven by the rooms and days currently
+ * checked (user-directed 2026-09-21/25; Assign to Every Day was removed
+ * 2026-10-03).
  *
  * default_panelist_count is no longer set per room here — it's always
  * inherited from the category-wide Panel Count Configuration field
@@ -79,7 +78,11 @@ class CategoryRoomController extends Controller
         if ($request->wantsJson()) {
             return response()->json([
                 'message' => $message,
-                'room' => ['id' => $registered->id, 'room_name' => $registered->room_name],
+                'room' => [
+                    'id' => $registered->id,
+                    'room_name' => $registered->room_name,
+                    'tracks' => $registered->researchTracks()->where('is_active', true)->pluck('name')->values(),
+                ],
             ]);
         }
 
@@ -201,52 +204,6 @@ class CategoryRoomController extends Controller
         }
 
         return back()->with('status', $message);
-    }
-
-    /**
-     * Places the checked registered rooms onto every ongoing/upcoming day —
-     * the "Apply to Every Day" action. Same placement as assignToDates(),
-     * just with the day list resolved here instead of ticked by the admin.
-     */
-    public function applyManyToAllDates(Request $request, PresentationCategory $category)
-    {
-        CategorySetupLock::guard($category, 'add rooms');
-
-        $validated = $request->validate([
-            'category_room_ids' => ['required', 'array', 'min:1'],
-            'category_room_ids.*' => ['integer'],
-        ]);
-
-        $rooms = $this->selectedRooms($category, $validated['category_room_ids']);
-
-        if ($rooms->isEmpty()) {
-            return back()->with('error', 'Select at least one registered room to apply.');
-        }
-
-        $dates = $category->presentationDates()->with('eventDateStatus')->get();
-
-        if ($dates->isEmpty()) {
-            return back()->with('error', 'Set a presentation date span before applying a room to every day.');
-        }
-
-        // User-directed 2026-09-12: "every day" means every day that can
-        // still run — ongoing or upcoming. A finished, cancelled or
-        // already-passed day takes no new rooms.
-        $openDates = $dates->filter(fn ($date) => $date->isOpenForScheduling());
-        $pastDayCount = $dates->count() - $openDates->count();
-
-        if ($openDates->isEmpty()) {
-            return back()->with('error', 'This category has no ongoing or upcoming day to add a room to — add a new presentation date first.');
-        }
-
-        $result = $this->placeRooms($rooms, $openDates, $request->user()->id);
-        $message = "{$rooms->count()} room(s) added to {$result['created']} day-room slot(s); reactivated {$result['reactivated']}; already present {$result['skipped']}.";
-
-        if ($pastDayCount > 0) {
-            $message .= " {$pastDayCount} finished/past day(s) were left unchanged.";
-        }
-
-        return back()->with('status', $message.$this->finishPlacement($category, $request->user()->id));
     }
 
     /**

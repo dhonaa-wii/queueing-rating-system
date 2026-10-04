@@ -94,13 +94,13 @@
 
                         {{-- Only worth its own row once the running day has actually
                         pushed this group off its plan; otherwise it just repeats
-                        the Planned Time below. --}}
+                        the Scheduled Time below. --}}
                         @if ($expectedAt && ! $expectedAt->equalTo($schedule?->planned_start_at))
                             <dt>Expected Time</dt>
                             <dd>{{ $expectedAt->format('g:i A') }}</dd>
                         @endif
 
-                        <dt>Planned Time</dt>
+                        <dt>Scheduled Time</dt>
                         <dd>
                             @if ($schedule)
                                 Call: {{ $schedule->planned_call_at?->format('g:i A') ?? '—' }}

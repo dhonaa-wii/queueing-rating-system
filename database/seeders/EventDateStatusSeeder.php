@@ -10,7 +10,7 @@ class EventDateStatusSeeder extends Seeder
     public function run(): void
     {
         $statuses = [
-            ['code' => 'PLANNED', 'name' => 'Planned', 'is_terminal' => false],
+            ['code' => 'PLANNED', 'name' => 'Upcoming', 'is_terminal' => false],
             ['code' => 'STANDBY', 'name' => 'Standby', 'is_terminal' => false],
             ['code' => 'ACTIVE', 'name' => 'Active', 'is_terminal' => false],
             ['code' => 'COMPLETED', 'name' => 'Completed', 'is_terminal' => true],

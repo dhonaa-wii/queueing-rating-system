@@ -308,6 +308,7 @@
         position: fixed;
         top: 0;
         height: 100vh;
+        height: 100dvh;
         z-index: 1045;
         pointer-events: none;
         /* The closed panel sits just off the right edge via translateX(100%)
@@ -456,6 +457,35 @@
         flex-shrink: 0;
     }
 
+    /* Small circular "i" beside a heading that opens that section's help. */
+    .info-icon-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.4rem;
+        height: 1.4rem;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        background: transparent;
+        color: var(--brand-accent);
+        cursor: pointer;
+        transition: color 0.15s ease, background-color 0.15s ease;
+    }
+    .info-icon-btn > svg {
+        width: 0.95rem;
+        height: 0.95rem;
+    }
+    .info-icon-btn:hover,
+    .info-icon-btn:focus-visible {
+        color: var(--brand-accent);
+        background-color: var(--brand-accent-tint);
+        outline: none;
+    }
+    .info-icon-btn:focus-visible {
+        box-shadow: 0 0 0 0.2rem var(--brand-accent-tint);
+    }
+
     .dropdown-item.text-danger-brand {
         color: var(--brand-danger);
     }
@@ -511,6 +541,37 @@
     .settings-icon-btn svg {
         width: 1.15rem;
         height: 1.15rem;
+    }
+
+    /* Topbar link to the Help Center (partials/help-link). A labelled pill on
+       wide screens, the same round icon as the gear/bell on narrow ones. */
+    .help-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        height: 2.5rem;
+        padding: 0 0.95rem 0 0.8rem;
+        border-radius: 999px;
+        background: var(--brand-surface-alt);
+        color: var(--brand-text);
+        font-size: 0.85rem;
+        font-weight: 500;
+        text-decoration: none;
+        white-space: nowrap;
+        flex-shrink: 0;
+        transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+    }
+    .help-link svg { width: 1.15rem; height: 1.15rem; flex-shrink: 0; }
+    .help-link:hover,
+    .help-link:focus-visible {
+        background-color: var(--brand-accent-tint);
+        color: var(--brand-accent);
+        transform: translateY(-1px);
+    }
+    .help-link.is-compact { height: 2.1rem; font-size: 0.8rem; }
+    @media (max-width: 767.98px) {
+        .help-link { width: 2.5rem; padding: 0; justify-content: center; }
+        .help-link-label { display: none; }
     }
 
     /* Named for the topbar notification bell this started out in (removed

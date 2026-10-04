@@ -4,9 +4,14 @@ namespace App\Http\Middleware;
 
 use App\Models\AttemptSchedule;
 use App\Models\AuditLog;
+use App\Models\EvaluationForm;
+use App\Models\EvaluationLetterhead;
+use App\Models\PresentationCategory;
+use App\Models\PresentationOutcome;
 use App\Models\PanelSubstitutionRequest;
 use App\Models\PresentationAttempt;
 use App\Models\QueueEntry;
+use App\Models\User;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -41,6 +46,7 @@ class RecordAdminAudit
         'categories.announcements.update' => 'ANNOUNCEMENT_UPDATED',
         'categories.announcements.destroy' => 'ANNOUNCEMENT_DELETED',
         'categories.dates.span.store' => 'PRESENTATION_DATES_ADDED',
+        'categories.dates.weekends.exclude' => 'PRESENTATION_DATE_DELETED',
         'categories.dates.update' => 'PRESENTATION_DATE_UPDATED',
         'categories.dates.destroy' => 'PRESENTATION_DATE_DELETED',
         'categories.dates.breaks.store' => 'BREAK_ADDED',
@@ -55,7 +61,6 @@ class RecordAdminAudit
         'categories.rooms.store' => 'ROOM_REGISTERED',
         'categories.rooms.update' => 'ROOM_UPDATED',
         'categories.rooms.destroy' => 'ROOM_DELETED',
-        'categories.rooms.apply-many-to-all-dates' => 'ROOMS_ASSIGNED_TO_ALL_DATES',
         'categories.rooms.assign-to-dates' => 'ROOMS_ASSIGNED_TO_DATES',
         'categories.tracks.store' => 'TRACK_ADDED',
         'categories.tracks.update' => 'TRACK_RENAMED',
@@ -117,6 +122,19 @@ class RecordAdminAudit
         'panelists.reset-password' => 'PANELIST_PASSWORD_RESET',
     ];
 
+    /**
+     * Record type for the actions whose URL names no record (a create, or a
+     * singleton). audit_logs.entity_type is required, so without this every
+     * create was refused by the database and its audit row lost.
+     */
+    private const ENTITY_TYPES = [
+        'categories.store' => PresentationCategory::class,
+        'evaluation-library.store' => EvaluationForm::class,
+        'evaluation-library.outcomes.store' => PresentationOutcome::class,
+        'evaluation-library.letterhead.update' => EvaluationLetterhead::class,
+        'panelists.store' => User::class,
+    ];
+
     /** Never written to the log, at any depth. */
     private const SECRET_KEYS = ['_token', '_method', 'password', 'password_confirmation', 'current_password', 'temporary_password', 'archive_password', 'token'];
 
@@ -171,7 +189,9 @@ class RecordAdminAudit
         return [
             'action' => self::ACTIONS[$name] ?? Str::upper(Str::snake(str_replace(['.', '-'], '_', $name))),
             'route' => $name,
-            'entity_type' => $entity ? $entity::class : null,
+            // Any other route without a record still needs a type; its own
+            // name is the most honest one.
+            'entity_type' => $entity ? $entity::class : (self::ENTITY_TYPES[$name] ?? Str::limit('admin.' . $name, 100, '')),
             'entity_id' => $entity?->getKey(),
             'labels' => $models->map(fn (Model $model) => $this->labelFor($model))->filter()->values()->all(),
             'groups' => $this->bulkGroups($request),

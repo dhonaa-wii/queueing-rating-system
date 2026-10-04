@@ -66,7 +66,7 @@ class PanelAssignmentController extends Controller
         // this picker and stays reachable through Reports and Presentation
         // Setup's category list instead. Same two codes Event Control's own
         // openCategories() excludes, kept consistent with it.
-        return PresentationCategory::whereHas('researchGroups.presentationAttempts')
+        return PresentationCategory::forAdminCollege()->whereHas('researchGroups.presentationAttempts')
             ->whereHas('categoryStatus', fn ($query) => $query->whereNotIn('code', ['COMPLETED', 'ARCHIVED']))
             ->with(['academicYear', 'semester', 'presentationDates.eventDateStatus'])
             ->orderByDesc('created_at')
@@ -230,6 +230,7 @@ class PanelAssignmentController extends Controller
             ->groupBy('presentation_attempt_id');
 
         $panelists = User::whereHas('userRoles.role', fn ($q) => $q->where('code', 'PANELIST'))
+            ->whereHas('panelistProfile', fn ($q) => $q->where('college_id', \App\Support\AdminCollege::id() ?? 0))
             ->whereHas('accountStatus', fn ($q) => $q->where('is_login_allowed', true))
             ->with('profile', 'panelistProfile.college')
             ->get()

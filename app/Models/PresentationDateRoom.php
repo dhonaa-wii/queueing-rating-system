@@ -182,6 +182,15 @@ class PresentationDateRoom extends Model
         return $date && $time ? $date->presentation_date->copy()->setTimeFromTimeString($time) : null;
     }
 
+    /** The room's scheduled close on its day: date + room_end_time ?? the day's end. */
+    public function scheduledEndAt(): ?Carbon
+    {
+        $date = $this->presentationDate;
+        $time = $this->room_end_time ?? $date?->event_end_time;
+
+        return $date && $time ? $date->presentation_date->copy()->setTimeFromTimeString($time) : null;
+    }
+
     /**
      * When this room was started on its day. Start Room stamps
      * room_sessions.started_at; sessions from before it did fall back to the

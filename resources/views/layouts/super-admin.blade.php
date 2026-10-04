@@ -19,12 +19,14 @@
         .admin-shell {
             display: flex;
             height: 100vh;
+            height: 100dvh;
         }
 
         .admin-sidebar {
             width: 264px;
             flex-shrink: 0;
             height: 100vh;
+            height: 100dvh;
             background-color: var(--brand-surface-alt);
             border-right: 1px solid var(--brand-border);
             display: flex;
@@ -43,7 +45,8 @@
 
         .admin-sidebar-nav {
             flex: 1;
-            overflow: hidden;
+            min-height: 0;
+            overflow-y: auto;
             padding: 0.75rem;
         }
 
@@ -95,6 +98,7 @@
             flex: 1;
             min-width: 0;
             height: 100vh;
+            height: 100dvh;
             display: flex;
             flex-direction: column;
         }
@@ -210,6 +214,9 @@
                     </button>
                 </div>
 
+                <div class="d-flex align-items-center gap-2">
+                    @include('partials.help-link', ['chapter' => 'super-admins', 'newTab' => true])
+                </div>
             </header>
 
             <main class="admin-content">
@@ -251,6 +258,7 @@
             if (openBtn) openBtn.addEventListener('click', open);
             if (closeBtn) closeBtn.addEventListener('click', close);
             backdrop.addEventListener('click', close);
+            sidebar.querySelectorAll('[data-bs-toggle="modal"]').forEach(function (btn) { btn.addEventListener('click', close); });
         })();
     </script>
     <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>

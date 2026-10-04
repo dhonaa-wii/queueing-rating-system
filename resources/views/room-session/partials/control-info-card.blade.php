@@ -52,7 +52,7 @@
         <div class="fw-semibold">{{ $room->startTime()?->format('g:i A') ?? '—' }}</div>
     </div>
     <div>
-        <div class="text-brand-muted" style="font-size: 0.6rem;">Planned End</div>
+        <div class="text-brand-muted" style="font-size: 0.6rem;">End</div>
         <div class="fw-semibold">{{ $plannedEndTime ? \Carbon\Carbon::parse($plannedEndTime)->format('g:i A') : '—' }}</div>
     </div>
     <div>

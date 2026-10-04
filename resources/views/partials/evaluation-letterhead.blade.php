@@ -20,7 +20,7 @@
 
 <div class="eval-paper-letterhead">
     @if ($letterhead->logo_path)
-        <img src="{{ Storage::url($letterhead->logo_path) }}" alt="" class="eval-paper-logo">
+        <img src="{{ $letterhead->logoUrl('logo_path') }}" alt="" class="eval-paper-logo">
     @endif
 
     @if ($letterheadLines !== [])
@@ -32,6 +32,6 @@
     @endif
 
     @if ($letterhead->secondary_logo_path)
-        <img src="{{ Storage::url($letterhead->secondary_logo_path) }}" alt="" class="eval-paper-logo">
+        <img src="{{ $letterhead->logoUrl('secondary_logo_path') }}" alt="" class="eval-paper-logo">
     @endif
 </div>

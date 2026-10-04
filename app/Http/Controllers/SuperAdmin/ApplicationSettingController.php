@@ -51,6 +51,13 @@ class ApplicationSettingController extends Controller
         $model = $modelClass::findOrFail($id);
         $validated = $this->validated($request, $type, $model->id);
 
+        // Exactly one academic year and one semester are active at a time, and
+        // categories and panelist passwords read them, so the active one only
+        // changes by setting another active — never by unticking it here.
+        if (in_array($type, self::EXCLUSIVE_ACTIVE_TYPES, true) && $model->is_active && ! ($validated['is_active'] ?? false)) {
+            return back()->with('error', 'This is the active '.($type === 'academic-years' ? 'academic year' : 'semester').'. Set another one active instead of deactivating it.');
+        }
+
         $model->update($validated);
 
         if (in_array($type, self::EXCLUSIVE_ACTIVE_TYPES, true) && ($validated['is_active'] ?? false)) {
@@ -64,6 +71,10 @@ class ApplicationSettingController extends Controller
     {
         $modelClass = $this->resolveType($type);
         $model = $modelClass::findOrFail($id);
+
+        if (in_array($type, self::EXCLUSIVE_ACTIVE_TYPES, true) && $model->is_active) {
+            return back()->with('error', 'This is the active '.($type === 'academic-years' ? 'academic year' : 'semester').'. Set another one active before deleting it.');
+        }
 
         try {
             $model->delete();
@@ -90,6 +101,10 @@ class ApplicationSettingController extends Controller
 
     public function toggleActive(string $type, int $id)
     {
+        // Academic years and semesters use setActive(); toggling one off would
+        // leave none active.
+        abort_if(in_array($type, self::EXCLUSIVE_ACTIVE_TYPES, true), 404);
+
         $modelClass = $this->resolveType($type);
         $model = $modelClass::findOrFail($id);
         $model->update(['is_active' => ! $model->is_active]);

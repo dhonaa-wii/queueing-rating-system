@@ -64,7 +64,7 @@ class LiveMonitoringController extends Controller
      */
     private function openCategories()
     {
-        $categories = PresentationCategory::whereHas('categoryStatus', fn ($query) => $query->whereNotIn('code', ['COMPLETED', 'ARCHIVED']))
+        $categories = PresentationCategory::forAdminCollege()->whereHas('categoryStatus', fn ($query) => $query->whereNotIn('code', ['COMPLETED', 'ARCHIVED']))
             ->with(['academicYear', 'semester', 'presentationDates.eventDateStatus'])
             ->orderByDesc('created_at')
             ->get();

@@ -26,6 +26,13 @@
 
         .py-6 { padding-top: 5.5rem; padding-bottom: 5.5rem; }
 
+        html { scroll-behavior: smooth; }
+        section[id] { scroll-margin-top: 4rem; }
+
+        @media (prefers-reduced-motion: reduce) {
+            html { scroll-behavior: auto; }
+        }
+
         .reveal {
             opacity: 0;
             transform: translateY(22px);
@@ -570,80 +577,123 @@
             justify-content: center;
         }
 
-        /* ---------- Role selection ---------- */
-        .role-card {
-            position: relative;
+        /* ---------- Presentations ---------- */
+        .presentation-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+            gap: 1rem;
+        }
+
+        .presentation-card {
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
             background-color: var(--brand-surface);
             border: 1px solid var(--brand-border);
             border-radius: 1rem;
-            height: 100%;
-            padding: 1.6rem 1.4rem;
-            overflow: hidden;
+            padding: 1.25rem;
             transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
         }
 
-        .role-card:hover {
+        .presentation-card:hover {
             border-color: var(--brand-accent);
-            transform: translateY(-3px);
+            transform: translateY(-2px);
             box-shadow: var(--brand-shadow);
         }
 
-        .role-card-index {
-            position: absolute;
-            top: 0.9rem;
-            right: 1.1rem;
-            font-family: var(--font-display);
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: var(--brand-border);
+        .presentation-card.is-live {
+            border-color: color-mix(in srgb, var(--brand-success) 55%, var(--brand-border));
         }
 
-        .role-card-icon {
-            width: 2.75rem;
-            height: 2.75rem;
+        .presentation-state {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 0.25rem 0.6rem;
+            border-radius: 999px;
+        }
+
+        .presentation-state.tone-success { color: var(--brand-success); background-color: color-mix(in srgb, var(--brand-success) 14%, transparent); }
+        .presentation-state.tone-accent  { color: var(--brand-accent);  background-color: var(--brand-accent-tint); }
+        .presentation-state.tone-info    { color: var(--brand-info);    background-color: color-mix(in srgb, var(--brand-info) 14%, transparent); }
+        .presentation-state.tone-muted   { color: var(--brand-muted);   background-color: var(--brand-surface-alt); }
+
+        .presentation-title {
+            font-family: var(--font-body);
+            font-weight: 700;
+            font-size: 1.05rem;
+            line-height: 1.3;
+            margin: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .presentation-meta {
+            font-size: 0.82rem;
+            color: var(--brand-muted);
+            margin: 0;
+        }
+
+        .presentation-facts {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            font-size: 0.84rem;
+            padding: 0.75rem 0.85rem;
             border-radius: 0.65rem;
-            background-color: var(--brand-accent-tint);
-            color: var(--brand-accent);
+            background-color: var(--brand-surface-alt);
+        }
+
+        .presentation-fact {
             display: flex;
             align-items: center;
+            gap: 0.5rem;
+            min-width: 0;
+        }
+
+        .presentation-fact svg {
+            width: 0.95rem;
+            height: 0.95rem;
+            flex-shrink: 0;
+            color: var(--brand-accent);
+        }
+
+        .presentation-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: auto;
+        }
+
+        .presentation-actions .btn {
+            flex: 1 1 0;
+            white-space: nowrap;
             justify-content: center;
-            margin-bottom: 1.1rem;
         }
 
-        .role-card-icon svg {
-            width: 1.4rem;
-            height: 1.4rem;
-        }
-
-        .role-card-title {
-            font-weight: 700;
-            margin-bottom: 0.3rem;
-        }
-
-        .role-card-text {
-            font-size: 0.83rem;
+        .presentation-empty {
+            text-align: center;
+            padding: 2.5rem 1.25rem;
+            border: 1px dashed var(--brand-border);
+            border-radius: 1rem;
             color: var(--brand-muted);
-            margin-bottom: 1rem;
         }
 
-        .role-card-arrow {
+        .section-link {
             display: inline-flex;
             align-items: center;
             gap: 0.35rem;
-            font-size: 0.78rem;
             font-weight: 600;
+            font-size: 0.9rem;
             color: var(--brand-accent);
+            text-decoration: none;
+            white-space: nowrap;
         }
 
-        .role-card-arrow svg {
-            width: 14px;
-            height: 14px;
-            transition: transform 0.2s ease;
-        }
-
-        .role-card:hover .role-card-arrow svg {
-            transform: translateX(3px);
-        }
+        .section-link svg { width: 1rem; height: 1rem; transition: transform 0.2s ease; }
+        .section-link:hover svg { transform: translateX(3px); }
 
         /* ---------- Footer ---------- */
         .site-footer {
@@ -673,21 +723,52 @@
         }
 
         .landing-brand {
-            font-size: clamp(0.8rem, 1.7vw, 1rem);
-            line-height: 1.25;
-            max-width: 22rem;
-            white-space: normal;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            line-height: 1.15;
+            text-decoration: none;
+            color: var(--brand-text);
         }
 
-        @media (max-width: 767.98px) {
-            .landing-brand {
-                max-width: 100%;
-            }
+        /* Typeface comes from the shared .navbar-brand-mark, same as every
+           other layout's ARPQRS. */
+        .landing-brand-short {
+            font-size: 1.35rem;
+            line-height: 1.1;
+        }
+
+        .landing-brand-full {
+            font-size: 0.72rem;
+            color: var(--brand-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: min(26rem, 40vw);
         }
 
         #site-nav .container {
-            flex-wrap: wrap;
-            row-gap: 0.5rem;
+            flex-wrap: nowrap;
+            gap: 0.75rem;
+        }
+
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-shrink: 0;
+        }
+
+        @media (min-width: 768px) {
+            .nav-actions { gap: 1.1rem; }
+        }
+
+        /* Icon-only Room Session below 576px so Log in + theme still fit on
+           one row at 360px. */
+        @media (max-width: 575.98px) {
+            .nav-btn-label { display: none; }
+            .py-6 { padding-top: 3rem; padding-bottom: 3rem; }
+            .hero-lede { font-size: 1rem; }
         }
 
         /* Bootstrap caps .container at 720px for the whole 768–991px band, so a
@@ -704,13 +785,19 @@
     </style>
 </head>
 <body>
-    <nav id="site-nav" class="navbar navbar-expand py-3">
+    <nav id="site-nav" class="navbar navbar-expand py-2 py-md-3">
         <div class="container d-flex align-items-center justify-content-between">
-            <span class="navbar-brand-mark landing-brand mb-0" title="Academic Research Presentation Queueing and Rating System">Academic Research Presentation Queueing and Rating System</span>
+            <a href="{{ route('landing') }}" class="landing-brand" title="Academic Research Presentation Queueing and Rating System">
+                <span class="navbar-brand-mark landing-brand-short">ARPQRS</span>
+                <span class="landing-brand-full d-none d-md-block">Academic Research Presentation Queueing and Rating System</span>
+            </a>
 
-            <div class="d-flex align-items-center gap-3">
-                <a href="#how-it-works" class="nav-link-quiet d-none d-md-inline">How It Works</a>
-                <a href="{{ route('room-session.entry') }}" class="btn btn-outline-brand btn-sm"><x-icon name="monitor" /> Room Session</a>
+            <div class="nav-actions">
+                <a href="#presentations" class="nav-link-quiet d-none d-lg-inline">Presentations</a>
+                <a href="#how-it-works" class="nav-link-quiet d-none d-lg-inline">How It Works</a>
+                <a href="{{ route('help') }}" class="nav-link-quiet d-none d-md-inline">Help Center</a>
+                <a href="{{ route('room-session.entry') }}" class="btn btn-outline-brand btn-sm" title="Room Session"><x-icon name="monitor" /><span class="nav-btn-label">Room Session</span></a>
+                <a href="{{ route('login') }}" class="btn btn-brand btn-sm">Log in</a>
 
                 @include('partials.theme-toggle-button')
             </div>
@@ -720,13 +807,13 @@
     <header class="hero-section py-6">
         <div class="container">
             <div class="row align-items-center gy-5">
-                <div class="col-md-6">
+                <div class="col-md-7 col-lg-6">
                     <span class="eyebrow mb-3 d-inline-flex">Academic Presentation Operations</span>
                     <h1 class="hero-heading mb-3">Every group in queue. Every panel on schedule. Every score on record.</h1>
                     <p class="hero-lede mb-4">
-                        One system runs the full arc of a research presentation day &mdash; registration,
-                        room-by-room queueing, live panel control, and rubric-based evaluation &mdash;
-                        built for any academic research presentation event.
+                        One system runs the full arc of a research presentation day &mdash; group
+                        registration, room-by-room queueing, live panel control, and rubric-based
+                        evaluation &mdash; for students, panelists, and administrators alike.
                     </p>
 
                     <div class="capability-chip-row mb-4">
@@ -744,16 +831,17 @@
                         </span>
                     </div>
 
-                    <div class="d-flex align-items-center gap-4 flex-wrap">
-                        <a href="#role-selection" class="btn btn-brand btn-lg px-4">Get Started <x-icon name="arrow-right" /></a>
+                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                        <a href="#presentations" class="btn btn-brand btn-lg px-4"><x-icon name="search" /> Browse Presentations</a>
+                        <a href="{{ route('login') }}" class="btn btn-outline-brand btn-lg px-4">Log in</a>
                         <a href="#how-it-works" class="scroll-cue">
-                            See how it works
+                            How it works
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"></path></svg>
                         </a>
                     </div>
                 </div>
 
-                <div class="col-md-6">
+                <div class="col-md-5 col-lg-6 d-none d-md-block">
                     <div class="hero-visual reveal" style="--reveal-delay: 0.15s;">
                         <span class="hero-visual-badge"><span class="hero-visual-badge-dot"></span> Room 3B &middot; 09:42 AM</span>
 
@@ -795,6 +883,79 @@
         </div>
     </header>
 
+    <section id="presentations" class="py-6" style="background-color: var(--brand-surface-alt);">
+        <div class="container">
+            <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-4 reveal">
+                <div>
+                    <span class="eyebrow mb-3 d-inline-flex">Open &amp; Active</span>
+                    <h2 class="h1 mb-0">Presentations</h2>
+                </div>
+                <a href="{{ route('student.categories.index') }}" class="section-link">
+                    View all presentations
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+                </a>
+            </div>
+
+            @if ($presentations->isEmpty())
+                <div class="presentation-empty reveal">
+                    <div class="fw-semibold text-body mb-1">No open presentations right now</div>
+                </div>
+            @else
+                <div class="presentation-grid">
+                    @foreach ($presentations as $item)
+                        @php($category = $item['category'])
+                        <article class="presentation-card reveal {{ $item['live'] ? 'is-live' : '' }}" style="--reveal-delay: {{ $loop->index * 0.06 }}s;">
+                            <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                                <span class="presentation-state tone-{{ $item['tone'] }}">
+                                    @if ($item['live'])<span class="queue-ticket-pulse"></span>@endif
+                                    {{ $item['label'] }}
+                                </span>
+                                <span class="badge badge-brand-tint">{{ $category->presentationMode->name ?? '' }}</span>
+                            </div>
+
+                            <div>
+                                <h3 class="presentation-title">{{ $category->name }}</h3>
+                                <p class="presentation-meta mt-1">
+                                    {{ $category->academicYear->name ?? '' }}@if ($category->semester) &middot; {{ $category->semester->name }}@endif
+                                    @if ($category->college)<br>{{ $category->college->name }}@endif
+                                </p>
+                            </div>
+
+                            <div class="presentation-facts">
+                                <div class="presentation-fact">
+                                    <x-icon name="clock" />
+                                    <span>{{ $item['detail'] }}</span>
+                                </div>
+                                @if ($item['nextDate'] && ! $item['live'] && $item['rank'] !== 3)
+                                    <div class="presentation-fact">
+                                        <x-icon name="calendar" />
+                                        <span>
+                                            Presents {{ $item['nextDate']->presentation_date->format('M j, Y') }}
+                                            @if ($item['dayCount'] > 1)<span class="text-brand-muted">+{{ $item['dayCount'] - 1 }} more</span>@endif
+                                        </span>
+                                    </div>
+                                @endif
+                            </div>
+
+                            <div class="presentation-actions">
+                                @if ($item['canRegister'])
+                                    <a href="{{ route('student.categories.registration.create', $category) }}" class="btn btn-brand btn-sm"><x-icon name="user-plus" /> Register</a>
+                                @endif
+                                <a href="{{ route('student.categories.schedule', $category) }}" class="btn btn-outline-brand btn-sm"><x-icon name="calendar" /> {{ $item['live'] ? 'View Live Queue' : 'View Schedule' }}</a>
+                            </div>
+                        </article>
+                    @endforeach
+                </div>
+
+                @if ($presentationTotal > $presentations->count())
+                    <div class="text-center mt-4">
+                        <a href="{{ route('student.categories.index') }}" class="btn btn-outline-brand">View all {{ $presentationTotal }} presentations <x-icon name="arrow-right" /></a>
+                    </div>
+                @endif
+            @endif
+        </div>
+    </section>
+
     <section id="how-it-works" class="py-6">
         <div class="container">
             <div class="row justify-content-between align-items-end mb-5 reveal">
@@ -808,22 +969,22 @@
                 <div class="process-step reveal" style="--reveal-delay: 0s;">
                     <span class="process-step-number">01</span>
                     <div class="process-step-title">Register</div>
-                    <p class="process-step-text">Groups submit their research or title-proposal details directly &mdash; no account required.</p>
+                    <p class="process-step-text">Groups register for a presentation directly, with no account needed.</p>
                 </div>
                 <div class="process-step reveal" style="--reveal-delay: 0.08s;">
                     <span class="process-step-number">02</span>
                     <div class="process-step-title">Get Queued</div>
-                    <p class="process-step-text">The moment registration closes, a fair, room-aware queue is generated automatically.</p>
+                    <p class="process-step-text">When registration closes, every group gets a room, a date, and a place in a fair queue.</p>
                 </div>
                 <div class="process-step reveal" style="--reveal-delay: 0.16s;">
                     <span class="process-step-number">03</span>
                     <div class="process-step-title">Present</div>
-                    <p class="process-step-text">Panels run each room from a live terminal &mdash; call, start, pause, and complete in real time.</p>
+                    <p class="process-step-text">Panels run each room from a live terminal: call, start, pause, and complete as it happens.</p>
                 </div>
                 <div class="process-step reveal" style="--reveal-delay: 0.24s;">
                     <span class="process-step-number">04</span>
                     <div class="process-step-title">Evaluate</div>
-                    <p class="process-step-text">Panelists score against a configurable rubric, and results are recorded as they happen.</p>
+                    <p class="process-step-text">Panelists rate each group on a weighted rubric, and grades and outcomes are recorded.</p>
                 </div>
             </div>
         </div>
@@ -870,7 +1031,7 @@
                     </div>
                     <div>
                         <div class="bento-title">Panel Evaluation &amp; Scoring</div>
-                        <p class="bento-text">Weighted rubrics panelists fill out on their own device, tallied automatically.</p>
+                        <p class="bento-text">Panelists rate each group on a weighted rubric; grades are computed for them.</p>
                     </div>
                     <div class="bento-visual d-flex align-items-center justify-content-between">
                         <span class="mini-star-row">
@@ -906,8 +1067,8 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
                     </div>
                     <div>
-                        <div class="bento-title">Real-Time Notifications</div>
-                        <p class="bento-text">Deferred groups, overdue slots, and substitution requests, flagged instantly.</p>
+                        <div class="bento-title">Needs Attention</div>
+                        <p class="bento-text">Deferred groups, overdue days, and panel changes, flagged as they happen.</p>
                     </div>
                     <div class="bento-visual">
                         <div class="mini-bell-wrap">
@@ -923,7 +1084,7 @@
                     </div>
                     <div>
                         <div class="bento-title">Reports &amp; Analytics</div>
-                        <p class="bento-text">Outcomes, throughput, and evaluation trends, rolled up by category and day.</p>
+                        <p class="bento-text">Grades, sign-off sheets, and planned-versus-actual timing, exportable to PDF and Excel.</p>
                     </div>
                     <div class="bento-visual mini-bars">
                         <span class="mini-bar" style="height: 45%;"></span>
@@ -937,85 +1098,6 @@
         </div>
     </section>
 
-    <section id="role-selection" class="py-6">
-        <div class="container">
-            <div class="text-center mb-5 reveal">
-                <span class="eyebrow mb-3 d-inline-flex justify-content-center">Get Started</span>
-                <h2 class="h1 mb-0">Continue as</h2>
-            </div>
-
-            <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-3">
-                <div class="col reveal" style="--reveal-delay: 0s;">
-                    <a href="{{ route('student.categories.index') }}" class="text-decoration-none">
-                        <div class="role-card">
-                            <span class="role-card-index">01</span>
-                            <div class="role-card-icon">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                                    <circle cx="9" cy="7" r="4"></circle>
-                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                                </svg>
-                            </div>
-                            <h3 class="h6 role-card-title text-body">Student / Research Group</h3>
-                            <p class="role-card-text mb-2">Register or monitor your presentation</p>
-                            <span class="role-card-arrow">Continue <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span>
-                        </div>
-                    </a>
-                </div>
-
-                <div class="col reveal" style="--reveal-delay: 0.08s;">
-                    <a href="{{ route('login') }}" class="text-decoration-none">
-                        <div class="role-card">
-                            <span class="role-card-index">02</span>
-                            <div class="role-card-icon">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M9 11l3 3L22 4"></path>
-                                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-                                </svg>
-                            </div>
-                            <h3 class="h6 role-card-title text-body">Panelist</h3>
-                            <p class="role-card-text mb-2">Evaluate assigned presentations</p>
-                            <span class="role-card-arrow">Sign in <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span>
-                        </div>
-                    </a>
-                </div>
-
-                <div class="col reveal" style="--reveal-delay: 0.16s;">
-                    <a href="{{ route('login') }}" class="text-decoration-none">
-                        <div class="role-card">
-                            <span class="role-card-index">03</span>
-                            <div class="role-card-icon">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <circle cx="12" cy="12" r="3"></circle>
-                                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                                </svg>
-                            </div>
-                            <h3 class="h6 role-card-title text-body">Administrator</h3>
-                            <p class="role-card-text mb-2">Manage presentation categories and events</p>
-                            <span class="role-card-arrow">Sign in <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span>
-                        </div>
-                    </a>
-                </div>
-
-                <div class="col reveal" style="--reveal-delay: 0.24s;">
-                    <a href="{{ route('login') }}" class="text-decoration-none">
-                        <div class="role-card">
-                            <span class="role-card-index">04</span>
-                            <div class="role-card-icon">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                                </svg>
-                            </div>
-                            <h3 class="h6 role-card-title text-body">Super Administrator</h3>
-                            <p class="role-card-text mb-2">System-wide administration</p>
-                            <span class="role-card-arrow">Sign in <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span>
-                        </div>
-                    </a>
-                </div>
-            </div>
-        </div>
-    </section>
 
     <footer class="site-footer py-5">
         <div class="container">
@@ -1027,8 +1109,11 @@
                 <div class="col-md-6 d-flex justify-content-md-end">
                     <nav class="footer-links">
                         <a href="{{ route('landing') }}">Home</a>
+                        <a href="#presentations">Presentations</a>
                         <a href="#how-it-works">How It Works</a>
                         <a href="{{ route('room-session.entry') }}">Room Session</a>
+                        <a href="{{ route('help') }}">Help Center</a>
+                        <a href="{{ route('login') }}">Log in</a>
                     </nav>
                 </div>
             </div>

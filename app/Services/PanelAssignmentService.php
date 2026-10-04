@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\AttemptPanelAssignment;
+use App\Support\AdminCollege;
 use App\Models\PanelAssignmentKind;
 use App\Models\PanelAssignmentStatus;
 use App\Models\PresentationAttempt;
@@ -125,6 +126,12 @@ class PanelAssignmentService
 
         if ($attempts->count() !== count($attemptIds)) {
             return $this->failure('One or more selected groups could not be found.');
+        }
+
+        // A panel is drawn only from the category's own college (AdminCollege).
+        $outside = AdminCollege::panelistsOutside([...$assignedPanelistUserIds, $backupPanelistUserId], $category->college_id);
+        if ($outside !== []) {
+            return $this->failure(implode(', ', $outside) . ' is not a panelist of this college.');
         }
 
         foreach ($attempts as $attempt) {
@@ -423,6 +430,11 @@ class PanelAssignmentService
 
         if ($incoming->count() !== count($incomingIds)) {
             return $this->failure('One of the replacement panelists could not be found or is no longer active.');
+        }
+
+        $outside = AdminCollege::panelistsOutside($incomingIds, $attempt->researchGroup?->category?->college_id);
+        if ($outside !== []) {
+            return $this->failure(implode(', ', $outside) . ' is not a panelist of this college.');
         }
 
         $adviserConflict = $this->findTechnicalAdviserConflict(

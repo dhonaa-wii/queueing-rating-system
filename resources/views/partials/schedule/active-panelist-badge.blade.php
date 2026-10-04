@@ -9,6 +9,6 @@
     $panelistName = trim(($connection->panelist->profile->first_name ?? '') . ' ' . ($connection->panelist->profile->last_name ?? ''));
     $isLead = ($connection->roomTerminal->terminalType->code ?? null) === 'LEAD';
 @endphp
-<span class="badge {{ $isLead ? 'badge-brand-tint' : 'badge-success-tint' }} mb-1 d-inline-block" style="font-size: 0.62rem;">
+<span class="badge {{ $isLead ? 'badge-brand-tint' : 'badge-success-tint' }} mb-1 d-inline-block" style="font-size: 0.72rem;">
     {{ $panelistName }}{{ $isLead ? ' · Lead' : '' }}
 </span>

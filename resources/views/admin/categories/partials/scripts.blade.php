@@ -79,6 +79,13 @@
                                 window.location.href = result.data.redirect;
                                 return;
                             }
+
+                            // A save that changes what other sections render
+                            // (Track required shows the Tracks list and
+                            // the rooms' track controls) re-reads just those.
+                            if (form.dataset.ajaxRefresh && window.categorySoftRefresh) {
+                                window.categorySoftRefresh(form.dataset.ajaxRefresh.split(','));
+                            }
                         } else if (result.status === 422) {
                             var errors = result.data.errors || {};
                             var matched = showErrors(form, errors);

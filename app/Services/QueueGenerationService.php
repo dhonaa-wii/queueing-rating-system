@@ -41,10 +41,6 @@ class QueueGenerationService
 
         $strategyCode = $category->categoryQueueSetting?->queueStrategy?->code;
 
-        if ($strategyCode === 'PRIORITY_BASED') {
-            return $this->failure("Priority Based queueing isn't supported by Queue Generation yet — choose a different strategy in the Queue tab.");
-        }
-
         $groups = ResearchGroup::where('category_id', $category->id)->with('students')->get();
 
         if ($groups->isEmpty()) {
@@ -79,7 +75,10 @@ class QueueGenerationService
         $queue = $orderedGroups->values();
         $assignments = collect();
         $routing = app(TrackRouting::class);
-        $queueNumber = 1;
+        // Queue numbers count 1..N per room, the same numbering every later
+        // move recompacts to (QueueAdjustmentService::applyOrder()). One
+        // category-wide counter numbered a two-room day 1,3,5… and 2,4,6….
+        $queueNumbers = [];
 
         foreach ($dateRoomGroups as $rooms) {
             if ($queue->isEmpty()) {
@@ -134,7 +133,7 @@ class QueueGenerationService
                     $assignments->push([
                         'research_group' => $group,
                         'presentation_date_room' => $room,
-                        'queue_number' => $queueNumber++,
+                        'queue_number' => $queueNumbers[$room->id] = ($queueNumbers[$room->id] ?? 0) + 1,
                         'planned_start_at' => $slotStart,
                         'planned_end_at' => $slotEnd,
                     ]);
@@ -171,7 +170,7 @@ class QueueGenerationService
                 $assignments->push([
                     'research_group' => $group,
                     'presentation_date_room' => $parkedIn,
-                    'queue_number' => $queueNumber++,
+                    'queue_number' => $queueNumbers[$parkedIn->id] = ($queueNumbers[$parkedIn->id] ?? 0) + 1,
                     'planned_start_at' => null,
                     'planned_end_at' => null,
                 ]);
@@ -248,11 +247,13 @@ class QueueGenerationService
      * PresentationCategory::queueGenerationStatus()'s existing 'Generated'/
      * 'Not generated' binary — there is no manual trigger anywhere).
      *
-     * Eligibility is setup completeness alone (Registration/Event/Queue/
-     * Evaluation all configured) — it does NOT wait on registration being
-     * closed (user-directed 2026-09-02: registration should be able to stay
-     * open while the event is already ongoing, e.g. rolling/continuous
-     * registration). A newly-registered group arriving after the queue
+     * Eligibility is only what the queue physically needs: the schedule
+     * (duration + at least one date with a room) and a registered group
+     * (user-directed 2026-10-04). It does NOT wait on registration being
+     * closed (user-directed 2026-09-02, rolling registration), nor on Queue
+     * or Evaluation setup — an unset strategy orders by registration (FIFO),
+     * and the evaluation form only matters once groups are scored.
+     * A newly-registered group arriving after the queue
      * already exists is placed the same way an Admin-added group already
      * is — see syncAfterRegistrationChange() and Student\
      * RegistrationController::store().
@@ -263,7 +264,7 @@ class QueueGenerationService
             return ['state' => 'generated'];
         }
 
-        if ($category->setupCompletionStatus() !== 'Complete') {
+        if (! $category->isEventConfigured()) {
             return ['state' => 'not_eligible'];
         }
 

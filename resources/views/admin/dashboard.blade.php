@@ -1060,7 +1060,7 @@
                                         $running => ['Running', 'badge-success-tint'],
                                         $date->isOverdue() => ['Overdue', 'badge-danger-tint'],
                                         $date->eventDateStatus?->code === 'STANDBY' => ['Standby', 'badge-info-tint'],
-                                        default => ['Planned', 'badge-muted-tint'],
+                                        default => ['Upcoming', 'badge-muted-tint'],
                                     };
                                 @endphp
                                 <li>

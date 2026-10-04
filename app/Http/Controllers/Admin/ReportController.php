@@ -58,7 +58,7 @@ class ReportController extends Controller
      */
     private function reportableCategories()
     {
-        return PresentationCategory::whereHas('presentationMode', fn ($q) => $q->where('code', 'STANDARD'))
+        return PresentationCategory::forAdminCollege()->whereHas('presentationMode', fn ($q) => $q->where('code', 'STANDARD'))
             ->where(function ($query) {
                 $query->whereHas('researchGroups.presentationAttempts.evaluationSubmissions')
                     ->orWhereHas('categoryStatus', fn ($q) => $q->where('code', 'COMPLETED'));

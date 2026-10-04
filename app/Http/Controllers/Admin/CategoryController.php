@@ -29,7 +29,7 @@ class CategoryController extends Controller
 {
     public function index()
     {
-        $categories = PresentationCategory::with([
+        $categories = PresentationCategory::forAdminCollege()->with([
             'academicYear',
             'semester',
             'college',
@@ -576,6 +576,15 @@ class CategoryController extends Controller
             'evaluation_form_version_id' => ['required', Rule::exists('evaluation_form_versions', 'id')],
         ]);
 
+        // Only a form of the category's own college (AdminCollege).
+        abort_unless(
+            EvaluationFormVersion::whereKey($validated['evaluation_form_version_id'])
+                ->whereHas('evaluationForm', fn ($q) => $q->where('college_id', $category->college_id))
+                ->exists(),
+            422,
+            'That evaluation form belongs to another college.'
+        );
+
         $category->categoryEvaluationForms()->update(['effective_until' => now()]);
 
         $category->categoryEvaluationForms()->create([
@@ -731,6 +740,8 @@ class CategoryController extends Controller
             'availableFormVersions' => $category
                 ? EvaluationFormVersion::with('evaluationForm')
                     ->whereHas('status', fn ($query) => $query->where('code', 'ACTIVE'))
+                    // Only the category's own college's forms (AdminCollege).
+                    ->whereHas('evaluationForm', fn ($query) => $query->where('college_id', $category->college_id))
                     ->where(function ($query) use ($category) {
                         $query->whereDoesntHave('applicablePresentationModes')
                             ->orWhereHas('applicablePresentationModes', fn ($q) => $q->where('presentation_modes.id', $category->presentation_mode_id));

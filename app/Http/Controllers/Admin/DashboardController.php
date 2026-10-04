@@ -54,7 +54,7 @@ class DashboardController extends Controller
 
         // ---- Categories (status recomputed live — no scheduler exists in
         // this app, so every page load refreshes derived status). ----
-        $categories = PresentationCategory::with(['categoryStatus', 'presentationMode', 'presentationDates'])
+        $categories = PresentationCategory::forAdminCollege()->with(['categoryStatus', 'presentationMode', 'presentationDates'])
             ->withCount('researchGroups')
             ->get();
         $categories->each->refreshStatus();
@@ -64,13 +64,13 @@ class DashboardController extends Controller
         $workingCategories = $categories->where('categoryStatus.code', '!=', 'ARCHIVED')->values();
 
         // ---- Attempts across every non-archived category ----
-        $attempts = PresentationAttempt::whereHas('researchGroup', fn ($q) => $q->whereNotIn('category_id', $archivedCategoryIds))
+        $attempts = PresentationAttempt::whereHas('researchGroup', fn ($q) => $q->whereIn('category_id', $workingCategories->pluck('id')))
             ->with(['presentationStatus', 'finalOutcome', 'researchGroup:id,category_id'])
             ->get();
         $completedAttempts = $attempts->filter(fn ($a) => $a->presentationStatus?->code === 'COMPLETED');
 
         // ---- Groups ----
-        $groupsQuery = ResearchGroup::whereNotIn('category_id', $archivedCategoryIds);
+        $groupsQuery = ResearchGroup::whereIn('category_id', $workingCategories->pluck('id'));
         $totalGroups = (clone $groupsQuery)->count();
 
         $activityStart = $today->copy()->subDays(self::ACTIVITY_DAYS - 1);
@@ -102,6 +102,7 @@ class DashboardController extends Controller
         $liveAssignment = fn ($q) => $q->whereHas('assignmentStatus', fn ($s) => $s->whereNotIn('code', ['REPLACED', 'WITHDRAWN']));
 
         $panelists = User::whereHas('userRoles.role', fn ($q) => $q->where('code', 'PANELIST'))
+            ->whereHas('panelistProfile', fn ($q) => $q->where('college_id', \App\Support\AdminCollege::id() ?? 0))
             ->with(['profile', 'accountStatus'])
             ->withCount([
                 'attemptPanelAssignments as upcoming_count' => function ($q) use ($liveAssignment) {
@@ -196,7 +197,7 @@ class DashboardController extends Controller
 
         // ---- Rooms open right now ----
         $liveSessions = RoomSession::whereNull('ended_at')
-            ->whereHas('presentationDateRoom.presentationDate', fn ($q) => $q->whereNull('completed_at'))
+            ->whereHas('presentationDateRoom.presentationDate', fn ($q) => $q->whereNull('completed_at')->whereIn('category_id', $categories->pluck('id')))
             ->with([
                 'roomSessionStatus',
                 'presentationDateRoom.presentationDate.category',
@@ -229,7 +230,7 @@ class DashboardController extends Controller
         // ---- Upcoming presentation days ----
         $upcomingDates = PresentationDate::whereNull('completed_at')
             ->whereDate('presentation_date', '>=', $today)
-            ->whereNotIn('category_id', $archivedCategoryIds)
+            ->whereIn('category_id', $workingCategories->pluck('id'))
             ->with(['category', 'eventDateStatus', 'presentationDateRooms.roomUseStatus'])
             ->with(['presentationDateRooms' => fn ($q) => $q->withCount('attemptSchedules')])
             ->orderBy('presentation_date')
@@ -240,6 +241,7 @@ class DashboardController extends Controller
 
         // ---- Needs attention ----
         $pendingSubstitutions = PanelSubstitutionRequest::whereHas('status', fn ($q) => $q->where('code', 'PENDING'))
+            ->whereHas('presentationAttempt.researchGroup', fn ($q) => $q->whereIn('category_id', $categories->pluck('id')))
             ->with(['originalPanelist.profile', 'requestedSubstitute.profile', 'presentationAttempt.researchGroup.category'])
             ->latest('id')
             ->get();

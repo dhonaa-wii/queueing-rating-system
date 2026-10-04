@@ -135,7 +135,7 @@ class ScheduleAnalyticsService
             ->when($category, fn ($q) => $q->whereHas(
                 'roomSession.presentationDateRoom.presentationDate',
                 fn ($d) => $d->where('category_id', $category->id),
-            ))
+            ), fn ($q) => $q->whereHas('roomSession.presentationDateRoom.presentationDate.category', fn ($c) => $c->forAdminCollege()))
             ->with([
                 'roomSession.presentationDateRoom.presentationDate.category:id,name',
                 'presentationAttempt:id,research_group_id',
@@ -178,7 +178,7 @@ class ScheduleAnalyticsService
             ->when($category, fn ($q) => $q->whereHas(
                 'presentationDateRoom.presentationDate',
                 fn ($d) => $d->where('category_id', $category->id),
-            ))
+            ), fn ($q) => $q->whereHas('presentationDateRoom.presentationDate.category', fn ($c) => $c->forAdminCollege()))
             ->with('presentationDateRoom.presentationDate.category:id,name')
             ->get()
             ->map(function (RoomSession $session) {

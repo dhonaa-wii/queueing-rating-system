@@ -1360,9 +1360,9 @@
                                                 <span>{{ $capacity['used'] }} / {{ $capacity['slots'] }} slots used</span>
                                             </div>
                                             @if ($capacity['status'] === 'over')
-                                                <p class="small mb-0" style="color: var(--brand-danger);">This room is already over its planned capacity for today &mdash; you can still reinsert, but the day is likely to run long.</p>
+                                                <p class="small mb-0" style="color: var(--brand-danger);">This room is already over its capacity for today &mdash; you can still reinsert, but the day is likely to run long.</p>
                                             @elseif ($capacity['status'] === 'exact')
-                                                <p class="small mb-0" style="color: var(--brand-danger);">This room is at its planned capacity for today &mdash; you can still reinsert, but there's no slack left.</p>
+                                                <p class="small mb-0" style="color: var(--brand-danger);">This room is at its capacity for today &mdash; you can still reinsert, but there's no slack left.</p>
                                             @else
                                                 <p class="small mb-0 text-brand-muted">{{ $capacity['remaining'] }} slot(s) remaining today.</p>
                                             @endif

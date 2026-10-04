@@ -365,7 +365,7 @@
                 var errors = [];
 
                 if (! isOpen) {
-                    errors.push('Registration is not currently open for this category.');
+                    errors.push('Registration is not currently open for this presentation.');
                     valid = false;
                 }
 

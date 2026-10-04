@@ -22,7 +22,7 @@ class EvaluationFormController extends Controller
         // The cards are drawn as miniature evaluation sheets, so each one
         // needs the same pieces the real paper shows — its sections and
         // weights, its mode, whether it carries the letterhead.
-        $forms = EvaluationForm::with([
+        $forms = EvaluationForm::forAdminCollege()->with([
             'evaluationFormVersions.status',
             'evaluationFormVersions.evaluationCriteria',
             'evaluationFormVersions.applicablePresentationModes',

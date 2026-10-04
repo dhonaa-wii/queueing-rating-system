@@ -3,7 +3,7 @@
 @php
     // Room-registry interaction, user-directed 2026-09-21/25: rooms and days
     // are both checkboxes. "Assign to Selected Days" needs at least one of
-    // each, "Assign to Every Day" only needs a room. The same controls exist
+    // each. The same controls exist
     // twice — on the page and in the Created modal — and each one only reads
     // the checkboxes inside its own [data-room-assigner] root, so ticking
     // something on the page can't leak into the modal's selection.
@@ -150,65 +150,35 @@
                         </div>
                     @endforeach
                 </div>
+
+                @if ($category->presentationDates->isNotEmpty())
+                    @include('admin.categories.partials.room-assign-form', ['category' => $category, 'formClass' => 'mt-3 mb-0'])
+                @endif
             @endif
         </div>
     </div>
 
     <div class="col-lg-7">
         <div class="card-brand p-4 mb-4">
-            <h3 class="h6 mb-3">Presentation Date Span</h3>
-
-            <form method="POST" action="{{ route('admin.categories.dates.span.store', $category) }}">
-                @csrf
-
-                <div class="row g-3 mb-3">
-                    <div class="col-6">
-                        <label for="span_start_date" class="form-label">Start Date</label>
-                        <input type="date" name="start_date" id="span_start_date" class="form-control" required data-focus="date-span" data-focus-reveal="[data-bs-target='#tab-schedules']">
-                    </div>
-                    <div class="col-6">
-                        <label for="span_end_date" class="form-label">End Date</label>
-                        <input type="date" name="end_date" id="span_end_date" class="form-control" required data-focus="date-span" data-focus-reveal="[data-bs-target='#tab-schedules']">
-                    </div>
-                </div>
-
-                <div class="row g-3 mb-3">
-                    <div class="col-6">
-                        <label for="span_event_start_time" class="form-label">Daily Start Time</label>
-                        <input type="time" name="event_start_time" id="span_event_start_time" class="form-control" required data-focus="date-span" data-focus-reveal="[data-bs-target='#tab-schedules']">
-                    </div>
-                    <div class="col-6">
-                        <label for="span_event_end_time" class="form-label">Daily End Time</label>
-                        <input type="time" name="event_end_time" id="span_event_end_time" class="form-control" required data-focus="date-span" data-focus-reveal="[data-bs-target='#tab-schedules']">
-                    </div>
-                </div>
-
-                <div class="row g-3 mb-3">
-                    <div class="col-6">
-                        <label for="span_break_start_time" class="form-label">Break Start Time</label>
-                        <input type="time" name="break_start_time" id="span_break_start_time" class="form-control">
-                    </div>
-                    <div class="col-6">
-                        <label for="span_break_end_time" class="form-label">Break End Time</label>
-                        <input type="time" name="break_end_time" id="span_break_end_time" class="form-control">
-                    </div>
-                </div>
-
-                <button type="submit" class="btn btn-outline-brand"><x-icon name="save" /> Save Date Span</button>
-            </form>
-
-            <hr class="brand-divider my-4">
-
-            <h3 class="h6 mb-3">
-                Presentation Dates &amp; Rooms
-                @unless ($category->isEventConfigured())<span class="tab-incomplete-dot"></span>@endunless
-            </h3>
+            {{-- Before the first date exists the span form is the card's whole
+                 content; once one does, the card lists the dates instead and
+                 the same form opens from Add Date. --}}
+            <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+                <h3 class="h6 mb-0">
+                    {!! $category->presentationDates->isEmpty() ? 'Presentation Date Span' : 'Presentation Dates &amp; Rooms' !!}
+                    @unless ($category->isEventConfigured())<span class="tab-incomplete-dot"></span>@endunless
+                </h3>
+                @if ($category->presentationDates->isNotEmpty())
+                    <button type="button" class="btn btn-sm btn-brand text-nowrap" data-bs-toggle="modal" data-bs-target="#add-date-span-modal"
+                            data-focus="date-span" data-focus-reveal="[data-bs-target='#tab-schedules']">
+                        <x-icon name="plus" /> Add Date
+                    </button>
+                @endif
+            </div>
 
             @if ($category->presentationDates->isEmpty())
-                <p class="text-brand-muted small mb-0">No presentation dates added yet.</p>
+                @include('admin.categories.partials.date-span-form', ['category' => $category, 'focusable' => true])
             @else
-                @include('admin.categories.partials.room-assign-form', ['category' => $category])
-
                 <div class="p-0" style="overflow-x: auto;">
                     <table class="table table-sm align-middle mb-0">
                         <thead>
@@ -224,7 +194,12 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach ($category->presentationDates->sortByDesc('presentation_date') as $date)
+                            {{-- Nearest first: ongoing/upcoming days earliest first, then
+                                 finished or passed days, most recent first. --}}
+                            @foreach ($category->presentationDates
+                                ->sortBy(fn ($d) => $d->isOpenForScheduling()
+                                    ? '0|' . $d->presentation_date->format('Y-m-d') . ' ' . $d->event_start_time . '|' . str_pad($d->id, 10, '0', STR_PAD_LEFT)
+                                    : '1|' . (99999999 - (int) $d->presentation_date->format('Ymd')) . '|' . str_pad(PHP_INT_MAX - $d->id, 20, '0', STR_PAD_LEFT)) as $date)
                                 @php
                                     $dateActiveRooms = $date->presentationDateRooms->filter(fn ($r) => $r->roomUseStatus->code !== 'REMOVED');
                                     $locked = in_array($date->eventDateStatus->code, ['COMPLETED', 'CANCELLED'], true);
@@ -309,6 +284,23 @@
         </div>
     </div>
 </div>
+
+@if ($category->presentationDates->isNotEmpty())
+    <div class="modal fade" id="add-date-span-modal" tabindex="-1" aria-hidden="true"
+         @if ($errors->hasAny(['start_date', 'end_date', 'event_start_time', 'event_end_time', 'break_start_time', 'break_end_time'])) data-span-errors="1" @endif>
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Presentation Dates</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    @include('admin.categories.partials.date-span-form', ['category' => $category, 'focusable' => false])
+                </div>
+            </div>
+        </div>
+    </div>
+@endif
 
 @if ($activeTracks->isNotEmpty())
     <div class="modal fade" id="register-room-modal" tabindex="-1" aria-hidden="true">
@@ -505,7 +497,31 @@
                     <h5 class="modal-title">Created</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body" data-room-assigner>
+                @php
+                    $newWeekendDates = $newlyCreatedDates->filter(fn ($d) => $d->presentation_date->isWeekend() && $d->activated_at === null);
+                @endphp
+                @if ($newWeekendDates->isNotEmpty())
+                    <div class="modal-body" data-weekend-prompt>
+                        <p class="mb-2">{{ $newlyCreatedDates->count() }} presentation date{{ $newlyCreatedDates->count() === 1 ? '' : 's' }} created:</p>
+                        <ul class="mb-3 ps-3">
+                            @foreach ($newlyCreatedDates as $createdDate)
+                                <li class="{{ $createdDate->presentation_date->isWeekend() ? 'fw-semibold' : '' }}">{{ $createdDate->presentation_date->format('l, F j, Y') }}</li>
+                            @endforeach
+                        </ul>
+                        <p class="fw-semibold mb-3">Include Saturday and Sunday?</p>
+                        <div class="d-flex gap-2 justify-content-end">
+                            <form method="POST" action="{{ route('admin.categories.dates.weekends.exclude', $category) }}">
+                                @csrf
+                                @foreach ($newlyCreatedDates as $createdDate)
+                                    <input type="hidden" name="date_ids[]" value="{{ $createdDate->id }}">
+                                @endforeach
+                                <button type="submit" class="btn btn-outline-danger-brand"><x-icon name="x" /> No</button>
+                            </form>
+                            <button type="button" class="btn btn-brand" data-weekend-include><x-icon name="check" /> Yes</button>
+                        </div>
+                    </div>
+                @endif
+                <div class="modal-body @if ($newWeekendDates->isNotEmpty()) d-none @endif" data-room-assigner data-created-body>
                     <p class="mb-2">{{ $newlyCreatedDates->count() }} presentation date{{ $newlyCreatedDates->count() === 1 ? '' : 's' }} created:</p>
                     <div class="mb-3">
                         @if ($newlyCreatedDates->count() > 1)
@@ -528,10 +544,30 @@
 
                     <div class="small text-brand-muted mb-2">Rooms</div>
 
-                    <form method="POST" action="{{ route('admin.categories.rooms.store', $category) }}" class="d-flex flex-wrap gap-2 align-items-center mb-1" data-room-register-form>
+                    <form method="POST" action="{{ route('admin.categories.rooms.store', $category) }}" class="mb-1" data-room-register-form>
                         @csrf
-                        <input type="text" name="room_name" placeholder="Room name" class="form-control form-control-sm" style="width:auto;" required maxlength="100">
-                        <button type="submit" class="btn btn-sm btn-outline-brand"><x-icon name="plus" /> Register Room</button>
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <input type="text" name="room_name" placeholder="Room name" class="form-control form-control-sm" style="width:auto;" required maxlength="100">
+                            <button type="submit" class="btn btn-sm btn-outline-brand"><x-icon name="plus" /> Register Room</button>
+                        </div>
+                        {{-- Same track choice as the page's Register Room (TrackRouting). --}}
+                        @if ($activeTracks->isNotEmpty())
+                            <div class="d-flex flex-wrap align-items-center gap-3 mt-2 ps-2 border-start" style="border-color: var(--brand-border) !important;" data-track-group>
+                                <span class="small text-brand-muted">Tracks</span>
+                                @if ($activeTracks->count() > 1)
+                                    <div class="form-check mb-0">
+                                        <input class="form-check-input" type="checkbox" data-track-all id="modal-register-track-all">
+                                        <label class="form-check-label fw-semibold" for="modal-register-track-all">All tracks</label>
+                                    </div>
+                                @endif
+                                @foreach ($activeTracks as $track)
+                                    <div class="form-check mb-0">
+                                        <input class="form-check-input" type="checkbox" name="track_ids[]" value="{{ $track->id }}" data-track-option id="modal-register-track-{{ $track->id }}">
+                                        <label class="form-check-label" for="modal-register-track-{{ $track->id }}">{{ $track->name }}</label>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
                     </form>
                     <div class="text-danger small mb-2 d-none" data-room-register-error></div>
 
@@ -540,6 +576,9 @@
                             <div class="form-check">
                                 <input class="form-check-input room-select-checkbox" type="checkbox" value="{{ $categoryRoom->id }}" id="modal-room-check-{{ $categoryRoom->id }}">
                                 <label class="form-check-label" for="modal-room-check-{{ $categoryRoom->id }}">{{ $categoryRoom->room_name }}</label>
+                                @foreach ($categoryRoom->researchTracks->where('is_active', true) as $track)
+                                    <span class="badge badge-info-tint ms-1">{{ $track->name }}</span>
+                                @endforeach
                             </div>
                         @endforeach
                     </div>
@@ -557,44 +596,56 @@
 @push('scripts')
     <script>
         (function () {
+            // Every listener here is delegated from document: the Schedules
+            // pane is re-rendered in place after each save (scripts.blade.php's
+            // soft refresh), which used to drop listeners bound to its
+            // elements and leave Register Room and "All tracks" dead until a
+            // full reload.
+
             // "All tracks" toggles every track in its group, and follows them back.
-            document.querySelectorAll('[data-track-group]').forEach(function (group) {
+            function syncTrackGroup(group) {
                 var all = group.querySelector('[data-track-all]');
-                var options = Array.from(group.querySelectorAll('[data-track-option]'));
                 if (!all) return;
+                var options = Array.from(group.querySelectorAll('[data-track-option]'));
+                var checked = options.filter(function (cb) { return cb.checked; }).length;
+                all.checked = options.length > 0 && checked === options.length;
+                all.indeterminate = checked > 0 && checked < options.length;
+            }
 
-                function sync() {
-                    var checked = options.filter(function (cb) { return cb.checked; }).length;
-                    all.checked = checked === options.length;
-                    all.indeterminate = checked > 0 && checked < options.length;
+            document.addEventListener('change', function (event) {
+                var group = event.target.closest && event.target.closest('[data-track-group]');
+                if (!group) return;
+                if (event.target.matches('[data-track-all]')) {
+                    group.querySelectorAll('[data-track-option]').forEach(function (cb) { cb.checked = event.target.checked; });
                 }
+                syncTrackGroup(group);
+            });
 
-                all.addEventListener('change', function () {
-                    options.forEach(function (cb) { cb.checked = all.checked; });
-                });
-                options.forEach(function (cb) { cb.addEventListener('change', sync); });
-                group.closest('.modal')?.addEventListener('show.bs.modal', sync);
-                sync();
+            document.addEventListener('show.bs.modal', function (event) {
+                event.target.querySelectorAll('[data-track-group]').forEach(syncTrackGroup);
             });
 
             // Register Room opens the tracks modal once the name is valid.
-            var nameInput = document.querySelector('[data-register-room-name]');
-            var openBtn = document.querySelector('[data-register-room-open]');
-            var modalEl = document.getElementById('register-room-modal');
-            if (!nameInput || !openBtn || !modalEl) return;
-
             function openTracks() {
-                if (!nameInput.reportValidity()) return;
+                var nameInput = document.querySelector('[data-register-room-name]');
+                var modalEl = document.getElementById('register-room-modal');
+                if (!nameInput || !modalEl || !nameInput.reportValidity()) return;
                 modalEl.querySelector('[data-register-room-title]').textContent = nameInput.value.trim();
                 bootstrap.Modal.getOrCreateInstance(modalEl).show();
             }
 
-            openBtn.addEventListener('click', openTracks);
-            nameInput.addEventListener('keydown', function (event) {
-                if (event.key === 'Enter') {
-                    event.preventDefault();
+            document.addEventListener('click', function (event) {
+                if (event.target.closest && event.target.closest('[data-register-room-open]')) {
                     openTracks();
                 }
+            });
+
+            document.addEventListener('keydown', function (event) {
+                if (event.key !== 'Enter' || !event.target.matches || !event.target.matches('[data-register-room-name]')) return;
+                // Only intercept when the tracks modal exists; otherwise Enter submits as usual.
+                if (!document.querySelector('[data-register-room-open]')) return;
+                event.preventDefault();
+                openTracks();
             });
         })();
     </script>
@@ -638,11 +689,10 @@
                 var dayBoxes = Array.from(root.querySelectorAll('.date-select-checkbox:not(:disabled)'));
                 var dayCount = dayBoxes.filter(function (cb) { return cb.checked; }).length;
 
-                root.querySelectorAll('[data-assign-btn="dates"]').forEach(function (btn) {
-                    btn.disabled = ! (roomCount > 0 && dayCount > 0);
-                });
-                root.querySelectorAll('[data-assign-btn="all"]').forEach(function (btn) {
-                    btn.disabled = roomCount === 0;
+                var ready = roomCount > 0 && dayCount > 0;
+                root.querySelectorAll('[data-assign-form]').forEach(function (form) {
+                    form.classList.toggle('d-none', ! ready);
+                    form.classList.toggle('d-flex', ready);
                 });
                 root.querySelectorAll('.date-select-all').forEach(function (all) {
                     all.checked = dayBoxes.length > 0 && dayCount === dayBoxes.length;
@@ -689,9 +739,8 @@
                 var root = form.closest('[data-room-assigner]');
                 var roomIds = root ? checkedValues(root, '.room-select-checkbox') : [];
                 var dayIds = root ? checkedValues(root, '.date-select-checkbox') : [];
-                var applyAll = event.submitter && event.submitter.getAttribute('data-assign-btn') === 'all';
 
-                if (roomIds.length === 0 || (! applyAll && dayIds.length === 0)) {
+                if (roomIds.length === 0 || dayIds.length === 0) {
                     event.preventDefault();
                     return;
                 }
@@ -699,9 +748,7 @@
                 var container = form.querySelector('.assign-hidden-inputs');
                 container.innerHTML = '';
                 appendHidden(container, 'category_room_ids[]', roomIds);
-                if (! applyAll) {
-                    appendHidden(container, 'date_ids[]', dayIds);
-                }
+                appendHidden(container, 'date_ids[]', dayIds);
             });
 
             // Registering a room from the Created modal stays in the modal:
@@ -755,12 +802,22 @@
                     label.textContent = room.room_name;
                     row.appendChild(box);
                     row.appendChild(label);
+                    (room.tracks || []).forEach(function (name) {
+                        var badge = document.createElement('span');
+                        badge.className = 'badge badge-info-tint ms-1';
+                        badge.textContent = name;
+                        row.appendChild(badge);
+                    });
 
                     var list = root.querySelector('[data-room-list]');
                     list.appendChild(row);
                     list.scrollTop = list.scrollHeight;
 
                     input.value = '';
+                    form.querySelectorAll('[data-track-option], [data-track-all]').forEach(function (cb) {
+                        cb.checked = false;
+                        cb.indeterminate = false;
+                    });
                     roomsRegisteredInModal = true;
                     refreshAssigner(root);
                     input.focus();
@@ -784,8 +841,37 @@
             roomsRegisteredInModal = false;
             document.querySelectorAll('[data-room-assigner]').forEach(refreshAssigner);
 
+            // A span save that failed validation comes back with its
+            // values and messages; reopen Add Date so they're visible.
+            var spanModal = document.querySelector('#add-date-span-modal[data-span-errors]');
+            if (spanModal && window.bootstrap) {
+                var openSpanModal = function () {
+                    bootstrap.Modal.getOrCreateInstance(spanModal).show();
+                };
+                var spanPane = document.getElementById('tab-schedules');
+                var spanTrigger = document.querySelector('[data-bs-target="#tab-schedules"]');
+                if (spanPane && spanPane.classList.contains('active')) {
+                    openSpanModal();
+                } else if (spanTrigger) {
+                    spanTrigger.addEventListener('shown.bs.tab', function handler() {
+                        spanTrigger.removeEventListener('shown.bs.tab', handler);
+                        openSpanModal();
+                    });
+                }
+            }
+
             var createdModal = document.getElementById('dates-created-modal');
             if (createdModal && window.bootstrap) {
+                // "Yes" keeps the Saturday/Sunday dates (they are already
+                // saved) and moves on to room assignment.
+                var includeWeekends = createdModal.querySelector('[data-weekend-include]');
+                if (includeWeekends) {
+                    includeWeekends.addEventListener('click', function () {
+                        createdModal.querySelector('[data-weekend-prompt]').remove();
+                        createdModal.querySelector('[data-created-body]').classList.remove('d-none');
+                    });
+                }
+
                 createdModal.addEventListener('hidden.bs.modal', function () {
                     if (roomsRegisteredInModal) {
                         roomsRegisteredInModal = false;

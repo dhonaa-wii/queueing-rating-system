@@ -227,7 +227,7 @@
         @if ($letterhead && $letterhead->hasContent())
             <header class="letterhead">
                 @if ($letterhead->logo_path)
-                    <img src="{{ Storage::url($letterhead->logo_path) }}" alt="" class="letterhead-logo">
+                    <img src="{{ $letterhead->logoUrl('logo_path') }}" alt="" class="letterhead-logo">
                 @endif
                 <div class="letterhead-text">
                     @foreach ([$letterhead->line_1, $letterhead->line_2, $letterhead->line_3, $letterhead->line_4] as $line)
@@ -237,7 +237,7 @@
                     @endforeach
                 </div>
                 @if ($letterhead->secondary_logo_path)
-                    <img src="{{ Storage::url($letterhead->secondary_logo_path) }}" alt="" class="letterhead-logo">
+                    <img src="{{ $letterhead->logoUrl('secondary_logo_path') }}" alt="" class="letterhead-logo">
                 @endif
             </header>
         @endif

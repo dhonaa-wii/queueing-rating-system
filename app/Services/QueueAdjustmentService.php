@@ -1388,14 +1388,19 @@ class QueueAdjustmentService
         }
 
         // A room that already has groups waiting for a slot is full by
-        // definition — they would have been laid out otherwise.
+        // definition — they would have been laid out otherwise. Not so for a
+        // group only parked here because no room takes its track: the room
+        // would never give it a slot (recalcRoomTimes()), so it says nothing
+        // about the room's own time.
         $hasUnslotted = AttemptSchedule::where('presentation_date_room_id', $room->id)
             ->whereNull('planned_start_at')
             ->whereHas('queueEntry', fn ($q) => $q->whereNull('removed_at'))
             ->whereHas('presentationAttempt.presentationStatus', fn ($q) => $q
                 ->where('is_terminal', false)
                 ->whereNotIn('code', ['CALLED', 'ONGOING', 'PAUSED']))
-            ->exists();
+            ->with('presentationAttempt.researchGroup.students')
+            ->get()
+            ->contains(fn (AttemptSchedule $schedule) => $this->tracks->accepts($room, $schedule->presentationAttempt->researchGroup));
 
         if ($hasUnslotted) {
             return false;

@@ -1,20 +1,20 @@
 @extends('layouts.app')
 
-@section('title', 'Presentation Categories')
+@section('title', 'Presentations')
 
 @section('content')
     <div class="page-shell stu-cat-page">
         <div class="stu-cat-heading mb-4">
-            <h1 class="h4 mb-1">Presentation Categories</h1>
+            <h1 class="h4 mb-1">Presentations</h1>
             <p class="text-brand-muted mb-0">
-                Select your presentation category to register your research group or view its schedule.
+                Choose a presentation to register your research group or view its schedule.
             </p>
         </div>
 
         @if ($categories->isEmpty())
             <div class="picker-empty">
-                <h2>No categories open right now</h2>
-                <p>No presentation categories are open to the public at the moment. Check back later.</p>
+                <h2>No presentations right now</h2>
+                <p>No presentations are open to the public at the moment. Check back later.</p>
             </div>
         @else
             <div class="stu-cat-grid">

@@ -13,7 +13,6 @@ class QueueStrategySeeder extends Seeder
             ['code' => 'FIFO', 'name' => 'First In, First Out', 'is_active' => true],
             ['code' => 'SECTION_BASED', 'name' => 'Section Based', 'is_active' => true],
             ['code' => 'RANDOM_DRAW', 'name' => 'Random Draw', 'is_active' => true],
-            ['code' => 'PRIORITY_BASED', 'name' => 'Priority Based', 'is_active' => true],
         ];
 
         foreach ($strategies as $strategy) {

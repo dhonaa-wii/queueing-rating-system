@@ -122,7 +122,7 @@
 
                 <h3 class="h6 mb-3">Requirement Checklist</h3>
 
-                <form method="POST" action="{{ route('admin.categories.project-info-config.update', $category) }}" data-ajax="update">
+                <form method="POST" action="{{ route('admin.categories.project-info-config.update', $category) }}" data-ajax="update" data-ajax-refresh="research-tracks-section,tab-schedules">
                     @csrf
                     @method('PUT')
 
@@ -141,10 +141,11 @@
                     <button type="submit" class="btn btn-outline-brand btn-sm"><x-icon name="save" /> Save Checklist</button>
                 </form>
 
+                <div id="research-tracks-section">
                 @if ($category->research_track_required)
                     <hr class="brand-divider my-4">
 
-                    <h3 class="h6 mb-3">Research Tracks</h3>
+                    <h3 class="h6 mb-3">Tracks</h3>
 
                     <form method="POST" action="{{ route('admin.categories.tracks.store', $category) }}" class="d-flex flex-wrap gap-2 align-items-center mb-3">
                         @csrf
@@ -172,6 +173,7 @@
                         <p class="text-brand-muted small mb-0">No tracks yet.</p>
                     @endforelse
                 @endif
+                </div>
             </div>
         @endif
     </div>

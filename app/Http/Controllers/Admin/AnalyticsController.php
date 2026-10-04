@@ -21,7 +21,7 @@ class AnalyticsController extends Controller
     {
         // Only categories that have actually run a room session can appear in
         // the filter — anything else would select an empty page.
-        $categories = PresentationCategory::whereHas('presentationDates.presentationDateRooms.roomSessions')
+        $categories = PresentationCategory::forAdminCollege()->whereHas('presentationDates.presentationDateRooms.roomSessions')
             ->orderBy('name')
             ->get(['id', 'name']);
 

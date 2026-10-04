@@ -32,8 +32,12 @@
                         <input type="password" name="password" id="password" class="form-control" required>
                     </div>
 
-                    <button type="submit" class="btn btn-brand w-100"><x-icon name="log-in" /> Log in</button>
+                    <button type="submit" class="btn btn-brand w-100">Log in</button>
                 </form>
+
+                <hr class="brand-divider my-4">
+
+                <a href="{{ route('landing') }}#presentations" class="btn btn-outline-brand w-100">Student? Browse Presentations</a>
             </div>
 
             <p class="text-center mt-3">
