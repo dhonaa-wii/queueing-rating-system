@@ -255,7 +255,15 @@
                         // no longer a forward-looking assignment either
                         // (user-directed 2026-08-22).
                         $isCompleted = $selectedAttempt?->presentationStatus?->code === 'COMPLETED';
-                        $isDeferred = $selectedAttempt?->presentationStatus?->code === 'DEFERRED';
+                        // A defer only stamps queue_entries.removed_at — the
+                        // attempt keeps its SCHEDULED/QUEUED status unless it
+                        // had been called — so the removed entry is the real
+                        // marker, the same one the roster and My Assignments
+                        // use. Without it a deferred group searched here read
+                        // "Scheduled" (user-reported 2026-10-12).
+                        $isDeferred = ! ($selectedAttempt?->presentationStatus?->is_terminal)
+                            && ($selectedAttempt?->presentationStatus?->code === 'DEFERRED'
+                                || $selectedAttempt?->attemptSchedule?->queueEntry?->removed_at !== null);
                         $latestDeferAdjustment = $isDeferred
                             ? $selectedAttempt?->attemptSchedule?->queueEntry?->queueAdjustments?->first()
                             : null;
@@ -298,8 +306,8 @@
                                     <div class="fw-semibold" style="font-size: 0.95rem;">{{ $selectedGroup->group_reference }}</div>
                                 </div>
                             </div>
-                            <span class="badge {{ $selectedAttempt ? 'badge-info-tint' : 'badge-muted-tint' }}">
-                                {{ $selectedAttempt?->presentationStatus->name ?? 'Not yet queued' }}
+                            <span class="badge {{ $isDeferred ? 'badge-danger-tint' : ($selectedAttempt ? 'badge-info-tint' : 'badge-muted-tint') }}">
+                                {{ $isDeferred ? 'Deferred' : ($selectedAttempt?->presentationStatus->name ?? 'Not yet queued') }}
                             </span>
                         </div>
 
@@ -374,6 +382,15 @@
                                 </div>
                             @endif
                         </div>
+
+                        @if ($isDeferred)
+                            <div class="mb-3 p-2 rounded-3" style="background-color: var(--brand-danger-tint, var(--brand-surface-alt)); font-size: 0.78rem;">
+                                <div class="text-brand-muted mb-1" style="{{ $groupStatusLabelStyle }}">What to do</div>
+                                <div class="mb-2">{{ \App\Support\DeferGuidance::howToResolve($latestDeferAdjustment?->reason?->code) }}</div>
+                                <div class="text-brand-muted mb-1" style="{{ $groupStatusLabelStyle }}">If not resolved</div>
+                                <div>{{ \App\Support\DeferGuidance::ifUnresolved($selectedAttempt?->attemptSchedule) }}</div>
+                            </div>
+                        @endif
 
                         <div>
                             <div class="text-brand-muted mb-1" style="{{ $groupStatusLabelStyle }}">Assigned Panelists</div>
