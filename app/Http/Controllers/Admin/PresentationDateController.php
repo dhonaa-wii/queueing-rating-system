@@ -8,7 +8,6 @@ use App\Models\EventDateStatus;
 use App\Models\PresentationCategory;
 use App\Models\PresentationDate;
 use App\Models\PresentationDateRoom;
-use App\Models\RoomUseStatus;
 use App\Models\ScheduleBreak;
 use App\Services\QueueAdjustmentService;
 use App\Services\QueueGenerationService;
@@ -308,20 +307,14 @@ class PresentationDateController extends Controller
         // (user-directed 2026-09-25) — the confirmation modal warns instead.
         // A completed/cancelled/passed day stays locked by the guard above.
 
-        $removedStatus = RoomUseStatus::where('code', 'REMOVED')->firstOrFail();
-
-        $room->update([
-            'room_use_status_id' => $removedStatus->id,
-            'closed_by' => $request->user()->id,
-            'closed_at' => now(),
-        ]);
-
-        $category->refreshStatus();
-
         $stranded = $room->attemptSchedules()
             ->whereHas('queueEntry', fn ($query) => $query->whereNull('removed_at'))
             ->whereHas('presentationAttempt.presentationStatus', fn ($query) => $query->where('is_terminal', false))
             ->count();
+
+        $room->removeFromDay($request->user()->id);
+
+        $category->refreshStatus();
 
         $message = "\"{$room->room_name}\" removed from this date.";
 

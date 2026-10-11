@@ -29,7 +29,7 @@
     </div>
     <div>
         <div class="sched-stat-label">End</div>
-        <div class="sched-stat-value">{{ $live['endTime'] ? $live['endTime']->format('M j · g:i A') : '—' }}</div>
+        <div class="sched-stat-value">{{ $live['endTime'] ? $live['endTime']->format('g:i A') : '—' }}</div>
     </div>
     <div>
         <div class="sched-stat-label">Duration / Group</div>

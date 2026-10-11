@@ -299,32 +299,40 @@ class QueueGenerationService
      */
     public function syncAfterRegistrationChange(PresentationCategory $category, int $performedByUserId): array
     {
+        // Once a queue exists it is never rebuilt for a new group
+        // (user-directed 2026-10-11): a rebuild threw away every Move,
+        // Transfer, Defer and panel. The group is placed into the queue as it
+        // stands instead — see appendUnqueuedGroups().
         if ($category->queueGenerationStatus() === 'Generated') {
-            $category->loadMissing('presentationDates');
-
-            // Once a day has started the queue can't be rebuilt around a new
-            // group, so it joins the end of the existing one instead.
-            if ($category->presentationDates->contains(fn ($date) => $date->activated_at !== null)) {
-                return $this->appendUnqueuedGroups($category, $performedByUserId);
-            }
-
-            return $this->regenerateIfStrategyChanged($category, $performedByUserId);
+            return $this->appendUnqueuedGroups($category, $performedByUserId);
         }
 
         return $this->autoGenerateIfEligible($category, $performedByUserId);
     }
 
     /**
-     * Gives every registered group that has no attempt yet a place at the end
-     * of an already-running queue, without touching anyone else's placement.
-     * The group takes the earliest open room that still has a free slot; when
-     * none does it waits, untimed, at the end of the last open room and is
-     * slotted by spillOverflow() as soon as a date or room is added.
+     * Places every registered group that has no attempt yet into the queue
+     * as it stands, without moving anyone else's place (user-directed
+     * 2026-10-11). Only days that have not started are used: a group
+     * registering while a day runs presents on a later day.
+     *
+     *  - Section Based: at the end of its own section, on the last day that
+     *    still holds its section (or an earlier one). With several rooms on
+     *    that day, the room where that point comes first. A 4A group
+     *    registering when the next day starts with 4B presents first that day.
+     *  - FIFO: after the last regular group, i.e. at the end.
+     *  - Random Draw: at a random place among the groups still to present.
+     *
+     * A deferred group requeued at the end of a day and a pending re-defense
+     * stay behind it. Groups pushed past their room's close time move on to
+     * the next day (spillOverflow()). With no day that can take it, the group
+     * waits "to be scheduled" until a date or room is added.
      */
     public function appendUnqueuedGroups(PresentationCategory $category, int $performedByUserId): array
     {
         $groups = ResearchGroup::where('category_id', $category->id)
             ->whereDoesntHave('presentationAttempts')
+            ->with('students')
             ->orderBy('registered_at')
             ->get();
 
@@ -333,6 +341,7 @@ class QueueGenerationService
         }
 
         $adjustments = app(QueueAdjustmentService::class);
+        $ordering = app(QueueOrdering::class);
         $rooms = $adjustments->openRoomsInOrder($category);
 
         if ($rooms->isEmpty()) {
@@ -343,17 +352,32 @@ class QueueGenerationService
         $scheduledStatus = PresentationStatus::where('code', 'SCHEDULED')->firstOrFail();
         $unscheduled = 0;
         $routing = app(TrackRouting::class);
+        $category->loadMissing('categoryQueueSetting.queueStrategy');
+        $random = $category->categoryQueueSetting?->queueStrategy?->code === 'RANDOM_DRAW';
 
         foreach ($groups as $group) {
+            QueueOrdering::forget($category->id);
+
             $accepting = $rooms->filter(fn ($candidate) => $routing->accepts($candidate, $group))->values();
-            $room = $accepting->first(fn ($candidate) => $adjustments->roomHasRemainingCapacity($candidate));
+            $notStarted = $accepting->filter(fn ($candidate) => $candidate->presentationDate->activated_at === null)->values();
+            $rank = $ordering->groupRank($category, $group);
+
+            [$room, $index] = $random
+                ? $this->randomPlace($adjustments, $notStarted)
+                : $this->rankedPlace($adjustments, $ordering, $category, $notStarted, $rank);
 
             if (! $room) {
-                $room = $accepting->last() ?? $rooms->last();
+                // Nowhere it can present yet: it waits, with no time, in the
+                // last room that takes its track. On a day that has started
+                // it is never given a slot (QueueAdjustmentService::
+                // recalcRoomTimes()), and the sweeps slot it once a later day
+                // has time.
+                $room = $notStarted->last() ?? $accepting->last() ?? $rooms->last();
+                $index = $adjustments->insertIndexFor($room, $rank, 'after');
                 $unscheduled++;
             }
 
-            DB::transaction(function () use ($group, $room, $initialType, $scheduledStatus, $performedByUserId) {
+            DB::transaction(function () use ($group, $room, $index, $adjustments, $initialType, $scheduledStatus, $performedByUserId) {
                 $attempt = PresentationAttempt::create([
                     'research_group_id' => $group->id,
                     'attempt_number' => 1,
@@ -380,21 +404,101 @@ class QueueGenerationService
                 $lastNumber = QueueEntry::whereHas('attemptSchedule', fn ($q) => $q->where('presentation_date_room_id', $room->id))
                     ->max('queue_number') ?? 0;
 
-                QueueEntry::create([
+                $entry = QueueEntry::create([
                     'attempt_schedule_id' => $schedule->id,
                     'queue_number' => $lastNumber + 1,
                     'priority_value' => null,
                     'inserted_at' => now(),
                     'removed_at' => null,
                 ]);
-            });
 
-            // Lays the room out again so the new group gets its time (or,
-            // if the room can't hold it, stays "to be scheduled").
-            $adjustments->renumberRoom($room);
+                // Renumbers the room around the new group and lays out its
+                // times (or leaves it "to be scheduled" if it can't fit).
+                $adjustments->placeEntryAt($room, $entry->id, $index);
+            });
         }
 
+        // Groups pushed past their room's close time move on to the next
+        // day, ahead of that day's own groups of their section.
+        $adjustments->spillOverflow($category, $performedByUserId);
+        app(PanelistConflictService::class)->syncNotifications(app(NotificationService::class));
+
         return ['state' => 'generated', 'count' => $groups->count(), 'unscheduled' => $unscheduled];
+    }
+
+    /**
+     * Section Based / FIFO: the room and index where a group of $rank goes —
+     * the last not-yet-started day that already holds its rank or an earlier
+     * one (the first such day when none does), in the room where its place
+     * comes earliest. Moves on to the next day when no room there can give it
+     * a slot. [null, null] when no day can.
+     */
+    private function rankedPlace(QueueAdjustmentService $adjustments, QueueOrdering $ordering, PresentationCategory $category, Collection $rooms, int $rank): array
+    {
+        $byDate = $rooms->groupBy('presentation_date_id');
+        $dateIds = $rooms->sortBy(fn ($room) => $room->presentationDate->presentation_date->format('Y-m-d') . ' ' . $room->presentationDate->event_start_time . ' ' . str_pad((string) $room->presentation_date_id, 10, '0', STR_PAD_LEFT))
+            ->pluck('presentation_date_id')
+            ->unique()
+            ->values();
+
+        $start = 0;
+
+        foreach ($dateIds as $i => $dateId) {
+            $roomIds = $byDate[$dateId]->pluck('id');
+            $entryIds = QueueEntry::whereNull('removed_at')
+                ->whereHas('attemptSchedule', fn ($q) => $q->whereIn('presentation_date_room_id', $roomIds))
+                ->pluck('id');
+
+            if (collect($ordering->entryRanks($category, $entryIds))->contains(fn ($other) => $other <= $rank)) {
+                $start = $i;
+            }
+        }
+
+        foreach ($dateIds->slice($start) as $dateId) {
+            $best = null;
+
+            foreach ($byDate[$dateId] as $room) {
+                $index = $adjustments->insertIndexFor($room, $rank, 'after');
+                $time = $adjustments->slotTimeAt($room, $index);
+
+                if ($time && (! $best || $time->lt($best[2]))) {
+                    $best = [$room, $index, $time];
+                }
+            }
+
+            if ($best) {
+                return [$best[0], $best[1]];
+            }
+        }
+
+        return [null, null];
+    }
+
+    /**
+     * Random Draw: a random place among the groups still to present on days
+     * that have not started — ahead of any one of them, or last in a room
+     * that still has time. Never behind a requeued deferred group or a
+     * re-defense. [null, null] when there is no such place.
+     */
+    private function randomPlace(QueueAdjustmentService $adjustments, Collection $rooms): array
+    {
+        $places = [];
+
+        foreach ($rooms as $room) {
+            $count = QueueEntry::whereNull('removed_at')
+                ->whereHas('attemptSchedule', fn ($q) => $q->where('presentation_date_room_id', $room->id))
+                ->count();
+            $first = $adjustments->insertIndexFor($room, 0, 'before');
+            $last = $adjustments->insertIndexFor($room, 0, 'after');
+
+            for ($index = $first; $index <= min($last, $count); $index++) {
+                if ($adjustments->slotTimeAt($room, $index)) {
+                    $places[] = [$room, $index];
+                }
+            }
+        }
+
+        return $places === [] ? [null, null] : $places[random_int(0, count($places) - 1)];
     }
 
     /**
@@ -462,8 +566,12 @@ class QueueGenerationService
 
         $started = $category->presentationDates->contains(fn ($date) => $date->activated_at !== null);
         $hasPanels = AttemptPanelAssignment::whereHas('presentationAttempt.researchGroup', fn ($q) => $q->where('category_id', $category->id))->exists();
+        // A Move, Transfer or Defer is remembered (user-directed 2026-10-11):
+        // a rebuild would undo it, so once there is one the queue is only
+        // re-laid, never rebuilt.
+        $hasManualChanges = QueueAdjustment::whereHas('queueEntry.attemptSchedule.presentationAttempt.researchGroup', fn ($q) => $q->where('category_id', $category->id))->exists();
 
-        if (! $started && ! $hasPanels && $this->regenerateIfStrategyChanged($category, $performedByUserId)['state'] === 'regenerated') {
+        if (! $started && ! $hasPanels && ! $hasManualChanges && $this->regenerateIfStrategyChanged($category, $performedByUserId)['state'] === 'regenerated') {
             return;
         }
 

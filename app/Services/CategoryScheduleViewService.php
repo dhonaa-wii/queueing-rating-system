@@ -339,14 +339,10 @@ class CategoryScheduleViewService
                 && ! $room->hasClosedForDay())
             ?? $dateRooms->last();
 
-        // The "End" card is the close of this room's last scheduled day
-        // (user-directed 2026-10-03), so it moves out on its own when the
-        // admin adds a later date. A cancelled day never runs, so it doesn't count.
-        $endDateRoom = $dateRooms
-            ->filter(fn ($room) => $room->roomUseStatus?->code !== 'REMOVED'
-                && $room->presentationDate?->eventDateStatus?->code !== 'CANCELLED')
-            ->sortBy(fn ($room) => $room->scheduledEndAt()?->timestamp ?? 0)
-            ->last() ?? $dateRooms->last();
+        // The "End" card is the close of the same day as "Start" (user-directed
+        // 2026-10-04, replacing 2026-10-03's "last scheduled day"): the card
+        // describes one day and moves on to the next day with Start.
+        $endDateRoom = $startDateRoom;
 
         return [
             'session' => $currentSession,

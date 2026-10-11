@@ -181,11 +181,7 @@ class CategoryRoomController extends Controller
         [$openRooms, $closedRooms] = $rooms->partition(fn ($dateRoom) => $dateRoom->presentationDate->isOpenForScheduling());
 
         foreach ($openRooms as $dateRoom) {
-            $dateRoom->update([
-                'room_use_status_id' => $removedStatus->id,
-                'closed_by' => $request->user()->id,
-                'closed_at' => now(),
-            ]);
+            $dateRoom->removeFromDay($request->user()->id);
         }
 
         $room->update(['is_active' => false]);

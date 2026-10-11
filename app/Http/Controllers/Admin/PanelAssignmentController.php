@@ -341,6 +341,9 @@ class PanelAssignmentController extends Controller
             ->mapWithKeys(fn ($schedule) => [$schedule->id => $schedule->expected_start_at]);
 
         return view('admin.panel-assignments.show', [
+            // Section Based only: each group's section, the positions a Move
+            // may use and the days a Transfer may go to (null otherwise).
+            'sectionGuide' => app(QueueAdjustmentService::class)->sectionGuide($category),
             'expectedTimes' => $expectedTimes,
             'category' => $category,
             // The header's category picker, which replaced the back link — this
@@ -645,9 +648,9 @@ class PanelAssignmentController extends Controller
      * delete() as-is (already built for Live Monitoring's own delete
      * action) — deletes the attempt/schedule/queue placement and
      * everything hanging off it, guarded against a real follow-up attempt
-     * or submitted evaluations; the research group's registration itself
-     * is untouched, matching how Defer already only ever affects queue
-     * placement, not the registration.
+     * or submitted evaluations. Since 2026-10-04 (user-directed) it also
+     * deletes the group's registration when it has no other attempt, so the
+     * deleted group doesn't come back through appendUnqueuedGroups().
      */
     public function destroySchedules(Request $request, PresentationCategory $category, PresentationAttemptAdminActionService $service, QueueAdjustmentService $queueService)
     {
@@ -678,7 +681,9 @@ class PanelAssignmentController extends Controller
                 continue;
             }
 
-            $result = $service->delete($schedule, $request->user()->id);
+            // Delete removes the group itself, not only its place in the
+            // queue (user-directed 2026-10-04) — see delete()'s $removeRegistration.
+            $result = $service->delete($schedule, $request->user()->id, removeRegistration: true);
 
             if ($result['ok']) {
                 $deleted++;

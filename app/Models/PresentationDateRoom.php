@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class PresentationDateRoom extends Model
 {
@@ -207,6 +208,39 @@ class PresentationDateRoom extends Model
         }
 
         return $session->started_at ?? $session->presentationEvent?->started_at;
+    }
+
+    /**
+     * Takes this room off its day (user-directed 2026-10-04). A room that was
+     * never used there — no group ever scheduled in it, never started — has no
+     * history to keep, so the row and its breaks are deleted outright. A room
+     * with groups or a session is kept and marked REMOVED, since schedules,
+     * sessions and reports still point at it.
+     *
+     * @return bool true when the row was deleted, false when it was only marked
+     */
+    public function removeFromDay(?int $userId): bool
+    {
+        $used = $this->attemptSchedules()->exists()
+            || $this->roomSessions()->exists()
+            || $this->capacityAnalysisSnapshots()->exists();
+
+        if (! $used) {
+            DB::transaction(function () {
+                $this->scheduleBreaks()->delete();
+                $this->delete();
+            });
+
+            return true;
+        }
+
+        $this->update([
+            'room_use_status_id' => RoomUseStatus::where('code', 'REMOVED')->firstOrFail()->id,
+            'closed_by' => $userId,
+            'closed_at' => now(),
+        ]);
+
+        return false;
     }
 
     public function hasClosedForDay(): bool

@@ -609,7 +609,7 @@
                 </div>
 
                 <div class="col-lg-4">
-                    <div class="card-brand p-4 d-flex flex-column" id="assign-panel-card" style="position: sticky; top: 1rem; max-height: calc(100vh - 3rem); overflow: hidden; box-sizing: border-box;">
+                    <div class="card-brand p-4 d-flex flex-column assign-panel-card" id="assign-panel-card">
                         <h3 class="h6 mb-2">Assign Panel</h3>
 
                         <div class="assign-status mb-3" id="assign-status">
@@ -643,7 +643,7 @@
                             <label class="form-label small mb-1">Assigned Panelists</label>
                             <input type="search" class="form-control form-control-sm" id="panelist-filter" placeholder="Search panelist name…" autocomplete="off">
                             <p class="panelist-search-empty" id="panelist-search-empty" hidden></p>
-                            <div style="overflow-y: auto; flex: 1 1 auto; min-height: 0;" class="border rounded p-2 mt-2" id="assigned-panelist-list">
+                            <div class="border rounded p-2 mt-2 assigned-panelist-list" id="assigned-panelist-list">
                                 @foreach ($panelists as $panelist)
                                     @php $counts = $panelistAssignmentCounts[$panelist->id] ?? ['assigned' => 0, 'backup' => 0]; @endphp
                                     <div class="form-check panelist-row d-flex align-items-start gap-2">
@@ -662,7 +662,7 @@
                                             <span class="badge badge-brand-tint ms-1">{{ $counts['backup'] }} alternate</span>
                                             <span class="badge badge-danger-tint ms-1 adviser-badge" hidden>Adviser</span>
                                         </label>
-                                        <label class="small text-brand-muted d-flex align-items-center gap-1 mt-1" style="white-space: nowrap;" title="Designate as Chair">
+                                        <label class="small text-brand-muted d-flex align-items-center gap-1 mt-1 lead-radio-label flex-shrink-0" style="white-space: nowrap;" title="Designate as Chair">
                                             <input type="radio" class="form-check-input lead-panelist-radio" name="lead_panelist_id" value="{{ $panelist->id }}" disabled>
                                             Chair
                                         </label>
@@ -740,6 +740,69 @@
                 /* Technical adviser of a currently-selected group — kept
                    visible (so it's obvious who it is and why the seat can't
                    be filled by them) but reads as unavailable. */
+                /* Desktop: a sticky sidebar sized to the viewport by JS, with
+                   the panelist list absorbing whatever height is left. */
+                .assign-panel-card {
+                    box-sizing: border-box;
+                }
+
+                .assigned-panelist-list {
+                    overflow-y: auto;
+                    overflow-x: hidden;
+                    flex: 1 1 auto;
+                    min-height: 0;
+                }
+
+                @media (min-width: 992px) {
+                    .assign-panel-card {
+                        position: sticky;
+                        top: 1rem;
+                        max-height: calc(100vh - 3rem);
+                        overflow: hidden;
+                    }
+                }
+
+                /* Below lg the card stacks under the roster, so it flows at
+                   its full height (the JS sizing is skipped) and only the
+                   panelist list scrolls, capped to the screen. Rows get
+                   dividers and bigger tap targets. */
+                @media (max-width: 991.98px) {
+                    .assign-panel-card {
+                        padding: 1rem !important;
+                    }
+
+                    .assigned-panelist-list {
+                        flex: none;
+                        max-height: 55vh;
+                        max-height: 55dvh;
+                    }
+
+                    .assign-page .panelist-row {
+                        padding-block: 0.5rem;
+                        border-bottom: 1px solid var(--brand-border);
+                        border-radius: 0;
+                    }
+
+                    .assign-page .panelist-row:last-child {
+                        border-bottom: 0;
+                    }
+
+                    .panelist-row .form-check-input {
+                        width: 1.15em;
+                        height: 1.15em;
+                    }
+
+                    .panelist-row .panelist-label {
+                        min-width: 0;
+                        overflow-wrap: anywhere;
+                        line-height: 1.5;
+                    }
+
+                    .panelist-row .lead-radio-label {
+                        padding-left: 0.35rem;
+                    }
+                }
+
                 .panelist-row.is-adviser-muted {
                     opacity: 0.5;
                 }
@@ -1053,6 +1116,15 @@
                         ->filter(fn ($queued) => $queued->presentationStatus?->is_terminal || in_array($queued->presentationStatus?->code, ['ONGOING', 'PAUSED'], true))
                         ->max(fn ($queued) => $queued->attemptSchedule->queueEntry->queue_number);
                     $moveMinPosition = $moveLockedThrough + 1;
+                    $moveMaxPosition = $group['active']->count();
+                    // Section Based: a group moves only within its section and
+                    // transfers only to days that keep the section order
+                    // (QueueAdjustmentService::sectionGuide()).
+                    $entryId = $schedule->queueEntry?->id;
+                    $sectionLabel = $sectionGuide['labels'][$entryId] ?? null;
+                    if ($sectionGuide && isset($sectionGuide['move'][$entryId])) {
+                        [$moveMinPosition, $moveMaxPosition] = $sectionGuide['move'][$entryId];
+                    }
                     $hasSubmittedEvaluation = $hasSubmittedEvaluationByAttempt[$attempt->id] ?? false;
                 @endphp
 
@@ -1085,10 +1157,12 @@
                                         'rows' => $group['active'],
                                         'roomName' => $schedule->presentationDateRoom->room_name,
                                         'minPosition' => $moveMinPosition,
-                                        'maxPosition' => $group['active']->count(),
+                                        'maxPosition' => $moveMaxPosition,
                                         'defaultPosition' => max($moveMinPosition, $schedule->queueEntry->queue_number),
                                         'lockedThrough' => $moveLockedThrough,
                                         'currentAttemptId' => $attempt->id,
+                                        'sectionLabel' => $sectionLabel,
+                                        'sectionLabels' => $sectionGuide['labels'] ?? [],
                                     ])
                                     <div class="mb-3">
                                         <label class="form-label">Reason</label>
@@ -1129,7 +1203,14 @@
                                         @php
                                             // Only rooms that take this group's track (TrackRouting).
                                             $rowTransferRooms = $transferRooms->filter(fn ($room) => app(\App\Services\TrackRouting::class)->accepts($room, $attempt->researchGroup));
+                                            // Section Based: only days where its section keeps its order.
+                                            if ($sectionGuide && isset($sectionGuide['dates'][$entryId])) {
+                                                $rowTransferRooms = $rowTransferRooms->filter(fn ($room) => in_array($room->presentation_date_id, $sectionGuide['dates'][$entryId], true));
+                                            }
                                         @endphp
+                                        @if ($sectionLabel)
+                                            <p class="text-brand-muted small mb-1">Section {{ $sectionLabel }} &middot; dates that keep the section order. It joins the end of {{ $sectionLabel }} in that room.</p>
+                                        @endif
                                         <select name="target_room_id" class="form-select" required @disabled($rowTransferRooms->isEmpty())>
                                             @forelse ($rowTransferRooms as $targetRoom)
                                                 <option value="{{ $targetRoom->id }}" @selected($targetRoom->id === $schedule->presentation_date_room_id)>
@@ -1213,7 +1294,7 @@
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                 </div>
                                 <div class="modal-body">
-                                    <p class="mb-0">Removes this group's presentation from the queue entirely. This cannot be undone. The group's registration itself is not affected.</p>
+                                    <p class="mb-0">Deletes this group and its registration. This cannot be undone.</p>
                                 </div>
                                 <div class="modal-footer">
                                     <button type="button" class="btn btn-outline-brand" data-bs-dismiss="modal">Cancel</button>
@@ -1415,7 +1496,7 @@
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                 </div>
                                 <div class="modal-body">
-                                    <p class="mb-0">Removes this deferred group's presentation from the queue entirely. This cannot be undone. The group's registration itself is not affected.</p>
+                                    <p class="mb-0">Deletes this deferred group and its registration. This cannot be undone.</p>
                                 </div>
                                 <div class="modal-footer">
                                     <button type="button" class="btn btn-outline-brand" data-bs-dismiss="modal">Cancel</button>
@@ -1608,7 +1689,7 @@
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
-                            <p class="mb-0" id="bulk-delete-summary">Removes the selected groups' presentations from the queue entirely. This cannot be undone. The groups' registrations themselves are not affected.</p>
+                            <p class="mb-0" id="bulk-delete-summary">Deletes the selected groups and their registrations. This cannot be undone.</p>
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-outline-brand" data-bs-dismiss="modal">Cancel</button>
@@ -2042,9 +2123,20 @@
                     box.style.maxHeight = Math.max(200, height) + 'px';
                 }
 
+                var desktop = window.matchMedia('(min-width: 992px)');
+
                 function sizeAll() {
                     document.querySelectorAll('.roster-scroll').forEach(sizeBox);
-                    if (assignPanelCard) sizeBox(assignPanelCard);
+                    // Below lg the card stacks under the roster: sizing it to
+                    // the viewport from that far down clamped it to 200px and
+                    // hid the list and the Assign button. Let it flow instead.
+                    if (assignPanelCard) {
+                        if (desktop.matches) {
+                            sizeBox(assignPanelCard);
+                        } else {
+                            assignPanelCard.style.maxHeight = '';
+                        }
+                    }
                     ticking = false;
                 }
 

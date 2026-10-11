@@ -380,6 +380,8 @@ class CategoryController extends Controller
         // coming back to Random Draw is a fresh draw.
         $settings = $category->categoryQueueSetting?->settings_json ?? [];
         $strategyCode = QueueStrategy::find($validated['queue_strategy_id'])->code;
+        $previousStrategyId = $category->categoryQueueSetting?->queue_strategy_id;
+        $previousSectionOrder = $category->categoryQueueSetting?->sectionOrder() ?? [];
 
         if ($strategyCode === 'RANDOM_DRAW') {
             $settings['random_draw_seed'] ??= bin2hex(random_bytes(32));
@@ -410,7 +412,17 @@ class CategoryController extends Controller
         // rebuilds the queue in place if one already exists, but only while
         // no presentation date has started yet (registration being open no
         // longer blocks this — see QueueGenerationService's own notes).
-        $regenOutcome = app(QueueGenerationService::class)->regenerateIfStrategyChanged($category, auth()->id());
+        // Only when the strategy or the section order actually changed
+        // (user-directed 2026-10-11): re-saving the tab must not throw away
+        // the Admin's moves, transfers, defers and panels.
+        $orderChanged = (int) $previousStrategyId !== (int) $validated['queue_strategy_id']
+            || ($strategyCode === 'SECTION_BASED' && $previousSectionOrder !== ($settings['section_order'] ?? []));
+
+        \App\Services\QueueOrdering::forget($category->id);
+
+        $regenOutcome = $orderChanged
+            ? app(QueueGenerationService::class)->regenerateIfStrategyChanged($category->fresh(), auth()->id())
+            : ['state' => 'unchanged'];
 
         $message = match ($regenOutcome['state']) {
             'regenerated' => 'Queue configuration saved. The queue was automatically regenerated to match.',

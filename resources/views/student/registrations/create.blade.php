@@ -108,16 +108,16 @@
                 @for ($i = 0; $i < $requiredTitleCount; $i++)
                     <div class="mb-2">
                         <label for="proposed_title_{{ $i }}" class="form-label">Proposed Title {{ $i + 1 }} <span class="text-brand-accent">*</span></label>
-                        <input type="text" name="proposed_titles[{{ $i }}]" id="proposed_title_{{ $i }}" class="form-control" maxlength="300" required
-                               value="{{ old("proposed_titles.$i") }}" @disabled(! $isOpen)>
+                        <textarea name="proposed_titles[{{ $i }}]" id="proposed_title_{{ $i }}" class="form-control reg-title-input" rows="1" maxlength="300" required
+                                  @disabled(! $isOpen)>{{ old("proposed_titles.$i") }}</textarea>
                         <div class="invalid-feedback" data-error-for="proposed_titles.{{ $i }}"></div>
                     </div>
                 @endfor
             @else
                 <div class="mb-1">
                     <label for="project_title" class="form-label">Project Title <span class="text-brand-accent">*</span></label>
-                    <input type="text" name="project_title" id="project_title" class="form-control" maxlength="255" required
-                           value="{{ old('project_title') }}" @disabled(! $isOpen)>
+                    <textarea name="project_title" id="project_title" class="form-control reg-title-input" rows="1" maxlength="255" required
+                              @disabled(! $isOpen)>{{ old('project_title') }}</textarea>
                     <div class="invalid-feedback" data-error-for="project_title"></div>
                 </div>
             @endif
@@ -300,6 +300,15 @@
             .reg-panel-foot > .btn {
                 flex: 1 1 auto;
             }
+        }
+
+        /* Titles wrap onto as many lines as they need (grown by the script
+           below) so a long title stays fully readable while typing, instead
+           of scrolling sideways inside a one-line field. */
+        .reg-shell .reg-title-input {
+            resize: none;
+            overflow: hidden;
+            min-height: calc(1.45em + 0.6rem + 2px);
         }
 
         .invalid-feedback[data-error-for] {
@@ -525,6 +534,81 @@
             confirmSubmitBtn.addEventListener('click', function () {
                 confirmSubmitBtn.disabled = true;
                 form.submit();
+            });
+        })();
+
+        // Title fields: grow with the text, and stay one line of data — Enter
+        // and pasted line breaks become spaces, since a title has no newlines.
+        (function () {
+            function grow(el) {
+                el.style.height = 'auto';
+                el.style.height = el.scrollHeight + 2 + 'px';
+            }
+
+            document.querySelectorAll('.reg-title-input').forEach(function (el) {
+                grow(el);
+
+                el.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') e.preventDefault();
+                });
+
+                el.addEventListener('input', function () {
+                    if (/[\r\n]/.test(el.value)) {
+                        var pos = el.selectionStart;
+                        el.value = el.value.replace(/[\r\n]+/g, ' ');
+                        el.setSelectionRange(pos, pos);
+                    }
+                    grow(el);
+                    keepInView(el);
+                });
+            });
+
+            window.addEventListener('resize', function () {
+                document.querySelectorAll('.reg-title-input').forEach(grow);
+            });
+
+            // Phones: keep the field being typed in above the on-screen
+            // keyboard. The keyboard only shrinks the visual viewport, so the
+            // page gets bottom room equal to the keyboard's height (otherwise
+            // a field near the end of the form has nowhere to scroll to) and
+            // the focused field is brought back above it.
+            var vv = window.visualViewport;
+            var shell = document.querySelector('.reg-shell');
+
+            function keyboardHeight() {
+                return vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+            }
+
+            function keepInView(el) {
+                if (! vv || ! el) return;
+                var rect = el.getBoundingClientRect();
+                var visibleBottom = vv.offsetTop + vv.height - 16;
+                var visibleTop = vv.offsetTop + 16;
+                if (rect.bottom > visibleBottom) {
+                    window.scrollBy(0, rect.bottom - visibleBottom);
+                } else if (rect.top < visibleTop) {
+                    window.scrollBy(0, rect.top - visibleTop);
+                }
+            }
+
+            function onViewportChange() {
+                if (! shell) return;
+                var kb = keyboardHeight();
+                shell.style.paddingBottom = kb > 120 ? kb + 'px' : '';
+                var active = document.activeElement;
+                if (active && shell.contains(active) && active.matches('input, textarea, select')) {
+                    keepInView(active);
+                }
+            }
+
+            if (vv) {
+                vv.addEventListener('resize', onViewportChange);
+            }
+
+            document.addEventListener('focusin', function (e) {
+                if (! shell || ! shell.contains(e.target) || ! e.target.matches('input, textarea')) return;
+                // Wait for the keyboard to finish opening before measuring.
+                setTimeout(onViewportChange, 300);
             });
         })();
     </script>

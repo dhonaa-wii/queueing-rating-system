@@ -37,6 +37,7 @@ class QueueAdjustmentService
         private EvaluationSubmissionService $evaluationSubmissionService,
         private TrackRouting $tracks,
         private PanelistNotifier $panelistNotifier,
+        private QueueOrdering $ordering,
     ) {
     }
 
@@ -54,6 +55,22 @@ class QueueAdjustmentService
 
         $room = $schedule->presentationDateRoom;
         $oldPosition = $entry->queue_number;
+
+        // Section Based: a group moves only within its own section
+        // (user-directed 2026-10-11) — from the first to the last 4B slot.
+        $room->loadMissing('presentationDate.category');
+        $category = $room->presentationDate->category;
+
+        if ($this->ordering->isSectionBased($category)) {
+            [$min, $max] = $this->sectionMoveRange($room, $entry->id);
+
+            if ($newPosition < $min || $newPosition > $max) {
+                $label = $this->ordering->label($category, $this->rankOf($category, $entry));
+                $range = $min === $max ? "position {$min}" : "positions {$min}–{$max}";
+
+                return $this->failure("{$schedule->presentationAttempt->researchGroup->group_reference} is {$label}: in {$room->room_name} it can only be placed at {$range}.");
+            }
+        }
 
         $conflicts = DB::transaction(function () use ($schedule, $entry, $room, $newPosition, $oldPosition, $reasonId, $remarks, $performedByUserId) {
             $this->releaseCalledAttempt($schedule, 'MOVED', $performedByUserId);
@@ -144,20 +161,41 @@ class QueueAdjustmentService
         $oldPosition = $entry->queue_number;
         $sameRoom = $targetRoom->id === $originRoom->id;
 
-        // Refused rather than appended past the room's close time
-        // (user-directed 2026-09-13). Bouncing the group straight back out
-        // via spillOverflow() would look like the transfer silently failed;
-        // saying so up front lets the Admin pick a day that has room.
-        if (! $sameRoom && ! $this->roomHasRemainingCapacity($targetRoom)) {
-            return $this->failure("\"{$targetRoom->room_name}\" on {$targetRoom->presentationDate->presentation_date->format('M j, Y')} is full for the day — its schedule has no slot left before it closes.");
-        }
-        $adjustmentTypeCode = $targetRoom->presentation_date_id !== $originRoom->presentation_date_id ? 'CHANGE_DATE' : 'TRANSFER_ROOM';
-
         if ($sameRoom) {
             return ['ok' => true, 'unchanged' => true];
         }
 
-        $conflicts = DB::transaction(function () use ($schedule, $entry, $originRoom, $targetRoom, $oldPosition, $adjustmentTypeCode, $reasonId, $remarks, $performedByUserId) {
+        // Section Based (user-directed 2026-10-11): the group may only go to a
+        // day where it still presents after every earlier section and before
+        // every later one, and it lands at the end of its own section in the
+        // target room instead of the end of the room.
+        $category = $originRoom->presentationDate->category()->first();
+        $sectionBased = $this->ordering->isSectionBased($category);
+        $targetIds = $this->activeEntryIdsForRoom($targetRoom->id)->reject(fn ($id) => $id === $entry->id)->values();
+        $index = $targetIds->count();
+
+        if ($sectionBased) {
+            $rank = $this->rankOf($category, $entry);
+
+            if ($why = $this->sectionTransferBlock($category, $entry, $rank, $targetRoom)) {
+                return $this->failure($why);
+            }
+
+            $index = $this->insertIndexFor($targetRoom, $rank, 'after', [], $entry->id);
+        }
+
+        // Refused rather than appended past the room's close time
+        // (user-directed 2026-09-13). Bouncing the group straight back out
+        // via spillOverflow() would look like the transfer silently failed;
+        // saying so up front lets the Admin pick a day that has room. A group
+        // placed inside its section instead pushes the room's last group on
+        // to the next day, the same as a late registration does.
+        if ($index >= $targetIds->count() && ! $this->roomHasRemainingCapacity($targetRoom)) {
+            return $this->failure("\"{$targetRoom->room_name}\" on {$targetRoom->presentationDate->presentation_date->format('M j, Y')} is full for the day — its schedule has no slot left before it closes.");
+        }
+        $adjustmentTypeCode = $targetRoom->presentation_date_id !== $originRoom->presentation_date_id ? 'CHANGE_DATE' : 'TRANSFER_ROOM';
+
+        $conflicts = DB::transaction(function () use ($schedule, $entry, $originRoom, $targetRoom, $targetIds, $index, $oldPosition, $adjustmentTypeCode, $reasonId, $remarks, $performedByUserId) {
             $this->releaseCalledAttempt($schedule, 'TRANSFERRED', $performedByUserId, $targetRoom);
             $this->panelistNotifier->scheduleChanged($schedule);
 
@@ -165,8 +203,7 @@ class QueueAdjustmentService
 
             $this->applyOrder($originRoom, $this->activeEntryIdsForRoom($originRoom->id));
 
-            $targetIds = $this->activeEntryIdsForRoom($targetRoom->id)->reject(fn ($id) => $id === $entry->id)->values();
-            $targetIds->push($entry->id);
+            $targetIds->splice($index, 0, [$entry->id]);
             $this->applyOrder($targetRoom, $targetIds);
 
             QueueAdjustment::create([
@@ -182,6 +219,12 @@ class QueueAdjustmentService
 
             return $this->conflicts->conflictsInRoom($originRoom)->merge($this->conflicts->conflictsInRoom($targetRoom));
         });
+
+        // Placed inside its section, the group may have pushed the target
+        // day's last group past the close time — that one moves on.
+        if ($sectionBased && $index < $targetIds->count() - 1) {
+            $this->spillOverflow($category, $performedByUserId);
+        }
 
         if ($conflicts->isNotEmpty()) {
             $this->conflicts->syncNotifications($this->notifications);
@@ -574,10 +617,8 @@ class QueueAdjustmentService
                 $ordered = collect($group)->sortBy('queue_number')->values();
 
                 try {
-                    DB::transaction(function () use ($ordered, $targetRoom, $performedByUserId) {
-                        foreach ($ordered->reverse() as $entry) {
-                            $this->relocateEntryToRoom($entry, $targetRoom, 1, 'CARRY_OVER_NEXT_DAY', 'UNFINISHED_END_OF_DAY', $performedByUserId);
-                        }
+                    DB::transaction(function () use ($ordered, $targetRoom, $category, $performedByUserId) {
+                        $this->insertAheadOfSameRank($ordered, $targetRoom, $category, 'CARRY_OVER_NEXT_DAY', 'UNFINISHED_END_OF_DAY', $performedByUserId);
                     });
                     $moved += $ordered->count();
                     // Unlike an end-of-day carry-over, the room they left still
@@ -903,14 +944,8 @@ class QueueAdjustmentService
                 $bucketEntries = collect($bucket['entries']);
 
                 try {
-                    DB::transaction(function () use ($bucketEntries, $targetRoom, $performedByUserId) {
-                        // Reversed + always-insert-at-1 is what makes the block
-                        // land in original order at the very front: inserting
-                        // the last entry first pushes it to position 1, then
-                        // each earlier entry displaces it back down by one.
-                        foreach ($bucketEntries->reverse() as $entry) {
-                            $this->relocateEntryToRoom($entry, $targetRoom, 1, 'CARRY_OVER_NEXT_DAY', 'UNFINISHED_END_OF_DAY', $performedByUserId);
-                        }
+                    DB::transaction(function () use ($bucketEntries, $targetRoom, $category, $performedByUserId) {
+                        $this->insertAheadOfSameRank($bucketEntries, $targetRoom, $category, 'CARRY_OVER_NEXT_DAY', 'UNFINISHED_END_OF_DAY', $performedByUserId);
                     });
                     $moved += $bucketEntries->count();
                 } catch (\RuntimeException $e) {
@@ -1048,12 +1083,22 @@ class QueueAdjustmentService
             $attempt->update(['presentation_status_id' => PresentationStatus::where('code', 'QUEUED')->firstOrFail()->id]);
         }
 
+        // Where the group belongs among the target room's groups, worked out
+        // before the move: a requeued unresolved defer presents after every
+        // section (QueueOrdering::TAIL); anyone else goes after the last
+        // group of its own section, which under FIFO or Random Draw is simply
+        // the end of the room's regular groups.
+        $targetRoom->loadMissing('presentationDate.category');
+        $rank = $reasonCode === 'UNRESOLVED_DEFERRED_END_OF_DAY'
+            ? QueueOrdering::TAIL
+            : $this->rankOf($targetRoom->presentationDate->category, $entry);
+
         $schedule->update(['presentation_date_room_id' => $targetRoom->id]);
 
         $ids = $this->activeEntryIdsForRoom($targetRoom->id)->reject(fn ($id) => $id === $entry->id)->values();
 
         if ($position === null) {
-            $ids->push($entry->id);
+            $ids->splice($this->insertIndexFor($targetRoom, $rank, 'after', [], $entry->id), 0, [$entry->id]);
         } else {
             $clamped = max($this->firstOpenPosition($ids), min($position, $ids->count() + 1));
             $ids->splice($clamped - 1, 0, [$entry->id]);
@@ -1400,7 +1445,8 @@ class QueueAdjustmentService
                 ->whereNotIn('code', ['CALLED', 'ONGOING', 'PAUSED']))
             ->with('presentationAttempt.researchGroup.students')
             ->get()
-            ->contains(fn (AttemptSchedule $schedule) => $this->tracks->accepts($room, $schedule->presentationAttempt->researchGroup));
+            ->contains(fn (AttemptSchedule $schedule) => $this->tracks->accepts($room, $schedule->presentationAttempt->researchGroup)
+                && ! ($schedule->queueEntry && $this->joinedAfterStart($schedule->queueEntry, $room->presentationDate)));
 
         if ($hasUnslotted) {
             return false;
@@ -1490,6 +1536,9 @@ class QueueAdjustmentService
         $rooms = $this->openRoomsInOrder($category);
         $moved = 0;
         $unmoved = 0;
+        // Groups spilled into each room by this pass, so a run of them keeps
+        // its own order when placed ahead of that room's own groups.
+        $spilledInto = [];
 
         foreach ($rooms as $index => $room) {
             $overflow = $this->overflowEntries($room);
@@ -1517,7 +1566,11 @@ class QueueAdjustmentService
                 $candidates = ($this->hasNoSlot($entry)
                     ? $rooms->reject(fn ($candidate) => $candidate->id === $room->id)
                     : $rooms->slice($index + 1))
-                    ->filter(fn ($candidate) => $this->tracks->accepts($candidate, $entry->attemptSchedule->presentationAttempt->researchGroup));
+                    ->filter(fn ($candidate) => $this->tracks->accepts($candidate, $entry->attemptSchedule->presentationAttempt->researchGroup))
+                    // A late registration never joins a day that has already
+                    // started (user-directed 2026-10-11); it waits for a later
+                    // day instead.
+                    ->reject(fn ($candidate) => $this->joinedAfterStart($entry, $candidate->presentationDate));
 
                 $target = $candidates->first(fn ($candidate) => $this->roomHasRemainingCapacity($candidate));
 
@@ -1526,10 +1579,16 @@ class QueueAdjustmentService
                     continue;
                 }
 
+                // A group pushed off its day presents before that day's later
+                // groups of the same section — it was ahead of them already.
+                $rank = $this->rankOf($category, $entry);
+                $position = $this->insertIndexFor($target, $rank, 'before', $spilledInto[$target->id] ?? [], $entry->id) + 1;
+
                 try {
-                    DB::transaction(function () use ($entry, $target, $performedByUserId) {
-                        $this->relocateEntryToRoom($entry, $target, null, 'CARRY_OVER_NEXT_DAY', 'LIVE_CAPACITY_ADJUSTMENT', $performedByUserId);
+                    DB::transaction(function () use ($entry, $target, $position, $performedByUserId) {
+                        $this->relocateEntryToRoom($entry, $target, $position, 'CARRY_OVER_NEXT_DAY', 'LIVE_CAPACITY_ADJUSTMENT', $performedByUserId);
                     });
+                    $spilledInto[$target->id][] = $entry->id;
                     $moved++;
                 } catch (\RuntimeException $e) {
                     $unmoved++;
@@ -1582,6 +1641,15 @@ class QueueAdjustmentService
                 continue;
             }
 
+            // A group registered after this day started never presents on it
+            // (user-directed 2026-10-11): it waits "to be scheduled" for a
+            // later day, unless an Administrator placed it here by hand.
+            if ($this->joinedAfterStart($entry, $room->presentationDate)) {
+                $schedule->update(['planned_call_at' => null, 'planned_start_at' => null, 'planned_end_at' => null]);
+
+                continue;
+            }
+
             // A room limited to other tracks never gives the group a slot
             // (TrackRouting) — it waits "to be scheduled" until a room on its
             // track has time, and takes none of this room's time meanwhile.
@@ -1618,6 +1686,299 @@ class QueueAdjustmentService
 
             $cursor = $end->copy();
         }
+    }
+
+    /**
+     * A group that registered after $date had already started, and that no
+     * one has placed since (no adjustment). Such a group never takes a slot
+     * on that day, whichever room it waits in. A re-defense is excluded: it
+     * is placed by ReDefenseService on purpose.
+     */
+    private function joinedAfterStart(QueueEntry $entry, PresentationDate $date): bool
+    {
+        if ($date->activated_at === null || $entry->inserted_at === null || $entry->inserted_at->lte($date->activated_at)) {
+            return false;
+        }
+
+        $entry->loadMissing('attemptSchedule.presentationAttempt.attemptType');
+
+        if ($entry->attemptSchedule?->presentationAttempt?->attemptType?->code === 'RE_DEFENSE') {
+            return false;
+        }
+
+        return ! QueueAdjustment::where('queue_entry_id', $entry->id)->exists();
+    }
+
+    /** The entry's QueueOrdering rank. */
+    private function rankOf(PresentationCategory $category, QueueEntry $entry): int
+    {
+        return $this->ordering->entryRanks($category, [$entry->id])[$entry->id] ?? 0;
+    }
+
+    /**
+     * The 0-based index an entry of $rank takes among $room's active groups
+     * ($excludeEntryId left out). 'after' places it behind the last group of
+     * its rank or an earlier one (a late registration joins the end of its
+     * section); 'before' places it ahead of the first group of its rank or a
+     * later one, except those in $skipIds (a group pushed off an earlier day
+     * goes ahead of this day's own groups of its section). Never ahead of a
+     * group that has presented or is presenting.
+     */
+    public function insertIndexFor(PresentationDateRoom $room, int $rank, string $mode = 'after', array $skipIds = [], ?int $excludeEntryId = null): int
+    {
+        $room->loadMissing('presentationDate.category');
+
+        $ids = $this->activeEntryIdsForRoom($room->id)->reject(fn ($id) => $id === $excludeEntryId)->values();
+        $ranks = $this->ordering->entryRanks($room->presentationDate->category, $ids);
+        $floor = $this->firstOpenPosition($ids) - 1;
+
+        if ($mode === 'after') {
+            $index = 0;
+
+            foreach ($ids as $i => $id) {
+                if (($ranks[$id] ?? 0) <= $rank) {
+                    $index = $i + 1;
+                }
+            }
+        } else {
+            $index = $ids->count();
+
+            foreach ($ids as $i => $id) {
+                $other = $ranks[$id] ?? 0;
+
+                if ($other > $rank || ($other === $rank && ! in_array($id, $skipIds, true))) {
+                    $index = $i;
+                    break;
+                }
+            }
+        }
+
+        return max($floor, min($index, $ids->count()));
+    }
+
+    /** Puts a (new) entry at $index of $room's active order and re-lays the room. */
+    public function placeEntryAt(PresentationDateRoom $room, int $entryId, int $index): void
+    {
+        $ids = $this->activeEntryIdsForRoom($room->id)->reject(fn ($id) => $id === $entryId)->values();
+        $ids->splice(max(0, min($index, $ids->count())), 0, [$entryId]);
+
+        $this->applyOrder($room, $ids);
+    }
+
+    /**
+     * When the group placed at $index of $room would start: the start of the
+     * group it goes ahead of, or the room's next free slot when it goes last.
+     * Null when the room can't give it a slot there.
+     */
+    public function slotTimeAt(PresentationDateRoom $room, int $index): ?\Illuminate\Support\Carbon
+    {
+        $ids = $this->activeEntryIdsForRoom($room->id);
+
+        if ($index < $ids->count()) {
+            $start = QueueEntry::find($ids[$index])?->attemptSchedule?->planned_start_at;
+
+            return $start?->copy();
+        }
+
+        if (! $this->roomHasRemainingCapacity($room)) {
+            return null;
+        }
+
+        $lastEnd = AttemptSchedule::where('presentation_date_room_id', $room->id)
+            ->whereHas('queueEntry', fn ($q) => $q->whereNull('removed_at'))
+            ->max('planned_end_at');
+
+        return $lastEnd
+            ? \Illuminate\Support\Carbon::parse($lastEnd)
+            : $room->presentationDate->presentation_date->copy()
+                ->setTimeFromTimeString($room->room_start_time ?? $room->presentationDate->event_start_time);
+    }
+
+    /**
+     * Places entries carried off an earlier day ahead of the target room's
+     * own groups of the same section (behind earlier sections), keeping the
+     * carried groups' own order. Under FIFO and Random Draw that is the front
+     * of the room, as before.
+     */
+    private function insertAheadOfSameRank(\Illuminate\Support\Collection $entries, PresentationDateRoom $targetRoom, PresentationCategory $category, string $adjustmentTypeCode, string $reasonCode, int $performedByUserId): void
+    {
+        $placed = [];
+
+        foreach ($entries as $entry) {
+            $position = $this->insertIndexFor($targetRoom, $this->rankOf($category, $entry), 'before', $placed, $entry->id) + 1;
+            $this->relocateEntryToRoom($entry, $targetRoom, $position, $adjustmentTypeCode, $reasonCode, $performedByUserId);
+            $placed[] = $entry->id;
+        }
+    }
+
+    /**
+     * Section Based: the positions a group may be moved to in its own room —
+     * from just after the last group of an earlier section to just before
+     * the first group of a later one, and never ahead of a group that has
+     * presented or is presenting. 1-based, inclusive.
+     *
+     * @return array{0: int, 1: int}
+     */
+    public function sectionMoveRange(PresentationDateRoom $room, int $entryId): array
+    {
+        $room->loadMissing('presentationDate.category');
+        $category = $room->presentationDate->category;
+
+        $ids = $this->activeEntryIdsForRoom($room->id)->reject(fn ($id) => $id === $entryId)->values();
+        $ranks = $this->ordering->entryRanks($category, $ids->concat([$entryId]));
+
+        return $this->rangeWithin($ids, $ranks, $ranks[$entryId] ?? 0, $this->firstOpenPosition($ids));
+    }
+
+    /** @return array{0: int, 1: int} */
+    private function rangeWithin(\Illuminate\Support\Collection $ids, array $ranks, int $rank, int $floor): array
+    {
+        $min = $floor;
+        $max = $ids->count() + 1;
+
+        foreach ($ids->values() as $i => $id) {
+            if (($ranks[$id] ?? 0) < $rank) {
+                $min = max($min, $i + 2);
+            }
+        }
+
+        foreach ($ids->values() as $i => $id) {
+            if (($ranks[$id] ?? 0) > $rank) {
+                $max = $i + 1;
+                break;
+            }
+        }
+
+        return [$min, max($min, $max)];
+    }
+
+    /**
+     * Section Based: why $entry may not be transferred to $targetRoom's day,
+     * or null when it may. Allowed while no earlier day still holds a group
+     * of a later section and no later day still holds a group of an earlier
+     * one (user-directed 2026-10-11: "allow if order kept"). Rooms running in
+     * parallel on the same day are not compared.
+     */
+    private function sectionTransferBlock(PresentationCategory $category, QueueEntry $entry, int $rank, PresentationDateRoom $targetRoom): ?string
+    {
+        $bounds = $this->sectionDayBounds($category, $entry->id);
+        $reason = $this->dayRankConflict($bounds, $targetRoom->presentation_date_id, $rank);
+
+        if (! $reason) {
+            return null;
+        }
+
+        [$side, $otherRank, $dateId] = $reason;
+        $reference = $entry->attemptSchedule->presentationAttempt->researchGroup->group_reference;
+        $mine = $this->ordering->label($category, $rank);
+        $theirs = $this->ordering->label($category, $otherRank);
+        $target = $targetRoom->presentationDate->presentation_date->format('M j, Y');
+        $other = $bounds['dates'][$dateId]->presentation_date->format('M j, Y');
+
+        return $side === 'earlier'
+            ? "{$reference} ({$mine}) can't go to {$target}: {$theirs} groups present earlier, on {$other}, and {$mine} must present before them."
+            : "{$reference} ({$mine}) can't go to {$target}: {$theirs} groups still present later, on {$other}, and {$mine} must present after them.";
+    }
+
+    /**
+     * The lowest and highest regular rank (sections, not the deferred tail or
+     * re-defense) still waiting to present on each ongoing or upcoming day,
+     * leaving $excludeEntryId out.
+     */
+    private function sectionDayBounds(PresentationCategory $category, ?int $excludeEntryId = null): array
+    {
+        $dates = $category->presentationDates()->chronological()->with('eventDateStatus')->get()
+            ->filter(fn (PresentationDate $date) => $date->completed_at === null)
+            ->values();
+
+        $entries = QueueEntry::whereNull('removed_at')
+            ->whereHas('attemptSchedule.presentationDateRoom', fn ($q) => $q->whereIn('presentation_date_id', $dates->pluck('id')))
+            ->whereHas('attemptSchedule.presentationAttempt.presentationStatus', fn ($q) => $q->where('is_terminal', false))
+            ->when($excludeEntryId, fn ($q) => $q->where('id', '!=', $excludeEntryId))
+            ->with('attemptSchedule.presentationDateRoom')
+            ->get();
+
+        $ranks = $this->ordering->entryRanks($category, $entries->pluck('id'));
+        $min = [];
+        $max = [];
+
+        foreach ($entries as $entry) {
+            $rank = $ranks[$entry->id] ?? 0;
+
+            if ($rank >= QueueOrdering::TAIL) {
+                continue;
+            }
+
+            $dateId = $entry->attemptSchedule->presentationDateRoom->presentation_date_id;
+            $min[$dateId] = min($min[$dateId] ?? PHP_INT_MAX, $rank);
+            $max[$dateId] = max($max[$dateId] ?? PHP_INT_MIN, $rank);
+        }
+
+        return ['order' => $dates->pluck('id')->all(), 'dates' => $dates->keyBy('id'), 'min' => $min, 'max' => $max];
+    }
+
+    /** ['earlier'|'later', the conflicting rank, its date id] or null. */
+    private function dayRankConflict(array $bounds, int $targetDateId, int $rank): ?array
+    {
+        $position = array_search($targetDateId, $bounds['order'], true);
+
+        if ($position === false) {
+            return null;
+        }
+
+        foreach ($bounds['order'] as $i => $dateId) {
+            if ($i < $position && ($bounds['max'][$dateId] ?? PHP_INT_MIN) > $rank) {
+                return ['earlier', $bounds['max'][$dateId], $dateId];
+            }
+
+            if ($i > $position && ($bounds['min'][$dateId] ?? PHP_INT_MAX) < $rank) {
+                return ['later', $bounds['min'][$dateId], $dateId];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Everything Group & Panel Assignment needs to show the section rules
+     * (Section Based only): each active entry's section label, the positions
+     * it may be moved to in its room, and the days it may be transferred to.
+     *
+     * @return array{labels: array<int, string>, move: array<int, array{0: int, 1: int}>, dates: array<int, array<int, int>>}|null
+     */
+    public function sectionGuide(PresentationCategory $category): ?array
+    {
+        if (! $this->ordering->isSectionBased($category)) {
+            return null;
+        }
+
+        $entries = QueueEntry::whereNull('removed_at')
+            ->whereHas('attemptSchedule.presentationDateRoom.presentationDate', fn ($q) => $q->where('category_id', $category->id))
+            ->with('attemptSchedule.presentationAttempt.presentationStatus')
+            ->orderBy('queue_number')
+            ->get();
+
+        $ranks = $this->ordering->entryRanks($category, $entries->pluck('id'));
+        $bounds = $this->sectionDayBounds($category);
+        $guide = ['labels' => [], 'move' => [], 'dates' => []];
+
+        foreach ($entries->groupBy(fn ($entry) => $entry->attemptSchedule->presentation_date_room_id) as $roomEntries) {
+            foreach ($roomEntries as $entry) {
+                $rank = $ranks[$entry->id] ?? 0;
+                $guide['labels'][$entry->id] = $this->ordering->label($category, $rank);
+
+                $others = $roomEntries->reject(fn ($other) => $other->id === $entry->id)->values();
+                $locked = $others->keys()->filter(fn ($i) => $this->holdsItsSlot($others[$i]->attemptSchedule->presentationAttempt->presentationStatus))->max();
+                $guide['move'][$entry->id] = $this->rangeWithin($others->pluck('id'), $ranks, $rank, $locked === null ? 1 : $locked + 2);
+
+                $guide['dates'][$entry->id] = collect($bounds['order'])
+                    ->filter(fn ($dateId) => $this->dayRankConflict($bounds, $dateId, $rank) === null)
+                    ->values()
+                    ->all();
+            }
+        }
+
+        return $guide;
     }
 
     private function failure(string $message): array

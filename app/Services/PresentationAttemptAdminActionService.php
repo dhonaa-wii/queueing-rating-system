@@ -23,6 +23,7 @@ use App\Models\ProposedTitle;
 use App\Models\QueueAdjustment;
 use App\Models\RoomSession;
 use App\Models\RoomSessionStatus;
+use App\Models\Student;
 use App\Models\TimerStatus;
 use Illuminate\Support\Facades\DB;
 
@@ -121,7 +122,15 @@ class PresentationAttemptAdminActionService
         return ['ok' => true];
     }
 
-    public function delete(AttemptSchedule $schedule, int $performedByUserId): array
+    /**
+     * Deletes the attempt and its queue placement. With $removeRegistration
+     * (the Admin's Delete, user-directed 2026-10-04) the group's registration
+     * goes too once it has no other attempt, so the group is gone for good —
+     * otherwise appendUnqueuedGroups() would put a registered group with no
+     * attempt straight back in the queue. Date removal passes false: its
+     * groups are meant to rejoin the queue when a date is added.
+     */
+    public function delete(AttemptSchedule $schedule, int $performedByUserId, bool $removeRegistration = false): array
     {
         $schedule->loadMissing('presentationAttempt', 'presentationDateRoom', 'queueEntry');
 
@@ -144,7 +153,9 @@ class PresentationAttemptAdminActionService
             return $this->failure('This presentation has real submitted evaluations recorded against it and cannot be deleted.');
         }
 
-        DB::transaction(function () use ($attempt, $room, $schedule, $performedByUserId) {
+        $registrationDeleted = false;
+
+        DB::transaction(function () use ($attempt, $room, $schedule, $performedByUserId, $removeRegistration, &$registrationDeleted) {
             // A group the panel has called and not yet started is skipped, with
             // a notice left for the room's tablets (user-directed 2026-09-24).
             $this->queueAdjustmentService->releaseCalledAttempt($schedule, 'DELETED', $performedByUserId, resetStatus: false);
@@ -186,10 +197,21 @@ class PresentationAttemptAdminActionService
             $schedule->delete();
             $attempt->delete();
 
+            // A group with an earlier attempt keeps its registration: that
+            // attempt is its presentation history (e.g. a re-defense's first try).
+            $group = $attempt->researchGroup;
+
+            if ($removeRegistration && $group && ! $group->presentationAttempts()->exists()) {
+                ProposedTitle::where('research_group_id', $group->id)->delete();
+                Student::where('research_group_id', $group->id)->delete();
+                $group->delete();
+                $registrationDeleted = true;
+            }
+
             $this->queueAdjustmentService->renumberRoom($room);
         });
 
-        return ['ok' => true];
+        return ['ok' => true, 'registrationDeleted' => $registrationDeleted];
     }
 
     private function failure(string $message): array

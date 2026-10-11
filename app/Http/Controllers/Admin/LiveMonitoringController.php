@@ -110,6 +110,16 @@ class LiveMonitoringController extends Controller
         $category->presentationDates->each->refreshStatus();
         $category->load('presentationDates.eventDateStatus');
 
+        // A room removed from its day is not shown (user-directed 2026-10-04),
+        // except while it still has an open session — removal is allowed
+        // mid-presentation, and End Room has to stay reachable until then.
+        $category->presentationDates->each(function ($date) {
+            $date->setRelation('presentationDateRooms', $date->presentationDateRooms->filter(
+                fn (PresentationDateRoom $room) => $room->roomUseStatus?->code !== 'REMOVED'
+                    || $room->roomSessions->contains(fn ($session) => $session->ended_at === null)
+            )->values());
+        });
+
         // One category-wide capacity read, same CapacityAnalysisService::
         // analyze() Presentation Setup's Schedules tab already shows —
         // user-directed 2026-08-06: the room-scoped "live" version read
@@ -428,7 +438,7 @@ class LiveMonitoringController extends Controller
     {
         $this->ensureScheduleBelongsToCategory($schedule, $category);
 
-        $result = $service->delete($schedule, $request->user()->id);
+        $result = $service->delete($schedule, $request->user()->id, removeRegistration: true);
 
         return $result['ok']
             ? back()->with('status', 'Presentation deleted.')
