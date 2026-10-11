@@ -6,6 +6,7 @@
     <title>@yield('title', 'Super Administrator') &middot; {{ config('app.name') }}</title>
     <link href="{{ asset('vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
     @include('partials.theme-head')
+    @include('partials.sidebar-toggle-head')
     <style>
         html, body {
             height: 100%;
@@ -163,7 +164,7 @@
                 <div class="admin-sidebar-brand-text">
                     <span class="navbar-brand-mark fs-5 mb-0 d-block">ARPQRS</span>
                 </div>
-                <button type="button" class="btn-close d-lg-none" id="admin-sidebar-close" aria-label="Close menu"></button>
+                @include('partials.sidebar-toggle-button', ['action' => 'close'])
             </div>
 
             <nav class="admin-sidebar-nav">
@@ -209,9 +210,7 @@
         <div class="admin-main">
             <header class="admin-topbar">
                 <div class="d-flex align-items-center gap-2">
-                    <button type="button" class="btn btn-outline-brand btn-sm d-lg-none" id="admin-sidebar-open" aria-label="Open menu">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M3 6h18M3 18h18"></path></svg>
-                    </button>
+                    @include('partials.sidebar-toggle-button', ['action' => 'open'])
 
                     {{-- Back button: upper left, same slot as the Admin layout. --}}
                     @hasSection('back-link')
@@ -243,29 +242,7 @@
     @include('partials.settings-modal')
 
     @include('partials.theme-toggle-script')
-    <script>
-        (function () {
-            var sidebar = document.getElementById('admin-sidebar');
-            var backdrop = document.getElementById('admin-sidebar-backdrop');
-            var openBtn = document.getElementById('admin-sidebar-open');
-            var closeBtn = document.getElementById('admin-sidebar-close');
-
-            function open() {
-                sidebar.classList.add('is-open');
-                backdrop.classList.add('is-open');
-            }
-
-            function close() {
-                sidebar.classList.remove('is-open');
-                backdrop.classList.remove('is-open');
-            }
-
-            if (openBtn) openBtn.addEventListener('click', open);
-            if (closeBtn) closeBtn.addEventListener('click', close);
-            backdrop.addEventListener('click', close);
-            sidebar.querySelectorAll('[data-bs-toggle="modal"]').forEach(function (btn) { btn.addEventListener('click', close); });
-        })();
-    </script>
+    @include('partials.sidebar-toggle-script')
     <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
     @stack('scripts')
 </body>
