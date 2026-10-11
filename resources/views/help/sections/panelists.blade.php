@@ -142,7 +142,7 @@
 
 <div class="hc-topic" id="pn-evaluate">
     <h3><x-icon name="clipboard-check" /> Evaluating a group</h3>
-    <p>When a group is called, the evaluation sheet opens on every connected panelist's device. It is the same sheet the Administrator built in the Evaluation Library.</p>
+    <p>When a group is called, the evaluation sheet opens on every connected panelist's device. It is the same sheet the Administrator built in the Evaluation Library. In a category with tracks, each track can have its own sheet; you get the one for the group's track.</p>
     <figure class="hc-figure">
         <div class="hc-window">
             <div class="hc-window-bar"><div class="hc-window-dots"><i></i><i></i><i></i></div><div class="hc-window-url">Evaluation · CFD-2026-0012</div></div>
@@ -160,7 +160,7 @@
                         </tbody>
                     </table>
                     <div class="m-grid-2" style="margin-top:.5rem;">
-                        <div><div class="m-label">Researchers · Individual <span class="m-pin">2</span></div><div class="m-between m-small"><span>Dela Cruz, Juan</span><span class="m-input" style="width:2.6rem">92</span></div><div class="m-between m-small" style="margin-top:.2rem"><span>Reyes, Ana</span><span class="m-input" style="width:2.6rem">90</span></div></div>
+                        <div><div class="m-label">Researchers · Individual <span class="m-pin">2</span></div><div class="m-between m-small"><span>Dela Cruz, Juan</span><span class="m-input" style="width:2.6rem">92</span></div><div class="m-between m-small" style="margin-top:.2rem"><span>Reyes, Ana</span><span class="m-input" style="width:2.6rem">90</span></div><div class="m-between m-small" style="margin-top:.2rem"><span>Engr. Ramos (Adviser)</span><span class="m-faint">—</span></div></div>
                         <div><div class="m-label">Remarks <span class="m-pin">3</span></div>
                             <div class="m-row m-small"><span class="m-check is-on"></span> Pass with Minor Revision</div>
                             <div class="m-row m-small"><span class="m-check"></span> Re-Defense</div>
@@ -175,7 +175,7 @@
     </figure>
     <ul class="hc-pins">
         <li><span class="m-pin">1</span><span><strong>Rate every criterion</strong> from 1 (Very Insufficient) to 5 (Very Sufficient). Each tap is saved immediately.</span></li>
-        <li><span class="m-pin">2</span><span><strong>Individual score</strong> for each researcher, 0–100 (Standard mode).</span></li>
+        <li><span class="m-pin">2</span><span><strong>Individual score</strong> for each researcher, 0–100 (Standard mode). The group's technical adviser is listed under the researchers but is not scored.</span></li>
         <li><span class="m-pin">3</span><span><strong>Remarks</strong> — choose one outcome, and add comments if needed.</span></li>
         <li><span class="m-pin">4</span><span><strong>Submit Evaluation</strong> — available once every required part is filled.</span></li>
     </ul>
