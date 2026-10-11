@@ -19,13 +19,14 @@
                         <div class="m-side-brand">ARPQRS</div>
                         <div class="m-nav is-on"><x-icon name="grid" /> Dashboard</div>
                         <div class="m-nav"><x-icon name="list-check" /> My Assignments</div>
+                        <div class="m-nav"><x-icon name="monitor" /> Live Room</div>
                         <div class="m-nav"><x-icon name="calendar" /> View Schedule</div>
                         <div class="m-side-foot"><div class="m-nav"><x-icon name="settings" /> Settings</div></div>
                     </div>
                     <div class="m-body">
-                        <div class="m-top"><span class="m-title">Dashboard</span><span class="m-btn is-ghost"><x-icon name="help-circle" /> Help Center</span><span class="m-icon-btn"><x-icon name="bell" /><span class="m-count">2</span></span><span class="m-pin">1</span><span class="m-icon-btn"><x-icon name="qr-code" /></span><span class="m-pin">2</span></div>
+                        <div class="m-top"><span class="m-title">Dashboard</span><span class="m-btn is-ghost"><x-icon name="help-circle" /> Help Center</span><span class="m-icon-btn"><x-icon name="bell" /><span class="m-count">2</span></span><span class="m-pin">1</span></div>
                         <div class="m-page">
-                            <div class="m-between"><span class="m-input" style="min-width:10rem">Capstone Final Defense ▾</span><span class="m-pin">3</span></div>
+                            <div class="m-between"><span class="m-input" style="min-width:10rem">Capstone Final Defense ▾</span><span class="m-pin">2</span></div>
                             <div class="m-stats">
                                 <div class="m-stat"><div class="m-label">Assigned</div><div class="m-stat-value">12</div></div>
                                 <div class="m-stat"><div class="m-label">Completed</div><div class="m-stat-value">7</div></div>
@@ -42,8 +43,7 @@
     </figure>
     <ul class="hc-pins">
         <li><span class="m-pin">1</span><span><strong>Notifications</strong> — the number shows unread items.</span></li>
-        <li><span class="m-pin">2</span><span><strong>Room Session</strong> — opens your phone camera to scan a room device's QR code.</span></li>
-        <li><span class="m-pin">3</span><span><strong>Category</strong> — switch between the categories you serve on. Counts, the live room and announcements follow it.</span></li>
+        <li><span class="m-pin">2</span><span><strong>Category</strong> — switch between the categories you serve on. Counts, the live room and announcements follow it.</span></li>
     </ul>
 </div>
 
@@ -96,48 +96,42 @@
 </div>
 
 <div class="hc-topic" id="pn-join">
-    <h3><x-icon name="qr-code" /> Joining a room</h3>
-    <p>Open the room on any device, a shared tablet or your own laptop (<a href="#rd-setup">Opening a room</a>). While a seat is free it shows a QR code and a sign-in form. Join one of two ways:</p>
+    <h3><x-icon name="monitor" /> Joining a room</h3>
+    <p>You join a room from your own account, on your own laptop or any device. There is no room login. Open <strong>Live Room</strong> in the side menu: it lists the rooms of your college that are running now, with the rooms you are on the panel for first.</p>
     <figure class="hc-figure">
         <div class="hc-window">
-            <div class="hc-window-bar"><div class="hc-window-dots"><i></i><i></i><i></i></div><div class="hc-window-url">/room-session/home · Room 101</div></div>
+            <div class="hc-window-bar"><div class="hc-window-dots"><i></i><i></i><i></i></div><div class="hc-window-url">/panelist/live-room</div></div>
             <div class="hc-screen is-tinted">
-                <div class="m-grid-2" style="grid-template-columns:1.3fr 1fr;align-items:start;">
-                    <div class="m-col">
-                        <div class="m-card"><div class="m-label">Current Group</div><div class="m-bold">CFD-2026-0007</div><div class="m-small m-muted">Smart Campus Navigation App</div></div>
-                        <div class="m-card"><div class="m-label">Room Queue</div>
-                            <table class="m-table"><tbody>
-                                <tr><td>5</td><td>CFD-2026-0012</td><td>9:20 AM</td></tr>
-                                <tr><td>6</td><td>CFD-2026-0003</td><td>9:40 AM</td></tr>
-                            </tbody></table>
-                        </div>
+                <div class="m-grid-2">
+                    <div class="m-card">
+                        <div class="m-between"><span class="m-bold">Room 101</span><span class="hc-badge hc-badge-brand">Your panel</span></div>
+                        <div class="m-xs m-muted">Capstone Final Defense · Sep 14, 2026</div>
+                        <div style="margin:.4rem 0;"><span class="hc-badge hc-badge-muted">Panelists · 1/3</span> <span class="m-pin">1</span></div>
+                        <span class="m-btn is-block">Join Room</span> <span class="m-pin">2</span>
                     </div>
-                    <div class="m-card" style="text-align:center;">
-                        <div class="m-bold">Scan to Join <span class="m-pin">1</span></div>
-                        <div style="display:grid;place-items:center;margin:.4rem 0;">
-                            <div class="m-qr">@foreach (str_split('111001111101010101111001111000110000101101011010010110111010101101001010111011101') as $bit)<i class="{{ $bit === '1' ? '' : 'o' }}"></i>@endforeach</div>
-                        </div>
-                        <div class="m-xs m-muted">Or Log In Directly <span class="m-pin">2</span></div>
-                        <div class="m-col" style="margin-top:.3rem;"><span class="m-input is-empty">Username</span><span class="m-input is-empty">Password</span><span class="m-btn is-block">Log In</span></div>
+                    <div class="m-card">
+                        <div class="m-between"><span class="m-bold">Room 102</span></div>
+                        <div class="m-xs m-muted">Capstone Final Defense · Sep 14, 2026</div>
+                        <div style="margin:.4rem 0;"><span class="hc-badge hc-badge-success">Panel complete · 3/3</span></div>
+                        <span class="m-btn is-block is-soft">Join Room</span>
                     </div>
                 </div>
             </div>
         </div>
-        <figcaption><strong>Figure 9.</strong> A room screen with a free seat.</figcaption>
+        <figcaption><strong>Figure 9.</strong> Live Room.</figcaption>
     </figure>
-    <div class="hc-options-or">
-        <div class="hc-option"><div class="hc-option-icon"><x-icon name="smartphone" /></div><div><div class="hc-option-title"><span class="m-pin">1</span> Scan QR Code</div><p>On your phone, sign in to your own panelist account, tap the <x-icon name="qr-code" style="width:.9em;height:.9em;vertical-align:-.1em" /> Room Session button in the top bar, point the camera at the device's code, then press <strong>Confirm &amp; Join</strong> on <strong>Join This Room?</strong>. You can also scan with the phone's normal camera app. The code refreshes every few minutes.</p></div></div>
-        <div class="hc-or">or</div>
-        <div class="hc-option"><div class="hc-option-icon"><x-icon name="key" /></div><div><div class="hc-option-title"><span class="m-pin">2</span> Log In Directly</div><p>Type <strong>your own</strong> username and password into the room screen's form.</p></div></div>
-    </div>
-    <p>Once connected the device shows your name and badges:</p>
+    <ul class="hc-pins">
+        <li><span class="m-pin">1</span><span><strong>Seats</strong> — how many panelists have joined out of the room's panel size. A full room reads <strong>Panel complete</strong> and cannot be joined.</span></li>
+        <li><span class="m-pin">2</span><span><strong>Join Room</strong> — takes a seat and opens the room screen: the queue, the evaluation sheet and, for the Chair, the Presentation Controls.</span></li>
+    </ul>
+    <p>Once joined the room screen shows your name and badges:</p>
     <div class="hc-panel">
         <div class="hc-legend-row"><span class="hc-badge hc-badge-success">Can Evaluate</span><span>You are seated on the current group and can rate it.</span></div>
         <div class="hc-legend-row"><span class="hc-badge hc-badge-brand">Flow Control (Chair)</span><span>You are the Lead Panelist — the Presentation Controls appear.</span></div>
         <div class="hc-legend-row"><span class="hc-badge hc-badge-info">Alternate Panel</span><span>You are a backup on this room.</span></div>
         <div class="hc-legend-row"><span class="hc-badge hc-badge-muted">Not Assigned</span><span>You are not on this panel; see <a href="#pn-substitute">Backups and substitutions</a>.</span></div>
     </div>
-    <div class="hc-note hc-note-warn"><x-icon name="alert-triangle" /><p>When you leave the room, press <strong>Log Out</strong> on the device so the next panelist can sit. You hold one seat per room: signing in on another device moves your seat there.</p></div>
+    <div class="hc-note hc-note-warn"><x-icon name="alert-triangle" /><p>When you are done, press <strong>Leave Room</strong> so the next panelist can sit. You are in one room at a time: joining another room leaves the first. Opening Live Room on a second device with the same account takes you back to the same seat.</p></div>
 </div>
 
 <div class="hc-topic" id="pn-evaluate">
@@ -239,7 +233,7 @@
 
 <div class="hc-topic" id="pn-substitute">
     <h3><x-icon name="repeat" /> Backups and substitutions</h3>
-    <p>If you sign in to a room for a group you are not seated on, the device asks whose seat you are taking:</p>
+    <p>If you join a room for a group you are not seated on, the room screen asks whose seat you are taking:</p>
     <div class="hc-options-or">
         <div class="hc-option"><div class="hc-option-icon is-success"><x-icon name="user-plus" /></div><div><div class="hc-option-title">You are the Backup</div><p>Choose the assigned panelist you are filling in for. The swap happens immediately; if they were the Lead, you become the Lead. They are notified.</p></div></div>
         <div class="hc-or">or</div>

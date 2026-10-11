@@ -13,19 +13,13 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * The single place that decides whether a panelist may take a seat in a room
- * session, and does it — shared by both ways a panelist can identify
- * themselves on a device viewing that room: scanning its QR with their phone
- * (Panelist\TerminalScanController) or typing their personal username/password
- * into the room screen (RoomSessionController::manualLogin()).
+ * session, and does it. Called when a panelist presses Join Room in Live Room
+ * (RoomSessionController::joinAsPanelist()).
  *
- * User-directed 2026-10-11 (room session redesign): devices no longer claim a
- * terminal number with a shared room account. Any device can open a running
- * room and watch it; a seat (room_terminals row, one per panelist_count) is
- * only taken when a panelist logs in, and is handed out automatically. Once
- * every seat is taken nobody else can log in. A panelist who already holds a
- * seat and logs in again (another device, a laptop that died) moves their seat
- * to the new device instead of being refused; the old device drops back to
- * view-only.
+ * User-directed 2026-10-11 (room session redesign): no room account and no
+ * terminal picker. A seat (room_terminals row, one per panelist_count) is
+ * taken when a panelist joins from their own account and is handed out
+ * automatically; once every seat is taken nobody else can join.
  *
  * User-directed 2026-08-22: anyone is let in, not only the assigned panel;
  * classifyForRoom() below tells the caller whether to route them through

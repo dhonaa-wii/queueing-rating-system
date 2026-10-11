@@ -59,12 +59,12 @@
             'pn-breaks' => 'Scheduled breaks',
             'pn-substitute' => 'Backups and substitutions',
         ]],
-        ['id' => 'room-devices', 'icon' => 'tablet', 'title' => 'Room Session Devices', 'sub' => 'Opening a room on any tablet or laptop, and how panelists take their seats.', 'topics' => [
+        ['id' => 'room-devices', 'icon' => 'tablet', 'title' => 'Room Displays', 'sub' => 'Showing a running room\'s live queue on a projector, TV or tablet.', 'topics' => [
             'rd-what' => 'What a room device is',
             'rd-check' => 'Checking a device',
-            'rd-setup' => 'Opening a room',
-            'rd-screen' => 'The room screen',
-            'rd-release' => 'Leaving and switching devices',
+            'rd-setup' => 'Showing a room',
+            'rd-screen' => 'What the display shows',
+            'rd-release' => 'Leaving the display',
         ]],
         ['id' => 'administrators', 'icon' => 'layers', 'title' => 'Administrators', 'sub' => 'Configure categories, build evaluation forms, assign panels, run the event and produce reports.', 'topics' => [
             'ad-workflow' => 'The presentation workflow',

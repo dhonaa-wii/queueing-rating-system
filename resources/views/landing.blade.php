@@ -763,10 +763,8 @@
             .nav-actions { gap: 1.1rem; }
         }
 
-        /* Icon-only Room Session below 576px so Log in + theme still fit on
-           one row at 360px. */
+        /* Tighter spacing below 576px. */
         @media (max-width: 575.98px) {
-            .nav-btn-label { display: none; }
             .py-6 { padding-top: 3rem; padding-bottom: 3rem; }
             .hero-lede { font-size: 1rem; }
         }
@@ -796,7 +794,6 @@
                 <a href="#presentations" class="nav-link-quiet d-none d-lg-inline">Presentations</a>
                 <a href="#how-it-works" class="nav-link-quiet d-none d-lg-inline">How It Works</a>
                 <a href="{{ route('help') }}" class="nav-link-quiet d-none d-md-inline">Help Center</a>
-                <a href="{{ route('room-session.entry') }}" class="btn btn-outline-brand btn-sm" title="Room Session"><x-icon name="monitor" /><span class="nav-btn-label">Room Session</span></a>
                 <a href="{{ route('login') }}" class="btn btn-brand btn-sm">Log in</a>
 
                 @include('partials.theme-toggle-button')
@@ -1111,7 +1108,6 @@
                         <a href="{{ route('landing') }}">Home</a>
                         <a href="#presentations">Presentations</a>
                         <a href="#how-it-works">How It Works</a>
-                        <a href="{{ route('room-session.entry') }}">Room Session</a>
                         <a href="{{ route('help') }}">Help Center</a>
                         <a href="{{ route('login') }}">Log in</a>
                     </nav>

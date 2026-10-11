@@ -44,8 +44,8 @@ class LoginController extends Controller
             return redirect()->route('password.change');
         }
 
-        // Lets a page like the QR terminal-scan confirm screen (which requires
-        // login first) send the panelist back to exactly where they were headed,
+        // Lets a page that requires login first (a notification link, Live
+        // Room) send the panelist back to exactly where they were headed,
         // instead of always landing on their dashboard.
         return redirect()->intended(route($user->dashboardRouteName()));
     }

@@ -23,7 +23,6 @@ use App\Http\Controllers\Panelist\AssignmentController as PanelistAssignmentCont
 use App\Http\Controllers\Panelist\NotificationController as PanelistNotificationController;
 use App\Http\Controllers\Panelist\DashboardController as PanelistDashboardController;
 use App\Http\Controllers\Panelist\ScheduleController as PanelistScheduleController;
-use App\Http\Controllers\Panelist\TerminalScanController;
 use App\Http\Controllers\LetterheadLogoController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RoomSessionController;
@@ -62,11 +61,10 @@ Route::get('/letterhead/{letterhead}/logo/{slot}', [LetterheadLogoController::cl
     ->whereIn('slot', ['primary', 'secondary'])
     ->name('letterhead.logo');
 
-// Public room screen (user-directed 2026-10-11 redesign): a list of running
-// rooms any device can open and watch; panelists join with their own account
-// and seats are handed out automatically up to the room's panel count. See
-// App\Http\Controllers\RoomSessionController. The QR sign-in is under
-// Panelist\TerminalScanController, gated by that role's normal auth.
+// Public room display (user-directed 2026-10-11): a list of running rooms any
+// device can open to show the room's live queue, e.g. on a projector. View
+// only — panelists work from their own account (panelist.live-room.*). See
+// App\Http\Controllers\RoomSessionController.
 Route::prefix('/room-session')->name('room-session.')->group(function () {
     Route::get('/', [RoomSessionController::class, 'entry'])->name('entry');
     Route::post('/join', [RoomSessionController::class, 'join'])->name('join');
@@ -78,31 +76,6 @@ Route::prefix('/room-session')->name('room-session.')->group(function () {
     Route::view('/device-check', 'room-session.device-check')->name('device-check');
     Route::get('/home', [RoomSessionController::class, 'home'])->name('home');
     Route::get('/home/status', [RoomSessionController::class, 'status'])->name('status');
-    Route::post('/home/manual-login', [RoomSessionController::class, 'manualLogin'])->name('manual-login');
-    Route::post('/home/logout', [RoomSessionController::class, 'logoutPanelist'])->name('logout');
-    Route::post('/home/substitution/request', [RoomSessionController::class, 'requestSubstitution'])->name('substitution.request');
-
-    // Presentation Control (functional-spec §5.5/§9.9) — Terminal 1/Lead
-    // only, enforced per-request in RoomSessionController::requireLeadConnection().
-    Route::post('/home/call-next', [RoomSessionController::class, 'callNext'])->name('call-next');
-    Route::post('/home/verify-payment', [RoomSessionController::class, 'verifyPayment'])->name('verify-payment');
-    Route::post('/home/start', [RoomSessionController::class, 'startPresentation'])->name('start');
-    Route::post('/home/pause', [RoomSessionController::class, 'pausePresentation'])->name('pause');
-    Route::post('/home/resume', [RoomSessionController::class, 'resumePresentation'])->name('resume');
-    Route::post('/home/complete', [RoomSessionController::class, 'completePresentation'])->name('complete');
-    Route::post('/home/defer', [RoomSessionController::class, 'deferPresentation'])->name('defer');
-    Route::post('/home/break/cancel', [RoomSessionController::class, 'cancelBreak'])->name('break.cancel');
-    Route::post('/home/break/keep', [RoomSessionController::class, 'keepBreak'])->name('break.keep');
-    Route::post('/home/break/end', [RoomSessionController::class, 'endBreak'])->name('break.end');
-
-    // Live evaluation — any connected, panel-eligible terminal (Lead
-    // included), not just Terminal 1. Each panelist only ever touches their
-    // own submission, enforced in RoomSessionController::requireEvaluationSubmission().
-    Route::post('/home/evaluation/score', [RoomSessionController::class, 'saveEvaluationScore'])->name('evaluation.score');
-    Route::post('/home/evaluation/student-score', [RoomSessionController::class, 'saveEvaluationStudentScore'])->name('evaluation.student-score');
-    Route::post('/home/evaluation/outcome', [RoomSessionController::class, 'saveEvaluationOutcome'])->name('evaluation.outcome');
-    Route::post('/home/evaluation/remarks', [RoomSessionController::class, 'saveEvaluationRemarks'])->name('evaluation.remarks');
-    Route::post('/home/evaluation/submit', [RoomSessionController::class, 'submitEvaluation'])->name('evaluation.submit');
 });
 
 // Student / Research Group side has no accounts (functional-spec §4, §4.9) —
@@ -299,9 +272,38 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::get('/{category}', [PanelistScheduleController::class, 'show'])->name('show');
     });
 
-    Route::prefix('/panelist/scan-terminal')->name('panelist.terminal-scan.')->middleware('role:PANELIST')->group(function () {
-        Route::get('/{token}', [TerminalScanController::class, 'show'])->name('show');
-        Route::post('/{token}', [TerminalScanController::class, 'claim'])->name('claim');
+    // Live Room (user-directed 2026-10-11): the panelist joins a running room
+    // from their own account — no room login. The room they joined is their
+    // open seat (one room at a time), so no route carries a room id. Same
+    // screen and controller as the public display, in panelist mode.
+    Route::prefix('/panelist/live-room')->name('panelist.live-room.')->middleware('role:PANELIST')->group(function () {
+        Route::get('/', [RoomSessionController::class, 'liveRooms'])->name('index');
+        Route::post('/join', [RoomSessionController::class, 'joinAsPanelist'])->name('join');
+        Route::post('/leave', [RoomSessionController::class, 'leaveAsPanelist'])->name('leave');
+        Route::get('/room', [RoomSessionController::class, 'home'])->name('home');
+        Route::get('/room/status', [RoomSessionController::class, 'status'])->name('status');
+        Route::post('/room/substitution/request', [RoomSessionController::class, 'requestSubstitution'])->name('substitution.request');
+
+        // Presentation Control (functional-spec §5.5/§9.9) — the room's
+        // Lead/Chair only, enforced in RoomSessionController::requireLeadConnection().
+        Route::post('/room/call-next', [RoomSessionController::class, 'callNext'])->name('call-next');
+        Route::post('/room/verify-payment', [RoomSessionController::class, 'verifyPayment'])->name('verify-payment');
+        Route::post('/room/start', [RoomSessionController::class, 'startPresentation'])->name('start');
+        Route::post('/room/pause', [RoomSessionController::class, 'pausePresentation'])->name('pause');
+        Route::post('/room/resume', [RoomSessionController::class, 'resumePresentation'])->name('resume');
+        Route::post('/room/complete', [RoomSessionController::class, 'completePresentation'])->name('complete');
+        Route::post('/room/defer', [RoomSessionController::class, 'deferPresentation'])->name('defer');
+        Route::post('/room/break/cancel', [RoomSessionController::class, 'cancelBreak'])->name('break.cancel');
+        Route::post('/room/break/keep', [RoomSessionController::class, 'keepBreak'])->name('break.keep');
+        Route::post('/room/break/end', [RoomSessionController::class, 'endBreak'])->name('break.end');
+
+        // Live evaluation — each panelist only ever touches their own
+        // submission, enforced in RoomSessionController::requireEvaluationSubmission().
+        Route::post('/room/evaluation/score', [RoomSessionController::class, 'saveEvaluationScore'])->name('evaluation.score');
+        Route::post('/room/evaluation/student-score', [RoomSessionController::class, 'saveEvaluationStudentScore'])->name('evaluation.student-score');
+        Route::post('/room/evaluation/outcome', [RoomSessionController::class, 'saveEvaluationOutcome'])->name('evaluation.outcome');
+        Route::post('/room/evaluation/remarks', [RoomSessionController::class, 'saveEvaluationRemarks'])->name('evaluation.remarks');
+        Route::post('/room/evaluation/submit', [RoomSessionController::class, 'submitEvaluation'])->name('evaluation.submit');
     });
 
     Route::get('/super-admin/dashboard', [SuperAdminDashboardController::class, 'index'])

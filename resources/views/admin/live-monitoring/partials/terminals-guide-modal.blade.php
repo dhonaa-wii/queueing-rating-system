@@ -17,54 +17,31 @@
             </div>
 
             <div class="modal-body tg-body">
-                {{-- Room at a glance: the Lead's seat, then the two ways a
-                     panelist gets onto a seat. --}}
+                {{-- Room at a glance: three seats — the Chair's, a member's,
+                     and one still free. --}}
                 <div class="tg-hero" aria-hidden="true">
                     <svg viewBox="0 0 440 168" class="tg-hero-art">
-                        @foreach ([[30, '1', 'lead'], [158, '2', 'typed'], [286, '3', 'qr']] as [$x, $n, $kind])
+                        @foreach ([[30, '1', 'lead'], [172, '2', 'member'], [314, '3', 'free']] as [$x, $n, $kind])
                             <g transform="translate({{ $x }} 14)">
                                 <rect class="tg-art-device" x="0" y="0" width="96" height="120" rx="12"/>
                                 <rect class="tg-art-screen" x="8" y="9" width="80" height="94" rx="5"/>
                                 <rect class="tg-art-home" x="40" y="108" width="16" height="3" rx="1.5"/>
-                                @if ($kind === 'lead')
+                                @if ($kind === 'free')
+                                    <circle class="tg-art-free" cx="48" cy="48" r="20"/>
+                                @else
                                     <circle class="tg-art-avatar" cx="48" cy="42" r="13"/>
                                     <path class="tg-art-avatar-body" d="M27 76a21 15 0 0 1 42 0Z"/>
-                                    <path class="tg-art-crown" d="M38 24l3-7 4 4 3-6 3 6 4-4 3 7Z"/>
-                                @elseif ($kind === 'typed')
-                                    {{-- Username / password form --}}
-                                    <rect class="tg-art-field" x="18" y="24" width="60" height="13" rx="3"/>
-                                    <rect class="tg-art-field-text" x="23" y="29" width="28" height="3" rx="1.5"/>
-                                    <rect class="tg-art-field" x="18" y="43" width="60" height="13" rx="3"/>
-                                    @foreach ([25, 32, 39, 46, 53] as $dot)
-                                        <circle class="tg-art-field-dot" cx="{{ $dot }}" cy="49.5" r="1.8"/>
-                                    @endforeach
-                                    <rect class="tg-art-field-btn" x="18" y="63" width="60" height="13" rx="3"/>
-                                @else
-                                    <g transform="translate(26 26)" class="tg-art-qr">
-                                        <rect x="0" y="0" width="13" height="13" rx="2"/>
-                                        <rect x="31" y="0" width="13" height="13" rx="2"/>
-                                        <rect x="0" y="31" width="13" height="13" rx="2"/>
-                                        <rect x="19" y="19" width="6" height="6" rx="1"/>
-                                        <rect x="31" y="31" width="5" height="5" rx="1"/>
-                                        <rect x="39" y="39" width="5" height="5" rx="1"/>
-                                        <rect x="19" y="4" width="6" height="6" rx="1"/>
-                                        <rect x="4" y="19" width="6" height="6" rx="1"/>
-                                    </g>
+                                    @if ($kind === 'lead')
+                                        <path class="tg-art-crown" d="M38 24l3-7 4 4 3-6 3 6 4-4 3 7Z"/>
+                                    @endif
                                 @endif
                                 <circle class="tg-art-badge" cx="88" cy="0" r="11"/>
                                 <text class="tg-art-badge-text" x="88" y="4" text-anchor="middle">{{ $n }}</text>
-                                <text class="tg-art-caption {{ $kind === 'lead' ? 'tg-art-caption-ok' : '' }}" x="48" y="142" text-anchor="middle">
-                                    {{ ['lead' => 'Lead connected', 'typed' => 'Manual login', 'qr' => 'Scan QR code'][$kind] }}
+                                <text class="tg-art-caption {{ $kind === 'free' ? '' : 'tg-art-caption-ok' }}" x="48" y="142" text-anchor="middle">
+                                    {{ ['lead' => 'Chair joined', 'member' => 'Member joined', 'free' => 'Seat free'][$kind] }}
                                 </text>
                             </g>
                         @endforeach
-                        {{-- Panelist's own phone scanning seat 3 --}}
-                        <path class="tg-art-beam" d="M407 84 C 412 66, 400 52, 384 50"/>
-                        <g transform="translate(392 86)">
-                            <rect class="tg-art-device tg-art-phone" x="0" y="0" width="32" height="50" rx="7"/>
-                            <rect class="tg-art-screen" x="4" y="5" width="24" height="36" rx="3"/>
-                            <path class="tg-art-check" d="M10 23l4 4 8-8"/>
-                        </g>
                     </svg>
                 </div>
 
@@ -74,49 +51,26 @@
                         <div class="tg-tl-marker">1</div>
                         <div class="tg-tl-body">
                             <div class="tg-tl-head"><x-icon name="play" /> Start the room</div>
-                            <p class="tg-step-text">Start Room creates one seat per panelist. The room then appears in the Room Session list.</p>
+                            <p class="tg-step-text">Start Room creates one seat per panelist. The room then appears in each panelist's <strong>Live Room</strong>.</p>
                         </div>
                     </li>
                     <li class="tg-tl-item">
                         <div class="tg-tl-marker">2</div>
                         <div class="tg-tl-body">
-                            <div class="tg-tl-head"><x-icon name="tablet" /> Open the room on a device</div>
-                            <p class="tg-step-text">On any device, a shared tablet or a panelist's own laptop, open <strong>Room Session</strong> and pick the room. No room account is needed, and any number of devices can watch the room.</p>
-                        </div>
-                    </li>
-                    <li class="tg-tl-item">
-                        <div class="tg-tl-marker">3</div>
-                        <div class="tg-tl-body">
-                            <div class="tg-tl-head"><x-icon name="user-check" /> Panelist connects, using either way</div>
-                            <div class="tg-options">
-                                <div class="tg-option">
-                                    <div class="tg-option-icon"><x-icon name="qr-code" /></div>
-                                    <div>
-                                        <div class="tg-option-title">Scan QR Code</div>
-                                        <p class="tg-step-text">Scan the QR code on the room screen with a phone already signed in to the panelist's own account, then confirm.</p>
-                                    </div>
-                                </div>
-                                <div class="tg-option-or" aria-hidden="true">or</div>
-                                <div class="tg-option">
-                                    <div class="tg-option-icon"><x-icon name="key" /></div>
-                                    <div>
-                                        <div class="tg-option-title">Manual Login</div>
-                                        <p class="tg-step-text">Enter the panelist's own username and password in the room screen's <strong>Log In Directly</strong> form.</p>
-                                    </div>
-                                </div>
-                            </div>
+                            <div class="tg-tl-head"><x-icon name="user-check" /> Panelists join</div>
+                            <p class="tg-step-text">Each panelist signs in to their own account on any device, opens <strong>Live Room</strong> and presses <strong>Join Room</strong>. Once every seat is taken the room reads Panel complete.</p>
                             <div class="tg-result">Seat <x-icon name="arrow-right" /> <span class="badge badge-success-tint">Connected</span></div>
                         </div>
                     </li>
                     <li class="tg-tl-item">
-                        <div class="tg-tl-marker">4</div>
+                        <div class="tg-tl-marker">3</div>
                         <div class="tg-tl-body">
                             <div class="tg-tl-head"><x-icon name="crown" /> The Lead runs the queue</div>
                             <p class="tg-step-text">The panelist assigned as Lead gets Call Next, Start and Complete on whichever device they use. Start stays locked until every seat has a panelist.</p>
                         </div>
                     </li>
                     <li class="tg-tl-item">
-                        <div class="tg-tl-marker">5</div>
+                        <div class="tg-tl-marker">4</div>
                         <div class="tg-tl-body">
                             <div class="tg-tl-head"><x-icon name="clipboard-check" /> Panelists evaluate</div>
                             <p class="tg-step-text">Each panelist rates the group and submits their evaluation on their own device. Complete stays locked until every panelist's evaluation is submitted, and the Lead's remark becomes the group's official outcome.</p>
@@ -160,7 +114,7 @@
             </div>
 
             <div class="modal-footer">
-                <a href="{{ route('help') }}#room-devices" class="btn btn-outline-brand me-auto" target="_blank" rel="noopener"><x-icon name="book-open" /> More in the User Guide</a>
+                <a href="{{ route('help') }}#pn-join" class="btn btn-outline-brand me-auto" target="_blank" rel="noopener"><x-icon name="book-open" /> More in the User Guide</a>
                 <button type="button" class="btn btn-brand" data-bs-dismiss="modal"><x-icon name="check" /> Got it</button>
             </div>
         </div>
@@ -220,23 +174,16 @@
     }
     .tg-hero-art { display: block; width: 100%; max-width: 30rem; height: auto; margin: 0 auto; }
     .tg-art-device { fill: var(--brand-surface); stroke: var(--brand-text); stroke-width: 2; }
-    .tg-art-phone { stroke-width: 1.8; }
     .tg-art-screen { fill: var(--brand-surface-alt); stroke: var(--brand-border); stroke-width: 1; }
     .tg-art-home { fill: var(--brand-border); }
-    .tg-art-qr rect { fill: var(--brand-text); }
+    .tg-art-free { fill: none; stroke: var(--brand-border); stroke-width: 2; stroke-dasharray: 4 4; }
     .tg-art-avatar,
     .tg-art-avatar-body { fill: var(--brand-success-tint); stroke: var(--brand-success); stroke-width: 1.6; }
     .tg-art-crown { fill: var(--brand-accent); }
-    .tg-art-field { fill: var(--brand-surface); stroke: var(--brand-control-border); stroke-width: 1; }
-    .tg-art-field-text,
-    .tg-art-field-dot { fill: var(--brand-text); }
-    .tg-art-field-btn { fill: var(--brand-accent); }
     .tg-art-caption { font-size: 10.5px; font-weight: 600; fill: var(--brand-muted); }
     .tg-art-caption-ok { fill: var(--brand-success); }
     .tg-art-badge { fill: var(--brand-accent); stroke: var(--brand-surface); stroke-width: 3; }
     .tg-art-badge-text { font-size: 11px; font-weight: 700; fill: var(--brand-accent-contrast); }
-    .tg-art-beam { fill: none; stroke: var(--brand-accent); stroke-width: 1.6; stroke-dasharray: 3 4; }
-    .tg-art-check { fill: none; stroke: var(--brand-success); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 
     .tg-section-title {
         font-size: var(--modal-fs-xs, 0.72rem);
@@ -314,34 +261,10 @@
     }
     .tg-result svg { width: 0.85rem; height: 0.85rem; }
 
-    /* Step 3's two ways in, side by side with an "or" between. */
-    .tg-options {
-        display: grid;
-        grid-template-columns: 1fr auto 1fr;
-        align-items: stretch;
-        gap: 0.6rem;
-        margin-top: 0.5rem;
-    }
-    .tg-option,
     .tg-action {
         display: flex;
         align-items: flex-start;
         gap: 0.7rem;
-    }
-    .tg-option {
-        padding: 0.75rem 0.8rem;
-        border: 1px solid var(--brand-border);
-        border-radius: 0.75rem;
-        background: var(--brand-surface);
-        transition: border-color 0.15s ease, box-shadow 0.15s ease;
-    }
-    .tg-option:hover { border-color: var(--brand-accent); box-shadow: var(--brand-shadow); }
-    .tg-option-or {
-        align-self: center;
-        font-size: var(--modal-fs-xs, 0.72rem);
-        font-weight: 600;
-        text-transform: uppercase;
-        color: var(--brand-muted);
     }
     .tg-option-icon {
         flex-shrink: 0;
@@ -403,8 +326,6 @@
     @media (max-width: 575.98px) {
         .tg-panel { height: auto; }
         .tg-hero { padding-inline: 0.25rem; }
-        .tg-options { grid-template-columns: 1fr; }
-        .tg-option-or { justify-self: center; }
     }
 </style>
 @endpush

@@ -19,8 +19,8 @@
             <thead><tr><th>User</th><th>Account</th><th>What they do</th><th>Chapter</th></tr></thead>
             <tbody>
                 <tr><td>Student / Research Group</td><td>None</td><td>Register the group, view the schedule and queue, follow announcements.</td><td><a href="#students">2</a></td></tr>
-                <tr><td>Panelist</td><td>Created by an Administrator</td><td>View assignments, join a room, evaluate groups; the Lead Panelist also runs the room.</td><td><a href="#panelists">3</a></td></tr>
-                <tr><td>Room Session device</td><td>None</td><td>Any tablet or laptop showing a running room; panelists sign in on it with their own account.</td><td><a href="#room-devices">4</a></td></tr>
+                <tr><td>Panelist</td><td>Created by an Administrator</td><td>View assignments, join a room from Live Room, evaluate groups; the Lead Panelist also runs the room.</td><td><a href="#panelists">3</a></td></tr>
+                <tr><td>Room display</td><td>None</td><td>Any screen showing a running room's live queue, e.g. on a projector. View only.</td><td><a href="#room-devices">4</a></td></tr>
                 <tr><td>Administrator</td><td>Created by the Super Administrator</td><td>Runs everything for one college: panelists, forms, categories, schedules, panels, event day, reports.</td><td><a href="#administrators">5</a></td></tr>
                 <tr><td>Super Administrator</td><td>System owner</td><td>Creates Administrator accounts, manages colleges and school years, audit log, backups.</td><td><a href="#super-admins">6</a></td></tr>
             </tbody>
@@ -34,8 +34,8 @@
     <ul class="hc-list">
         <li><strong>A modern web browser</strong> — Google Chrome, Microsoft Edge, Mozilla Firefox or Safari, kept up to date. Nothing needs to be installed.</li>
         <li><strong>An internet connection</strong> to the address where your school hosts the system.</li>
-        <li><strong>Panelists:</strong> a phone with a camera is useful for joining a room by QR code, but not required — you can type your username and password on the room device instead.</li>
-        <li><strong>Rooms:</strong> one tablet or laptop per panel seat. See <a href="#rd-check">Checking a device</a> to confirm an older tablet is compatible.</li>
+        <li><strong>Panelists:</strong> your own laptop (or any device) signed in to your account; you join rooms from <strong>Live Room</strong>.</li>
+        <li><strong>Rooms (optional):</strong> a TV, projector or tablet to show the room's queue. See <a href="#rd-check">Checking a device</a> to confirm an older tablet is compatible.</li>
     </ul>
     <p>The system works on phones, tablets and computers. On a small screen the side menu folds into the <x-icon name="list-check" style="width:.9em;height:.9em;vertical-align:-.1em" /> menu button at the top left.</p>
 </div>
@@ -75,7 +75,7 @@
 
     <ol class="hc-steps">
         <li class="hc-step"><div class="hc-step-marker">1</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="user" /> Enter your username</div><p class="hc-step-text">Type it exactly as it was given to you.</p></div></li>
-        <li class="hc-step"><div class="hc-step-marker">2</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="key" /> Enter your password and press Log in</div><p class="hc-step-text">You land on your own dashboard. If you were sent to the sign-in page from a link (for example a QR code), you are taken back to that link instead.</p></div></li>
+        <li class="hc-step"><div class="hc-step-marker">2</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="key" /> Enter your password and press Log in</div><p class="hc-step-text">You land on your own dashboard. If you were sent to the sign-in page from a link (for example a notification), you are taken back to that link instead.</p></div></li>
     </ol>
     <div class="hc-note hc-note-warn"><x-icon name="alert-triangle" /><p><span class="hc-note-title">Forgot your password?</span> There is no self-service reset. Ask your Administrator (panelists) or the Super Administrator (administrators) to reset it — you will receive a new temporary password.</p></div>
 </div>

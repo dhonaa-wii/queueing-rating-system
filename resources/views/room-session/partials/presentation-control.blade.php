@@ -29,7 +29,7 @@
     (EventActivationService::end(), Live Monitoring), not from the tablet. --}}
     @if ($breakLocked)
         <div class="control-btn-grid mb-2">
-            <form method="POST" action="{{ route('room-session.break.end') }}">
+            <form method="POST" action="{{ route('panelist.live-room.break.end') }}">
                 @csrf
                 <button type="submit" class="btn btn-brand control-btn control-btn-primary">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
@@ -60,12 +60,12 @@
                         <p class="mb-0">{{ $attempt?->researchGroup?->group_reference }} is still presenting. The break runs until {{ $breakDecision->planned_end_at->format('g:i A') }}.</p>
                     </div>
                     <div class="modal-footer">
-                        <form method="POST" action="{{ route('room-session.break.cancel') }}">
+                        <form method="POST" action="{{ route('panelist.live-room.break.cancel') }}">
                             @csrf
                             <input type="hidden" name="break_id" value="{{ $breakDecision->id }}">
                             <button type="submit" class="btn btn-outline-danger-brand"><x-icon name="x" /> Cancel Break</button>
                         </form>
-                        <form method="POST" action="{{ route('room-session.break.keep') }}">
+                        <form method="POST" action="{{ route('panelist.live-room.break.keep') }}">
                             @csrf
                             <input type="hidden" name="break_id" value="{{ $breakDecision->id }}">
                             <button type="submit" class="btn btn-brand"><x-icon name="clock" /> Finish Group, Then Break</button>
@@ -77,7 +77,7 @@
     @endif
 
     <div class="control-btn-grid mb-2">
-        <form method="POST" action="{{ route('room-session.call-next') }}">
+        <form method="POST" action="{{ route('panelist.live-room.call-next') }}">
             @csrf
             <button type="submit" class="btn btn-brand control-btn control-btn-primary"
                 @disabled(! $hasNextInQueue || $breakLocked)
@@ -110,7 +110,7 @@
                         default => null,
                     };
                 @endphp
-                <form method="POST" action="{{ route('room-session.start') }}">
+                <form method="POST" action="{{ route('panelist.live-room.start') }}">
                     @csrf
                     <button type="submit" class="btn btn-success-brand control-btn control-btn-primary"
                         @disabled($startBlockedReason !== null)
@@ -122,7 +122,7 @@
             @endif
 
             @if ($statusCode === 'ONGOING')
-                <form method="POST" action="{{ route('room-session.pause') }}">
+                <form method="POST" action="{{ route('panelist.live-room.pause') }}">
                     @csrf
                     <button type="submit" class="btn btn-outline-danger-brand control-btn control-btn-primary" @disabled($breakLocked) title="{{ $breakLocked ? $breakLockedTitle : '' }}">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
@@ -135,7 +135,7 @@
                 match home.blade.php's controlFormOpen() selector
                 (form[id$="-form"]:not(.d-none)), which exists to detect
                 those toggleable inline forms specifically. --}}
-                <form method="POST" action="{{ route('room-session.complete') }}" id="complete-submit">
+                <form method="POST" action="{{ route('panelist.live-room.complete') }}" id="complete-submit">
                     @csrf
                 </form>
                 <button type="button" class="btn btn-success-brand control-btn control-btn-primary"
@@ -172,7 +172,7 @@
             @endif
 
             @if ($statusCode === 'PAUSED')
-                <form method="POST" action="{{ route('room-session.resume') }}">
+                <form method="POST" action="{{ route('panelist.live-room.resume') }}">
                     @csrf
                     <button type="submit" class="btn btn-brand control-btn control-btn-primary">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
@@ -189,7 +189,7 @@
                         $typeRow = collect($paymentSummary['types'] ?? [])->first(fn ($row) => $row['type']->id === $type->id);
                         $typeSatisfied = $typeRow['satisfied'] ?? false;
                     @endphp
-                    <form method="POST" action="{{ route('room-session.verify-payment') }}" class="d-flex align-items-center gap-2 {{ $loop->last ? '' : 'mb-2' }}">
+                    <form method="POST" action="{{ route('panelist.live-room.verify-payment') }}" class="d-flex align-items-center gap-2 {{ $loop->last ? '' : 'mb-2' }}">
                         @csrf
                         <input type="hidden" name="category_payment_type_id" value="{{ $type->id }}">
                         <span class="small text-truncate" style="width: 7rem; flex-shrink: 0;" title="{{ $type->name }}">{{ $type->name }}</span>
@@ -214,7 +214,7 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 7-7 7 7"></path><path d="M12 5v14"></path></svg>
                 Defer This Group
             </button>
-            <form method="POST" action="{{ route('room-session.defer') }}" id="defer-form" class="d-none mb-3 p-2 rounded-3" style="background-color: var(--brand-surface-alt);">
+            <form method="POST" action="{{ route('panelist.live-room.defer') }}" id="defer-form" class="d-none mb-3 p-2 rounded-3" style="background-color: var(--brand-surface-alt);">
                 @csrf
                 <label class="form-label small">Reason</label>
                 <select name="reason_id" class="form-select form-select-sm mb-2" required>

@@ -41,7 +41,7 @@
 
 @unless ($connection)
     <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-        <h2 class="mb-0" style="font-size: 0.85rem;">Presentation Control</h2>
+        <h2 class="mb-0" style="font-size: 0.85rem;">{{ ($panelistMode ?? false) ? 'Presentation Control' : 'Room Status' }}</h2>
         @include('admin.live-monitoring.partials.room-session-status-badge', ['status' => $session->roomSessionStatus])
     </div>
 @endunless

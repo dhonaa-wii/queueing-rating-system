@@ -1,4 +1,6 @@
-@extends('layouts.app')
+@extends($panelistMode ? 'layouts.panelist' : 'layouts.app')
+
+@section('heading', $room->room_name)
 
 @section('title', $room->room_name . ' — Room Session')
 
@@ -19,7 +21,9 @@
 @endsection
 
 @section('content')
-    @include('partials.toast-stack')
+    @unless ($panelistMode)
+        @include('partials.toast-stack')
+    @endunless
 
     {{-- Layout is connection-state-dependent (user-provided wireframes,
     2026-08-21). While nobody's connected: left column is just the QR/login
@@ -163,6 +167,7 @@
         </div>
     </div>
 
+    @unless ($panelistMode)
     <div class="modal fade" id="room-session-settings-modal" tabindex="-1" aria-labelledby="room-session-settings-modal-label" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
@@ -176,20 +181,16 @@
                         @include('partials.theme-toggle-button')
                     </div>
 
-                    <form method="POST" action="{{ route('room-session.logout') }}" id="settings-logout-form" class="mb-2 {{ $connection ? '' : 'd-none' }}">
-                        @csrf
-                        <button type="submit" class="btn btn-outline-danger-brand w-100"><x-icon name="log-out" /> Log Out</button>
-                    </form>
-
                     <form method="POST" action="{{ route('room-session.leave') }}" id="settings-leave-form">
                         @csrf
-                        <button type="submit" class="btn btn-outline-brand w-100" @disabled($connection)
-                                title="{{ $connection ? 'Log out first' : '' }}"><x-icon name="arrow-left" /> Leave Room</button>
+                        <button type="submit" class="btn btn-outline-brand w-100"><x-icon name="arrow-left" /> Leave Room</button>
                     </form>
                 </div>
             </div>
         </div>
     </div>
+
+    @endunless
 
     @include('room-session.partials.substitution-modal')
 @endsection
@@ -408,14 +409,12 @@
         // collapsed out from under them every 5 seconds — same reasoning
         // that already protects the manual-login form below.
         (function () {
-            var statusUrl = @json(route('room-session.status'));
+            var statusUrl = @json(route($rs . 'status'));
             var sessionInfoPanel = document.getElementById('session-info-panel');
             var controlPanel = document.getElementById('control-panel');
             var sessionInfoNextPanel = document.getElementById('session-info-next-panel');
             var evaluationPanel = document.getElementById('evaluation-panel');
             var queuePanel = document.getElementById('queue-panel');
-            var wasConnected = {{ $connection ? 'true' : 'false' }};
-            var wasSeatsFull = {{ $seats['full'] ? 'true' : 'false' }};
             // Tracks the backup/unassigned/assigned/no-target classification
             // (see TerminalConnectionService::classifyForRoom()) so an
             // Admin's approval — which flips this without `connected` ever
@@ -691,7 +690,7 @@
                         var criterionId = scoreBtn.dataset.criterionId;
                         var proposedTitleId = scoreBtn.dataset.proposedTitleId || '';
 
-                        postEvaluation(@json(route('room-session.evaluation.score')), {
+                        postEvaluation(@json(route('panelist.live-room.evaluation.score')), {
                             evaluation_criterion_id: criterionId,
                             proposed_title_id: proposedTitleId,
                             score: scoreBtn.dataset.value,
@@ -718,7 +717,7 @@
 
                     var outcomeBtn = event.target.closest('[data-outcome-btn]');
                     if (outcomeBtn) {
-                        postEvaluation(@json(route('room-session.evaluation.outcome')), {
+                        postEvaluation(@json(route('panelist.live-room.evaluation.outcome')), {
                             presentation_outcome_id: outcomeBtn.dataset.outcomeId,
                         }).then(function (result) {
                             if (!result.ok) return;
@@ -746,7 +745,7 @@
                 evaluationPanel.addEventListener('blur', function (event) {
                     var textarea = event.target.closest('[data-remarks-input]');
                     if (textarea) {
-                        postEvaluation(@json(route('room-session.evaluation.remarks')), {
+                        postEvaluation(@json(route('panelist.live-room.evaluation.remarks')), {
                             remarks: textarea.value,
                         });
                         return;
@@ -754,7 +753,7 @@
 
                     var scoreInput = event.target.closest('[data-student-score-input]');
                     if (scoreInput) {
-                        postEvaluation(@json(route('room-session.evaluation.student-score')), {
+                        postEvaluation(@json(route('panelist.live-room.evaluation.student-score')), {
                             student_id: scoreInput.dataset.studentId,
                             score: scoreInput.value === '' ? null : scoreInput.value,
                         });
@@ -874,7 +873,7 @@
                             return;
                         }
 
-                        if (data.connected !== wasConnected || data.classification !== wasClassification || (!data.connected && data.seatsFull !== wasSeatsFull)) {
+                        if (data.classification !== wasClassification) {
                             window.location.reload();
                             return;
                         }
@@ -902,11 +901,7 @@
                             relocateModals(evaluationPanel);
                         }
 
-                        if (!data.connected) {
-                            var qrContainer = document.getElementById('qr-code-container');
-                            if (qrContainer) {
-                                qrContainer.innerHTML = data.qrSvg || "";
-                            }
+                        {
                             var seatCount = document.getElementById("seat-count");
                             if (seatCount && data.seatsLabel) {
                                 seatCount.textContent = data.seatsLabel;
@@ -977,7 +972,7 @@
 
                     var body = new FormData(form);
 
-                    fetch(@json(route('room-session.substitution.request')), {
+                    fetch(@json(route('panelist.live-room.substitution.request')), {
                         method: 'POST',
                         headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                         body: body,

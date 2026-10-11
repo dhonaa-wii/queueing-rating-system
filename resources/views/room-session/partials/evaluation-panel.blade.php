@@ -197,7 +197,7 @@
             <span class="badge badge-success-tint">Submitted{{ $evaluationSubmission->submitted_at ? ' ' . $evaluationSubmission->submitted_at->format('g:i A') : '' }}</span>
         </div>
     @else
-        <form method="POST" action="{{ route('room-session.evaluation.submit') }}" class="mt-2" id="evaluation-submit-form">
+        <form method="POST" action="{{ route('panelist.live-room.evaluation.submit') }}" class="mt-2" id="evaluation-submit-form">
             @csrf
         </form>
         <button type="button" class="btn btn-success-brand w-100 mt-2" @disabled($missingCount > 0 || $outcomeMissing)

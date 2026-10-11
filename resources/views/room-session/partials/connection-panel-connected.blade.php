@@ -31,5 +31,10 @@
                 <span class="badge badge-danger-tint">Not Assigned</span>
             @endif
         </div>
+
+        <form method="POST" action="{{ route('panelist.live-room.leave') }}" class="mt-2">
+            @csrf
+            <button type="submit" class="btn btn-sm btn-outline-danger-brand w-100"><x-icon name="log-out" /> Leave Room</button>
+        </form>
     </div>
 </div>

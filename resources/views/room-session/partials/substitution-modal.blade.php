@@ -21,9 +21,9 @@
                     @include('room-session.partials.substitution-modal-body')
                 </div>
                 <div class="modal-footer">
-                    <form method="POST" action="{{ route('room-session.logout') }}" class="w-100">
+                    <form method="POST" action="{{ route('panelist.live-room.leave') }}" class="w-100">
                         @csrf
-                        <button type="submit" class="btn btn-outline-danger-brand w-100"><x-icon name="log-out" /> Log Out</button>
+                        <button type="submit" class="btn btn-outline-danger-brand w-100"><x-icon name="log-out" /> Leave Room</button>
                     </form>
                 </div>
             </div>

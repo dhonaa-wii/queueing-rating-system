@@ -15,7 +15,6 @@ use App\Models\ProposedTitle;
 use App\Models\RoomSession;
 use App\Models\RoomTerminal;
 use App\Models\Student;
-use App\Models\TerminalAccessToken;
 use App\Models\TerminalConnection;
 use App\Models\User;
 use App\Services\EvaluationSubmissionService;
@@ -26,61 +25,51 @@ use App\Services\PresentationControlService;
 use App\Services\RoomBreakService;
 use App\Services\RoomQueuePreviewService;
 use App\Services\TerminalConnectionService;
-use Endroid\QrCode\Builder\Builder;
-use Endroid\QrCode\Writer\SvgWriter;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
+use Illuminate\Support\Collection;
 
 /**
- * Public, unauthenticated room screen (user-directed 2026-10-11 redesign,
- * replacing the 2026-08-15 room-account + terminal-picker device claim).
+ * The room screen, in two modes (user-directed 2026-10-11 redesign, replacing
+ * the 2026-08-15 room-account + terminal-picker device claim):
  *
- *  1. Room list: /room-session lists every room session that is started and
- *     not yet closed. Any device (a shared tablet, a panelist's own laptop, a
- *     projector) picks one and watches it. No room account, no terminal
- *     number — this browser's session only remembers which room it watches
- *     (room_view.room_session_id).
- *  2. Panelist login: on that screen a panelist joins with their own personal
- *     account — the QR code (scanned with their already-logged-in phone,
- *     Panelist\TerminalScanController) or the username/password form. Both go
- *     through TerminalConnectionService::connectToRoom(), which hands out the
- *     next free seat and refuses once the room's panel count is reached. The
- *     connection this device holds is remembered as room_view.connection_id.
+ *  1. Panelist mode (panelist.live-room.*, behind the panelist's own login):
+ *     Live Room lists the running rooms of the panelist's college; Join takes
+ *     the next free seat through TerminalConnectionService::connectToRoom(),
+ *     which refuses once the room's panel count is reached. The panelist's
+ *     open seat *is* their room — one room at a time — so no request carries a
+ *     room id. Evaluation, the Lead's controls and substitution are re-derived
+ *     from that seat on every request, exactly as before.
+ *  2. Public display (room-session.*, no login): a list of running rooms any
+ *     device can open to show the live queue, e.g. on a projector. This
+ *     browser's session only remembers which room it shows
+ *     (room_view.room_session_id). Nothing can be done from it.
  *
- * Everything the panelist can do (evaluate, Lead controls, substitution) is
- * re-derived from that connection on every request, exactly as before.
+ * Both render the same home view and partials; $rs carries the route-name
+ * prefix so the view posts to the right place.
  */
 class RoomSessionController extends Controller
 {
+    private const PANELIST_ROUTES = 'panelist.live-room.';
+
+    private const PUBLIC_ROUTES = 'room-session.';
+
     /**
-     * The room list. A device that is already watching a room still open goes
-     * straight back to it.
+     * Public display: the room list. A device already showing a room still
+     * open goes straight back to it.
      */
     public function entry(Request $request, TerminalConnectionService $connections)
     {
-        $watching = $this->watchedRoomSession($request);
-
-        if ($watching) {
-            return redirect()->route('room-session.home');
+        if ($this->watchedRoomSession($request)) {
+            return redirect()->route('panelist.live-room.home');
         }
 
-        $roomSessions = RoomSession::open()
-            ->with('presentationDateRoom.presentationDate.category')
-            ->get()
-            ->filter(fn ($session) => $session->presentationDateRoom?->presentationDate?->category)
-            ->sortBy(fn ($session) => sprintf('%s|%s',
-                $session->presentationDateRoom->presentationDate->category->name,
-                $session->presentationDateRoom->room_name
-            ))
-            ->values();
+        $roomSessions = $this->openRoomSessions();
 
-        $seats = $roomSessions->mapWithKeys(fn ($session) => [$session->id => $connections->seatSummary($session)]);
-
-        $roomsByCategory = $roomSessions->groupBy(fn ($session) => $session->presentationDateRoom->presentationDate->category->id);
-
-        return view('room-session.rooms', compact('roomsByCategory', 'seats'));
+        return view('room-session.rooms', [
+            'roomsByCategory' => $roomSessions->groupBy(fn ($session) => $session->presentationDateRoom->presentationDate->category->id),
+            'seats' => $roomSessions->mapWithKeys(fn ($session) => [$session->id => $connections->seatSummary($session)]),
+        ]);
     }
 
     public function join(Request $request)
@@ -95,10 +84,96 @@ class RoomSessionController extends Controller
             return redirect()->route('room-session.entry')->with('error', 'That room is no longer running.');
         }
 
-        $request->session()->forget(['room_view.connection_id', 'room_view.qr_token']);
         $request->session()->put('room_view.room_session_id', $roomSession->id);
 
-        return redirect()->route('room-session.home');
+        return redirect()->route('panelist.live-room.home');
+    }
+
+    /**
+     * Public display: back to the room list.
+     */
+    public function leave(Request $request)
+    {
+        $request->session()->forget('room_view.room_session_id');
+
+        return redirect()->route('room-session.entry');
+    }
+
+    /**
+     * Panelist mode: the running rooms of the panelist's college, the ones
+     * they're on the panel for first.
+     */
+    public function liveRooms(Request $request, TerminalConnectionService $connections)
+    {
+        $panelist = $request->user();
+        $collegeId = $panelist->panelistProfile?->college_id;
+
+        $roomSessions = $this->openRoomSessions()
+            ->filter(fn ($session) => $session->presentationDateRoom->presentationDate->category->college_id === $collegeId)
+            ->values();
+
+        $onPanel = $roomSessions->mapWithKeys(fn ($session) => [
+            $session->id => $connections->eligiblePanelistIds($session)->contains($panelist->id),
+        ]);
+
+        $roomSessions = $roomSessions->sortBy(fn ($session) => $onPanel[$session->id] ? 0 : 1)->values();
+
+        return view('panelist.live-room.index', [
+            'roomSessions' => $roomSessions,
+            'seats' => $roomSessions->mapWithKeys(fn ($session) => [$session->id => $connections->seatSummary($session)]),
+            'onPanel' => $onPanel,
+            'joinedRoomSessionId' => $this->panelistConnection($panelist)?->roomTerminal->room_session_id,
+        ]);
+    }
+
+    /**
+     * Panelist mode: take a seat in a room. Joining a room signs the panelist
+     * out of any other room first (one room at a time); re-joining the room
+     * they're already in just opens it.
+     */
+    public function joinAsPanelist(Request $request, TerminalConnectionService $connections)
+    {
+        $validated = $request->validate([
+            'room_session_id' => ['required', 'integer'],
+        ]);
+
+        $panelist = $request->user();
+        $roomSession = RoomSession::open()->with('presentationDateRoom.presentationDate.category')->find($validated['room_session_id']);
+
+        if (! $roomSession || $roomSession->presentationDateRoom->presentationDate->category->college_id !== $panelist->panelistProfile?->college_id) {
+            return redirect()->route('panelist.live-room.index')->with('error', 'That room is no longer running.');
+        }
+
+        $current = $this->panelistConnection($panelist);
+
+        if ($current?->roomTerminal->room_session_id === $roomSession->id) {
+            return redirect()->route('panelist.live-room.home');
+        }
+
+        $outcome = $connections->connectToRoom($roomSession, $panelist, 'ACCOUNT', $request->ip(), $request->userAgent());
+
+        if (! $outcome['ok']) {
+            return redirect()->route('panelist.live-room.index')->with('error', $outcome['error']);
+        }
+
+        if ($current) {
+            $this->disconnect($current);
+        }
+
+        return redirect()->route('panelist.live-room.home');
+    }
+
+    /**
+     * Panelist mode: give up the seat.
+     */
+    public function leaveAsPanelist(Request $request)
+    {
+        TerminalConnection::where('panelist_user_id', $request->user()->id)
+            ->whereNull('disconnected_at')
+            ->get()
+            ->each(fn ($connection) => $this->disconnect($connection));
+
+        return redirect()->route('panelist.live-room.index');
     }
 
     public function home(Request $request, RoomQueuePreviewService $roomQueuePreviewService)
@@ -110,93 +185,53 @@ class RoomSessionController extends Controller
     }
 
     /**
-     * JSON poller behind the home screen's live-refresh (user-directed
-     * 2026-08-16: the earlier full-page window.location.reload() every 5s
-     * was "felt" by the user — visible flash, and had to be specially
-     * guarded against wiping the manual-login form mid-type. This returns
-     * the same data as home(), pre-rendered into the same two partials the
-     * page itself uses, so the client only ever does a plain DOM swap —
-     * no rendering logic duplicated in JS.
+     * JSON poller behind the room screen's live refresh: the same data as
+     * home(), pre-rendered into the same partials the page uses, so the client
+     * only ever does a plain DOM swap.
      */
     public function status(Request $request, RoomQueuePreviewService $roomQueuePreviewService)
     {
-        $roomSession = $this->watchedRoomSession($request);
+        $noStore = ['Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0', 'Pragma' => 'no-cache'];
 
-        // The room was ended (or never chosen): send the device back to the
-        // room list rather than polling a closed room.
-        if (! $roomSession) {
-            return response()->json(['redirect' => route('room-session.entry')])
-                ->withHeaders(['Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0']);
+        if ($this->panelistMode($request)) {
+            $connection = $this->panelistConnection($request->user());
+            $roomSession = $connection?->roomTerminal->roomSession;
+        } else {
+            $connection = null;
+            $roomSession = $this->watchedRoomSession($request);
         }
 
-        $data = $this->buildHomeData($request, $roomSession, $this->resolveConnection($request, $roomSession), $roomQueuePreviewService);
+        // The room ended, or the panelist lost their seat (left, Disconnect,
+        // joined elsewhere): back to the list rather than polling it.
+        if (! $roomSession) {
+            return response()->json([
+                'redirect' => route($this->panelistMode($request) ? 'panelist.live-room.index' : 'room-session.entry'),
+            ])->withHeaders($noStore);
+        }
+
+        $data = $this->buildHomeData($request, $roomSession, $connection, $roomQueuePreviewService);
 
         return response()->json([
-            // Same reload-on-change treatment as `connected`: a full room
-            // swaps the login form for "Panel complete", and back.
-            'seatsFull' => $data['seats']['full'],
             'seatsLabel' => $data['seats']['taken'] . '/' . $data['seats']['total'],
-            // no-store below: this endpoint is polled every 5s specifically
-            // to reflect changes another user just made (a panel
-            // substitution, a call/complete action) — a cached response
-            // (browser heuristics, or a tablet's carrier/wifi proxy) would
-            // silently defeat the whole point of polling. Explicit on every
-            // response rather than global middleware since nothing else in
-            // this app polls this aggressively.
-            // The client reloads the whole page the instant this flips
-            // (see home.blade.php's poll()) rather than DOM-swapping —
-            // #control-panel's parent element differs between the
-            // connected (merged into the left sidebar) and unclaimed
-            // (merged into the right card) layouts, 2026-08-21.
-            'connected' => (bool) $data['connection'],
-            // Same reload-on-change treatment, 2026-08-22: an Admin
-            // approving a pending "unassigned" request flips this from
-            // 'unassigned' to 'assigned' without the connection itself ever
-            // dropping, so `connected` alone wouldn't notice it — see
-            // home.blade.php's poll().
+            // The client reloads the whole page the instant this flips (see
+            // home.blade.php's poll()): an Admin approving a pending
+            // "unassigned" request changes the panelist's role in the room.
             'classification' => $data['assignmentClassification']['kind'] ?? null,
-            // qrSvg refreshes independently — the QR's access token still
-            // needs to rotate before it expires even while nobody's
-            // connected yet.
-            'qrSvg' => $data['qrSvg'],
-            // Session info (stats + panelist strip) is shown to every
-            // terminal in the right column now (2026-08-18 wireframe) — no
-            // Lead/non-Lead split, unlike controlHtml below.
             'sessionInfoHtml' => view('room-session.partials.control-info-card', $data)->render(),
-            // The "Next" preview used to be the tail end of
-            // control-info-card.blade.php; it's now a separate fragment so
-            // it can render after the (Lead-only) control buttons in DOM
-            // order — see home.blade.php's merged "Presentation Control"
-            // card, 2026-08-21.
             'sessionInfoNextHtml' => view('room-session.partials.control-info-next', $data)->render(),
             'queueHtml' => view('room-session.partials.queue-panel', $data)->render(),
-            // #control-panel's content — the Current/Last Group status
-            // block for every terminal, plus the control buttons for the
-            // Lead only. This is the one thing that switches which column
-            // it's mounted in as $connection flips (left sidebar once
-            // connected, right card while unclaimed — see home.blade.php's
-            // layout comment), but the content itself is identical either
-            // way, so it's built the same here regardless of connection
-            // state. showHeader must match whichever layout is currently
-            // rendered (connected -> left sidebar, own "Presentation
-            // Controls" title; unclaimed -> right card, no title of its own
-            // since control-info-card's header already covers it) or the
-            // title would vanish on the very next poll tick.
+            // The Current/Last Group status block for everyone, plus the
+            // control buttons for the Lead only.
             'controlHtml' => view('room-session.partials.attempt-status-card', $data)->render()
                 . ($data['canControlFlow']
                     ? view('room-session.partials.presentation-control', $data + ['showHeader' => (bool) $data['connection']])->render()
                     : ''),
             // Null (not an empty string) when there's nothing to evaluate
-            // right now (no current attempt, not eligible, or Start hasn't
-            // been pressed yet) — the client clears the panel in that case
-            // rather than swapping in empty markup.
+            // right now — the client clears the panel in that case.
             'evaluationHtml' => ($data['canEvaluate'] && $data['evaluationSubmission'])
                 ? view('room-session.partials.evaluation-panel', $data)->render()
                 : null,
-        ])->withHeaders([
-            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
-            'Pragma' => 'no-cache',
-        ]);
+        ])->withHeaders($noStore);
     }
 
     private function buildHomeData(Request $request, RoomSession $roomSession, ?TerminalConnection $connection, RoomQueuePreviewService $roomQueuePreviewService): array
@@ -223,18 +258,6 @@ class RoomSessionController extends Controller
         // (COMPLETED/ABSENT/CANCELLED) are excluded the same way $queue's
         // own 'upcoming' key already is.
         $fullQueue = collect($queue['called'] ? [$queue['called']] : [])->merge($queue['upcoming'] ?? [])->values();
-
-        // A QR only while this device has nobody on it and a seat is free —
-        // a full room shows "Panel complete" instead (user-directed).
-        $qrSvg = null;
-
-        if (! $connection && ! $seats['full']) {
-            $token = $this->currentAccessToken($request, $roomSession);
-
-            if ($token) {
-                $qrSvg = $this->renderQrSvg(route('panelist.terminal-scan.show', $token));
-            }
-        }
 
         $canControlFlow = false;
         $canEvaluate = false;
@@ -327,11 +350,13 @@ class RoomSessionController extends Controller
         return array_merge([
             'roomSession' => $roomSession,
             'seats' => $seats,
+            // Which screen this is and where its forms post — see the class doc.
+            'panelistMode' => $this->panelistMode($request),
+            'rs' => $this->panelistMode($request) ? self::PANELIST_ROUTES : self::PUBLIC_ROUTES,
             'room' => $room,
             'connection' => $connection,
             'queue' => $queue,
             'fullQueue' => $fullQueue,
-            'qrSvg' => $qrSvg,
             'canControlFlow' => $canControlFlow,
             'canEvaluate' => $canEvaluate,
             'assignmentClassification' => $assignmentClassification,
@@ -561,43 +586,6 @@ class RoomSessionController extends Controller
         ];
     }
 
-    public function manualLogin(Request $request, TerminalConnectionService $service)
-    {
-        [$roomSession, $current] = $this->requireRoom($request);
-
-        $validated = $request->validate([
-            'username' => ['required', 'string', 'max:255'],
-            'password' => ['required', 'string', 'max:255'],
-        ]);
-
-        $panelist = User::where('username', $validated['username'])
-            ->whereHas('userRoles.role', fn ($query) => $query->where('code', 'PANELIST'))
-            ->first();
-
-        if (! $panelist || ! Hash::check($validated['password'], $panelist->password)) {
-            return back()->with('error', 'Invalid panelist username or password.');
-        }
-
-        // One panelist per device: someone else signing in here first signs
-        // the current panelist out of their seat.
-        if ($current && $current->panelist_user_id !== $panelist->id) {
-            $this->disconnect($current);
-        }
-
-        $outcome = $service->connectToRoom($roomSession, $panelist, 'MANUAL_CODE', $request->ip(), $request->userAgent());
-
-        if (! $outcome['ok']) {
-            return back()->with('error', $outcome['error']);
-        }
-
-        $request->session()->put('room_view.connection_id', $outcome['connection']->id);
-        $request->session()->forget('room_view.qr_token');
-
-        return $outcome['moved']
-            ? redirect()->route('room-session.home')->with('status', 'Reconnected. Your seat moved to this device.')
-            : redirect()->route('room-session.home');
-    }
-
     /**
      * The backup/unassigned replacement picker's submit target
      * (room-session.partials.substitution-modal-body). Re-derives the
@@ -636,19 +624,6 @@ class RoomSessionController extends Controller
         }
 
         return response()->json(['status' => $result['status']]);
-    }
-
-    public function logoutPanelist(Request $request)
-    {
-        [, $connection] = $this->requireRoom($request);
-
-        if ($connection) {
-            $this->disconnect($connection);
-        }
-
-        $request->session()->forget('room_view.connection_id');
-
-        return redirect()->route('room-session.home');
     }
 
     /**
@@ -851,8 +826,8 @@ class RoomSessionController extends Controller
         $result = $service->submit($submission);
 
         return $result['ok']
-            ? redirect()->route('room-session.home')->with('status', 'Evaluation submitted.')
-            : redirect()->route('room-session.home')->with('error', $result['error']);
+            ? redirect()->route('panelist.live-room.home')->with('status', 'Evaluation submitted.')
+            : redirect()->route('panelist.live-room.home')->with('error', $result['error']);
     }
 
     private function handleControlAction(Request $request, \Closure $action, string $successMessage)
@@ -862,8 +837,8 @@ class RoomSessionController extends Controller
         $result = $action($roomSession, $connection);
 
         return $result['ok']
-            ? redirect()->route('room-session.home')->with('status', $successMessage)
-            : redirect()->route('room-session.home')->with('error', $result['error']);
+            ? redirect()->route('panelist.live-room.home')->with('status', $successMessage)
+            : redirect()->route('panelist.live-room.home')->with('error', $result['error']);
     }
 
     private function respondEvaluationAction(Request $request, array $result, string $successMessage)
@@ -881,12 +856,12 @@ class RoomSessionController extends Controller
 
             return $request->wantsJson()
                 ? response()->json($payload)
-                : redirect()->route('room-session.home')->with('status', $successMessage);
+                : redirect()->route('panelist.live-room.home')->with('status', $successMessage);
         }
 
         return $request->wantsJson()
             ? response()->json(['message' => $result['error']], 422)
-            : redirect()->route('room-session.home')->with('error', $result['error']);
+            : redirect()->route('panelist.live-room.home')->with('error', $result['error']);
     }
 
     /**
@@ -935,26 +910,31 @@ class RoomSessionController extends Controller
         return [$roomSession, $connection];
     }
 
-    /**
-     * Back to the room list. Not while a panelist is signed in here: they log
-     * out first, same as the old Release This Device.
-     */
-    public function leave(Request $request)
+    private function panelistMode(Request $request): bool
     {
-        $roomSession = $this->watchedRoomSession($request);
-
-        if ($roomSession && $this->resolveConnection($request, $roomSession)) {
-            return redirect()->route('room-session.home')->with('error', 'Log out first.');
-        }
-
-        $request->session()->forget(['room_view.room_session_id', 'room_view.connection_id', 'room_view.qr_token']);
-
-        return redirect()->route('room-session.entry');
+        return $request->routeIs(self::PANELIST_ROUTES . '*');
     }
 
     /**
-     * The room this device watches, while it is still running. A room that
-     * was ended (or a stale id) clears the device back to the room list.
+     * Every room session that is started and not yet closed, by category then
+     * room name.
+     */
+    private function openRoomSessions(): Collection
+    {
+        return RoomSession::open()
+            ->with('presentationDateRoom.presentationDate.category')
+            ->get()
+            ->filter(fn ($session) => $session->presentationDateRoom?->presentationDate?->category)
+            ->sortBy(fn ($session) => sprintf('%s|%s',
+                $session->presentationDateRoom->presentationDate->category->name,
+                $session->presentationDateRoom->room_name
+            ))
+            ->values();
+    }
+
+    /**
+     * The room the public display shows, while it is still running. A room
+     * that was ended (or a stale id) clears the device back to the list.
      */
     private function watchedRoomSession(Request $request): ?RoomSession
     {
@@ -967,18 +947,44 @@ class RoomSessionController extends Controller
         $roomSession = RoomSession::open()->find($id);
 
         if (! $roomSession) {
-            $request->session()->forget(['room_view.room_session_id', 'room_view.connection_id', 'room_view.qr_token']);
+            $request->session()->forget('room_view.room_session_id');
         }
 
         return $roomSession;
     }
 
     /**
-     * [RoomSession, ?TerminalConnection] for this device, or a redirect to the
-     * room list when it isn't watching a running room.
+     * The panelist's open seat in a running room, if any — their current room.
+     */
+    private function panelistConnection(User $panelist): ?TerminalConnection
+    {
+        return TerminalConnection::where('panelist_user_id', $panelist->id)
+            ->whereNull('disconnected_at')
+            ->whereHas('roomTerminal.roomSession', fn ($query) => $query->open())
+            ->with('roomTerminal.roomSession')
+            ->latest('id')
+            ->first();
+    }
+
+    /**
+     * [RoomSession, ?TerminalConnection] for this request, or a redirect to the
+     * matching room list. Panelist mode needs a seat; the public display never
+     * has one.
      */
     private function requireRoom(Request $request): array
     {
+        if ($this->panelistMode($request)) {
+            $connection = $this->panelistConnection($request->user());
+
+            if (! $connection) {
+                throw new HttpResponseException(
+                    redirect()->route('panelist.live-room.index')->with('error', 'You are not in a room. Join one first.')
+                );
+            }
+
+            return [$connection->roomTerminal->roomSession, $connection];
+        }
+
         $roomSession = $this->watchedRoomSession($request);
 
         if (! $roomSession) {
@@ -987,62 +993,7 @@ class RoomSessionController extends Controller
             );
         }
 
-        return [$roomSession, $this->resolveConnection($request, $roomSession)];
-    }
-
-    /**
-     * The panelist signed in on this device, if any. The connection id lives
-     * in this browser's session; it stops counting the moment the connection
-     * is closed anywhere else (logged out, moved to another device, cleared by
-     * an Administrator), which drops this device back to view-only.
-     *
-     * Also adopts a QR sign-in: the token shown here was used on a phone, and
-     * TerminalScanController pointed it at the seat it took.
-     */
-    private function resolveConnection(Request $request, RoomSession $roomSession): ?TerminalConnection
-    {
-        $id = $request->session()->get('room_view.connection_id');
-
-        if ($id) {
-            $connection = TerminalConnection::where('id', $id)
-                ->whereNull('disconnected_at')
-                ->whereHas('roomTerminal', fn ($query) => $query->where('room_session_id', $roomSession->id))
-                ->first();
-
-            if ($connection) {
-                return $connection;
-            }
-
-            $request->session()->forget('room_view.connection_id');
-        }
-
-        $stored = $request->session()->get('room_view.qr_token');
-
-        if (! $stored) {
-            return null;
-        }
-
-        $token = TerminalAccessToken::where('token_hash', hash('sha256', $stored['raw']))->first();
-
-        if (! $token?->used_at) {
-            return null;
-        }
-
-        $request->session()->forget('room_view.qr_token');
-
-        $connection = TerminalConnection::where('room_terminal_id', $token->room_terminal_id)
-            ->whereNull('disconnected_at')
-            ->where('authenticated_via', 'QR')
-            ->where('connected_at', '>=', $token->created_at)
-            ->whereHas('roomTerminal', fn ($query) => $query->where('room_session_id', $roomSession->id))
-            ->latest('id')
-            ->first();
-
-        if ($connection) {
-            $request->session()->put('room_view.connection_id', $connection->id);
-        }
-
-        return $connection;
+        return [$roomSession, null];
     }
 
     private function disconnect(TerminalConnection $connection): void
@@ -1051,75 +1002,5 @@ class RoomSessionController extends Controller
             'disconnected_at' => now(),
             'connection_status_id' => ConnectionStatus::where('code', 'DISCONNECTED')->firstOrFail()->id,
         ]);
-    }
-
-    private function issueAccessToken(RoomTerminal $terminal): string
-    {
-        $rawToken = Str::random(48);
-
-        TerminalAccessToken::create([
-            'room_terminal_id' => $terminal->id,
-            'token_hash' => hash('sha256', $rawToken),
-            'expires_at' => now()->addMinutes(3),
-        ]);
-
-        return $rawToken;
-    }
-
-    /**
-     * The QR this device shows. Reuses the token already in this browser's
-     * session while it is unused and unexpired (so the code doesn't change on
-     * every 5s poll), otherwise mints one for the room's first free seat. The
-     * seat is only a preference; the actual seat is decided when the panelist
-     * confirms. Null when the room has no free seat. The raw token is only
-     * ever kept here in session; the database stores its hash.
-     */
-    private function currentAccessToken(Request $request, RoomSession $roomSession): ?string
-    {
-        $stored = $request->session()->get('room_view.qr_token');
-
-        if ($stored && $stored['room_session_id'] === $roomSession->id && now()->lt($stored['expires_at'])) {
-            $stillUsable = TerminalAccessToken::where('token_hash', hash('sha256', $stored['raw']))
-                ->whereNull('used_at')
-                ->where('expires_at', '>', now())
-                ->exists();
-
-            if ($stillUsable) {
-                return $stored['raw'];
-            }
-        }
-
-        $terminal = app(TerminalConnectionService::class)->firstFreeTerminal($roomSession);
-
-        if (! $terminal) {
-            return null;
-        }
-
-        $rawToken = $this->issueAccessToken($terminal);
-
-        $request->session()->put('room_view.qr_token', [
-            'raw' => $rawToken,
-            'room_session_id' => $roomSession->id,
-            // A little short of the token's real 3-minute expiry so a reload
-            // never hands out a QR that's about to go stale mid-scan.
-            'expires_at' => now()->addMinutes(3)->subSeconds(15),
-        ]);
-
-        return $rawToken;
-    }
-
-    /**
-     * Rendered server-side (no CDN/JS dependency) so the join QR still
-     * works on a tablet with no internet access — the venue's local
-     * network to reach this Laravel server is the only connectivity this
-     * needs, same as loading the rest of the page. SVG rather than
-     * PngWriter so it needs neither GD nor Imagick and embeds inline as
-     * plain markup, no separate image request at all.
-     */
-    private function renderQrSvg(string $data): string
-    {
-        $result = (new Builder(writer: new SvgWriter(), data: $data, size: 150, margin: 6))->build();
-
-        return $result->getString();
     }
 }
