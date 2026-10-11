@@ -29,15 +29,6 @@ class EnsureAccountIsActive
         if ($user->mustChangePassword()) {
             $exemptRoutes = ['password.change', 'password.update', 'logout'];
 
-            // Panelists see their (locked) dashboard immediately after login instead
-            // of being forced onto the dedicated password-change page — they're
-            // guided to Settings from there instead. Admin/Super Admin keep the
-            // original hard-redirect behavior.
-            if ($user->hasRole('PANELIST')) {
-                $exemptRoutes[] = 'panelist.dashboard';
-                $exemptRoutes[] = 'profile.update';
-            }
-
             if (! $request->routeIs(...$exemptRoutes)) {
                 return redirect()->route('password.change');
             }

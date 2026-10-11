@@ -4,7 +4,6 @@
 @section('heading', 'Panelist Dashboard')
 
 @php
-    $mustChangePassword = auth()->user()->mustChangePassword();
     $firstName = auth()->user()->profile->first_name ?? auth()->user()->username;
     $hour = now()->hour;
     $greeting = $hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening');
@@ -12,11 +11,6 @@
 
 @section('content')
     <div class="pd">
-        @if ($mustChangePassword)
-            <div class="card-brand p-4 text-center text-brand-muted">
-                Change your temporary password to unlock your dashboard. Use the gear icon in the top-right corner.
-            </div>
-        @else
             @if ($categories->isEmpty())
                 <div class="card-brand p-5 text-center text-brand-muted">
                     No panel assignments yet. Once an Administrator assigns you to a presentation, it will show up here.
@@ -210,7 +204,6 @@
                     </div>
                 @endif
             @endif
-        @endif
     </div>
 @endsection
 

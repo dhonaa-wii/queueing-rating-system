@@ -48,6 +48,9 @@ class PasswordChangeController extends Controller
         // page stops showing it (no-op for roles without a panelist profile).
         $user->panelistProfile()->update(['temporary_password' => null]);
 
-        return redirect()->route($user->dashboardRouteName())->with('status', 'Password updated.');
+        // A first login comes straight here instead of following the login's
+        // intended redirect, so a page the user was heading to (a notification
+        // link, a terminal QR scan) is honoured once the password is set.
+        return redirect()->intended(route($user->dashboardRouteName()))->with('status', 'Password updated.');
     }
 }
