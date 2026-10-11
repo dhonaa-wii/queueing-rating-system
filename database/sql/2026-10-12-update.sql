@@ -41,5 +41,5 @@ CREATE TABLE IF NOT EXISTS `research_group_panelist_choices` (
 SET @batch = (SELECT COALESCE(MAX(`batch`), 0) + 1 FROM `migrations`);
 
 INSERT INTO `migrations` (`migration`, `batch`)
-SELECT '2026_10_11_000001_add_student_panelist_choice', @batch
+SELECT '2026_10_11_000001_add_student_panelist_choice', @batch FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM `migrations` WHERE `migration` = '2026_10_11_000001_add_student_panelist_choice');
