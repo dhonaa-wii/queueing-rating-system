@@ -2,9 +2,12 @@
 
 @section('title', 'Edit Admin Account')
 
-@section('content')
+@section('back-link')
     @include('partials.back-link', ['href' => route('super-admin.administrators.index')])
-    <h2 class="h4 mt-1 mb-4">Edit {{ $admin->username }}</h2>
+@endsection
+
+@section('content')
+    <h2 class="h4 mb-4">Edit {{ $admin->username }}</h2>
 
     <div class="card-brand p-4 p-md-5" style="max-width: 720px;">
         <form method="POST" action="{{ route('super-admin.administrators.update', $admin) }}">

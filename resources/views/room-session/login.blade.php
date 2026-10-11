@@ -11,6 +11,10 @@
 
 @section('title', 'Room Session')
 
+@section('back-link')
+    @include('partials.back-link', ['href' => route('landing')])
+@endsection
+
 @section('navbar-brand', 'Room Session')
 
 {{--
@@ -69,10 +73,6 @@
                     </form>
                 </div>
             </section>
-
-            <p class="rs-back">
-                @include('partials.back-link', ['href' => route('landing')])
-            </p>
         </div>
     </div>
 @endsection

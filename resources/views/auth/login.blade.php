@@ -2,6 +2,10 @@
 
 @section('title', 'Login')
 
+@section('back-link')
+    @include('partials.back-link', ['href' => route('landing')])
+@endsection
+
 @section('content')
     <div class="row justify-content-center">
         <div class="col-md-6 col-lg-5">
@@ -40,9 +44,6 @@
                 <a href="{{ route('landing') }}#presentations" class="btn btn-outline-brand w-100">Student? Browse Presentations</a>
             </div>
 
-            <p class="text-center mt-3">
-                @include('partials.back-link', ['href' => route('landing')])
-            </p>
         </div>
     </div>
 @endsection

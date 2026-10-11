@@ -190,6 +190,10 @@
     </style>
 @endpush
 
+@section('back-link')
+    @include('partials.back-link', ['href' => route('student.categories.index')])
+@endsection
+
 @section('content')
     <div class="rc-page">
         <div class="card-brand rc-hero mb-3">
@@ -270,7 +274,6 @@
 
         <div class="rc-actions">
             <a href="{{ route('student.categories.schedule', $category) }}" class="btn btn-brand"><x-icon name="calendar" /> View Schedule</a>
-            @include('partials.back-link', ['href' => route('student.categories.index'), 'button' => true])
         </div>
     </div>
 @endsection

@@ -2,10 +2,13 @@
 
 @section('title', 'Schedule — ' . $category->name)
 
+@section('back-link')
+    @include('partials.back-link', ['href' => route('student.categories.index')])
+@endsection
+
 @section('content')
     <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-4">
         <div>
-            <div class="mb-1">@include('partials.back-link', ['href' => route('student.categories.index')])</div>
             <h1 class="h4 mb-1">{{ $category->name }}</h1>
             <p class="text-brand-muted mb-0 small">
                 Schedule &amp; Queue &middot; {{ $category->academicYear->name ?? 'N/A' }} &middot; {{ $category->semester->name ?? 'N/A' }} &middot; {{ $category->college->name ?? 'N/A' }}

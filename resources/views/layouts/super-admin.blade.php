@@ -212,6 +212,11 @@
                     <button type="button" class="btn btn-outline-brand btn-sm d-lg-none" id="admin-sidebar-open" aria-label="Open menu">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M3 6h18M3 18h18"></path></svg>
                     </button>
+
+                    {{-- Back button: upper left, same slot as the Admin layout. --}}
+                    @hasSection('back-link')
+                        <div>@yield('back-link')</div>
+                    @endif
                 </div>
 
                 <div class="d-flex align-items-center gap-2">
