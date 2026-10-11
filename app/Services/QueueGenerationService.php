@@ -187,6 +187,19 @@ class QueueGenerationService
      */
     public function persist(PresentationCategory $category, Collection $assignments, int $performedByUserId, bool $wipeExisting): array
     {
+        $result = $this->persistPlan($category, $assignments, $performedByUserId, $wipeExisting);
+
+        // Groups that chose their own panel at registration get it now that
+        // they have a time to check it against.
+        if ($result['ok']) {
+            app(PanelAssignmentService::class)->applyGroupChoices($category, $performedByUserId);
+        }
+
+        return $result;
+    }
+
+    private function persistPlan(PresentationCategory $category, Collection $assignments, int $performedByUserId, bool $wipeExisting): array
+    {
         return DB::transaction(function () use ($category, $assignments, $performedByUserId, $wipeExisting) {
             if ($wipeExisting) {
                 $wipeResult = $this->discardAll($category);
@@ -421,6 +434,7 @@ class QueueGenerationService
         // Groups pushed past their room's close time move on to the next
         // day, ahead of that day's own groups of their section.
         $adjustments->spillOverflow($category, $performedByUserId);
+        app(PanelAssignmentService::class)->applyGroupChoices($category, $performedByUserId);
         app(PanelistConflictService::class)->syncNotifications(app(NotificationService::class));
 
         return ['state' => 'generated', 'count' => $groups->count(), 'unscheduled' => $unscheduled];

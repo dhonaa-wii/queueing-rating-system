@@ -8,6 +8,7 @@ use App\Models\ResearchGroup;
 use App\Services\QueueGenerationService;
 use App\Services\ResearchGroupRegistrationService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class RegistrationController extends Controller
 {
@@ -57,6 +58,31 @@ class RegistrationController extends Controller
         $queueService->syncAfterRegistrationChange($category->fresh(), $category->actingUserId());
 
         return redirect()->route('student.categories.registration.confirmation', [$category, $researchGroup->group_reference]);
+    }
+
+    /**
+     * Select Panel on the public schedule's Group Status card: a group that
+     * registered before the category let groups choose, and has no panel yet,
+     * chooses it once (ResearchGroupRegistrationService::choosePanelLater()).
+     */
+    public function choosePanel(Request $request, PresentationCategory $category, string $groupReference, ResearchGroupRegistrationService $registrationService)
+    {
+        $category->refreshStatus();
+        abort_unless($category->isPubliclyVisible(), 404);
+
+        $group = ResearchGroup::where('category_id', $category->id)
+            ->where('group_reference', $groupReference)
+            ->firstOrFail();
+
+        $back = route('student.categories.schedule', ['category' => $category, 'q' => $group->group_reference, 'group' => $group->group_reference]);
+
+        try {
+            $registrationService->choosePanelLater($group, $request);
+        } catch (ValidationException $e) {
+            return redirect($back)->with('panel_error', collect($e->errors())->flatten()->first());
+        }
+
+        return redirect($back)->with('panel_status', 'Panel saved.');
     }
 
     public function confirmation(PresentationCategory $category, string $groupReference)

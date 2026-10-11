@@ -49,7 +49,7 @@
                     if (!needle) {
                         return true;
                     }
-                    var haystack = (row.titleOrLeader + ' ' + row.category).toLowerCase();
+                    var haystack = (row.groupReference + ' ' + row.titleOrLeader + ' ' + row.category).toLowerCase();
                     return haystack.indexOf(needle) !== -1;
                 });
 

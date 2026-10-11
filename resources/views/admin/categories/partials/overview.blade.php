@@ -115,6 +115,12 @@
                                value="{{ old('panelist_count', $category->panelist_count) }}" min="1" max="50">
                     </div>
 
+                    <div class="form-check mb-3">
+                        <input type="hidden" name="students_choose_panelists" value="0">
+                        <input class="form-check-input" type="checkbox" name="students_choose_panelists" id="students_choose_panelists" value="1" @checked($category->students_choose_panelists)>
+                        <label class="form-check-label" for="students_choose_panelists">Groups choose their panelists at registration</label>
+                    </div>
+
                     <button type="submit" class="btn btn-outline-brand btn-sm"><x-icon name="save" /> Save Panel Count</button>
                 </form>
 

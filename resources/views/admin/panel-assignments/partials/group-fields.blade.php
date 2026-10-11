@@ -69,7 +69,40 @@
     @if ($category->technical_adviser_required)
         <div class="mb-0">
             <label for="{{ $idPrefix }}_technical_adviser_name" class="form-label small">Technical Adviser <span class="text-brand-accent">*</span></label>
-            <input type="text" name="technical_adviser_name" id="{{ $idPrefix }}_technical_adviser_name" class="form-control form-control-sm" maxlength="200" required value="{{ $prefill['technical_adviser_name'] ?? '' }}">
+            <select name="technical_adviser_name" id="{{ $idPrefix }}_technical_adviser_name" class="form-select form-select-sm" required data-adviser-select>
+                <option value="">Select an adviser&hellip;</option>
+                @php
+                    $adviserOptions = $category->adviserOptions();
+                    $currentAdviser = $prefill['technical_adviser_name'] ?? null;
+                @endphp
+                {{-- An adviser saved before the dropdown existed, or since removed
+                   from the Panelist Registry, stays listed so an edit keeps it. --}}
+                @if (filled($currentAdviser) && ! in_array($currentAdviser, $adviserOptions, true))
+                    <option value="{{ $currentAdviser }}" selected>{{ $currentAdviser }} (not in Panelist Registry)</option>
+                @endif
+                @foreach ($adviserOptions as $adviserName)
+                    <option value="{{ $adviserName }}" @selected($currentAdviser === $adviserName)>{{ $adviserName }}</option>
+                @endforeach
+            </select>
         </div>
     @endif
 </div>
+
+{{-- Add Group only: once registered, a group's panel is changed with Edit Panel. --}}
+@if (($withPanelChoices ?? false) && $category->groupsChoosePanelists())
+    <div class="mt-3">
+        <h3 class="h6 mb-2">Panel</h3>
+        @for ($i = 0; $i < (int) $category->panelist_count; $i++)
+            <div class="mb-2">
+                <label for="{{ $idPrefix }}_panelist_choice_{{ $i }}" class="form-label small">{{ $i === 0 ? 'Chair' : 'Member '.$i }} <span class="text-brand-accent">*</span></label>
+                <select name="panelist_choices[{{ $i }}]" id="{{ $idPrefix }}_panelist_choice_{{ $i }}" class="form-select form-select-sm" required data-panelist-choice>
+                    <option value="">Select a panelist&hellip;</option>
+                    @foreach ($category->choosablePanelists() as $panelist)
+                        <option value="{{ $panelist->id }}">{{ \App\Models\PresentationCategory::panelistName($panelist) }}</option>
+                    @endforeach
+                </select>
+            </div>
+        @endfor
+    </div>
+@endif
+@include('partials.adviser-panel-exclusion-script')

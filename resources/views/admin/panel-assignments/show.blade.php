@@ -94,7 +94,7 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        @include('admin.panel-assignments.partials.group-fields', ['idPrefix' => 'add', 'prefill' => []])
+                        @include('admin.panel-assignments.partials.group-fields', ['idPrefix' => 'add', 'prefill' => [], 'withPanelChoices' => true])
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-brand" data-bs-dismiss="modal">Cancel</button>
@@ -321,6 +321,10 @@
                                                                data-adviser="{{ $adviserNameByAttempt[$attempt->id] ?? '' }}"
                                                                data-group-ref="{{ $attempt->researchGroup->group_reference }}"
                                                                data-current-panel="{{ $currentPanelNames }}"
+                                                               data-panel-chair="{{ $assigned->firstWhere('is_lead', true)?->panelist_user_id }}"
+                                                               data-panel-members="{{ $assigned->reject(fn ($pa) => $pa->is_lead)->pluck('panelist_user_id')->implode(',') }}"
+                                                               data-panel-backup="{{ $backup->first()?->panelist_user_id }}"
+                                                               data-edit-panel-url="{{ route('admin.panel-assignments.edit-panel', [$category, $attempt]) }}"
                                                                data-room-id="{{ $room->id }}"
                                                                data-has-eval="{{ $hasSubmittedEvaluation ? '1' : '0' }}">
                                                     @endif
@@ -393,14 +397,22 @@
                                                     @endforeach
                                                 </td>
                                                 <td class="text-end">
-                                                    @if ($canTransfer)
+                                                    {{-- Edit (the group's own data) is always available, on any
+                                                       row (user-directed 2026-10-12). Popper's fixed strategy
+                                                       lets the menu overlay the table, so a one-row list
+                                                       can't clip it. --}}
                                                     <div class="dropdown">
-                                                        <button type="button" class="row-actions-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Row actions">
+                                                        <button type="button" class="row-actions-btn" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" aria-label="Row actions">
                                                             <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.75"></circle><circle cx="12" cy="12" r="1.75"></circle><circle cx="12" cy="19" r="1.75"></circle></svg>
                                                         </button>
                                                         <ul class="dropdown-menu dropdown-menu-end">
-                                                            @if ($canChange)
-                                                                <li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#edit-group-modal-{{ $attempt->researchGroup->id }}">Edit</button></li>
+                                                            <li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#edit-group-modal-{{ $attempt->researchGroup->id }}">Edit</button></li>
+                                                            {{-- Edit Panel also works for a "to be scheduled" group on a
+                                                               day that is over (user-directed 2026-10-12); only a
+                                                               finished or presenting group is left alone, the same
+                                                               rule PanelAssignmentService::assign() enforces. --}}
+                                                            @if (! $isTerminal && ! $isPresenting && $attempt->attemptSchedule?->presentationDateRoom?->panelist_count)
+                                                                <li><button type="button" class="dropdown-item" data-edit-panel-for="{{ $attempt->id }}">Edit Panel</button></li>
                                                             @endif
                                                             @if ($canChange && $isReDefense)
                                                                 {{-- Its position is not the admin's to pick: a pending
@@ -412,7 +424,9 @@
                                                             @elseif ($canChange)
                                                                 <li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#reorder-modal-{{ $attempt->id }}">Move</button></li>
                                                             @endif
-                                                            <li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#transfer-modal-{{ $attempt->id }}">Transfer</button></li>
+                                                            @if ($canTransfer)
+                                                                <li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#transfer-modal-{{ $attempt->id }}">Transfer</button></li>
+                                                            @endif
                                                             @if ($canChange)
                                                                 @if ($hasSubmittedEvaluation)
                                                                     <li><span class="dropdown-item disabled" title="A panelist has already submitted an evaluation for this group — it can no longer be deferred.">Defer</span></li>
@@ -423,11 +437,12 @@
                                                             {{-- Delete works on any group not presenting right now —
                                                                running day or "to be scheduled" included
                                                                (user-directed 2026-09-30). --}}
-                                                            <li><hr class="dropdown-divider"></li>
-                                                            <li><button type="button" class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#delete-modal-{{ $attempt->id }}">Delete</button></li>
+                                                            @if ($canTransfer)
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                <li><button type="button" class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#delete-modal-{{ $attempt->id }}">Delete</button></li>
+                                                            @endif
                                                         </ul>
                                                     </div>
-                                                    @endif
                                                 </td>
                                             </tr>
                                         @endforeach
@@ -509,9 +524,7 @@
                                                     @endif
                                                 </td>
                                                 <td class="text-nowrap">
-                                                    @if ($attempt->attemptSchedule->presentationDateRoom->presentationDate->isOpenForScheduling())
-                                                        <button type="button" class="btn btn-sm btn-outline-brand" data-bs-toggle="modal" data-bs-target="#edit-group-modal-{{ $attempt->researchGroup->id }}"><x-icon name="edit" /> Edit</button>
-                                                    @endif
+                                                    <button type="button" class="btn btn-sm btn-outline-brand" data-bs-toggle="modal" data-bs-target="#edit-group-modal-{{ $attempt->researchGroup->id }}"><x-icon name="edit" /> Edit</button>
                                                     @if ($paymentRequired && ! $paymentResolved)
                                                         <button type="button" class="btn btn-sm btn-outline-brand" data-bs-toggle="modal" data-bs-target="#verify-payment-modal-{{ $attempt->id }}"><x-icon name="shield-check" /> Verify Payment</button>
                                                     @endif
@@ -610,7 +623,12 @@
 
                 <div class="col-lg-4">
                     <div class="card-brand p-4 d-flex flex-column assign-panel-card" id="assign-panel-card">
-                        <h3 class="h6 mb-2">Assign Panel</h3>
+                        <div class="d-flex align-items-center gap-2 mb-2 flex-shrink-0">
+                            <h3 class="h6 mb-0" id="assign-panel-title">Assign Panel</h3>
+                            <span class="badge badge-brand-tint" id="assign-edit-ref" hidden></span>
+                            <button type="button" class="btn btn-sm btn-outline-brand ms-auto" id="assign-edit-cancel" hidden>Cancel</button>
+                        </div>
+                        <input type="hidden" name="_method" value="PUT" id="assign-edit-method" disabled>
 
                         <div class="assign-status mb-3" id="assign-status">
                             <div class="assign-status-head">
@@ -685,7 +703,7 @@
                             </select>
                         </div>
 
-                        <button type="submit" class="btn btn-brand w-100 flex-shrink-0" id="assign-submit-btn" disabled><x-icon name="user-check" /> Assign to Selected Groups</button>
+                        <button type="submit" class="btn btn-brand w-100 flex-shrink-0" id="assign-submit-btn" disabled><x-icon name="user-check" /> <span id="assign-submit-label">Assign to Selected Groups</span></button>
                     </div>
                 </div>
             </div>
@@ -744,6 +762,11 @@
                    the panelist list absorbing whatever height is left. */
                 .assign-panel-card {
                     box-sizing: border-box;
+                    transition: box-shadow 0.2s ease;
+                }
+
+                .assign-panel-card.is-editing {
+                    box-shadow: 0 0 0 2px var(--brand-accent);
                 }
 
                 .assigned-panelist-list {
@@ -1781,6 +1804,20 @@
                 var filterInput = document.getElementById('panelist-filter');
                 var panelistList = document.getElementById('assigned-panelist-list');
                 var searchEmpty = document.getElementById('panelist-search-empty');
+                var panelCard = document.getElementById('assign-panel-card');
+                var panelTitle = document.getElementById('assign-panel-title');
+                var editRef = document.getElementById('assign-edit-ref');
+                var editCancel = document.getElementById('assign-edit-cancel');
+                var editMethod = document.getElementById('assign-edit-method');
+                var submitLabel = document.getElementById('assign-submit-label');
+
+                // Edit Panel (user-directed 2026-10-11) runs in this card
+                // rather than a modal: it selects that one group, loads its
+                // current Chair, Members and Alternate here, and saves through
+                // PanelAssignmentController::editPanel(), where the Alternate
+                // may be left empty. Changing the group selection ends it.
+                var editing = null;
+                var loadingEdit = false;
 
                 function leadRadioFor(value) {
                     return document.querySelector('.lead-panelist-radio[value="' + value + '"]');
@@ -1821,7 +1858,7 @@
 
                     setRequirement(reqPanelists, assignedChecked === required, assignedChecked + ' / ' + required);
                     setRequirement(reqLead, !!leadValue, leadValue ? displayNameFor(leadValue) : 'Not selected');
-                    setRequirement(reqBackup, backupValue !== '', backupValue !== '' ? displayNameFor(backupValue) : 'Not selected');
+                    setRequirement(reqBackup, backupValue !== '' || !!editing, backupValue !== '' ? displayNameFor(backupValue) : (editing ? 'Optional' : 'Not selected'));
                 }
 
                 function clearStatusDetail() {
@@ -1971,7 +2008,68 @@
                         if (!cb.checked) cb.disabled = assignedChecked >= required;
                     });
 
-                    submitBtn.disabled = !(assignedChecked === required && backupPicked && leadPicked);
+                    submitBtn.disabled = !(assignedChecked === required && (backupPicked || !!editing) && leadPicked);
+                }
+
+                function clearPanelPicks() {
+                    assignedBoxes.forEach(function (cb) { cb.checked = false; cb.disabled = false; });
+                    leadRadios.forEach(function (r) { r.checked = false; r.disabled = true; });
+                    backupSelect.value = '';
+                }
+
+                function setEditMode(cb) {
+                    editing = cb;
+                    assignForm.action = cb ? cb.dataset.editPanelUrl : assignForm.dataset.assignAction;
+                    editMethod.disabled = !cb;
+                    panelTitle.textContent = cb ? 'Edit Panel' : 'Assign Panel';
+                    editRef.textContent = cb ? (cb.dataset.groupRef || '') : '';
+                    editRef.hidden = !cb;
+                    editCancel.hidden = !cb;
+                    submitLabel.textContent = cb ? 'Save Panel' : 'Assign to Selected Groups';
+                    panelCard.classList.toggle('is-editing', !!cb);
+                }
+
+                function startEdit(attemptId) {
+                    var target = document.querySelector('.attempt-checkbox[value="' + attemptId + '"]');
+                    if (!target) return;
+
+                    loadingEdit = true;
+                    checkboxes.forEach(function (cb) {
+                        if (cb.checked !== (cb === target)) {
+                            cb.checked = cb === target;
+                            cb.dispatchEvent(new Event('change'));
+                        }
+                    });
+                    loadingEdit = false;
+
+                    clearPanelPicks();
+
+                    var chair = target.dataset.panelChair || '';
+                    var ids = (target.dataset.panelMembers || '').split(',').concat([chair]).filter(Boolean);
+
+                    ids.forEach(function (id) {
+                        var box = assignedCheckboxFor(id);
+                        if (box) box.checked = true;
+                        var radio = leadRadioFor(id);
+                        if (radio) radio.disabled = false;
+                    });
+
+                    var chairRadio = chair ? leadRadioFor(chair) : null;
+                    if (chairRadio) chairRadio.checked = true;
+                    backupSelect.value = target.dataset.panelBackup || '';
+
+                    setEditMode(target);
+                    if (filterInput) filterInput.value = '';
+                    // Refreshes this card and the bulk bar together.
+                    backupSelect.dispatchEvent(new Event('change'));
+
+                    var firstPick = ids.length ? assignedCheckboxFor(ids[0]) : null;
+                    if (firstPick && panelistList) {
+                        var row = firstPick.closest('.panelist-row');
+                        panelistList.scrollTop += row.getBoundingClientRect().top - panelistList.getBoundingClientRect().top;
+                    }
+
+                    panelCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
 
                 // Reassigning a group that already holds a panel replaces it
@@ -1991,8 +2089,12 @@
                     });
                 }
 
+                assignForm.dataset.assignAction = assignForm.action;
+
                 if (assignForm && reassignModalEl && reassignConfirmBtn) {
                     assignForm.addEventListener('submit', function (e) {
+                        // Edit Panel was opened on this group's panel on purpose.
+                        if (editing) return;
                         if (assignForm.dataset.reassignConfirmed === '1') return;
 
                         var affected = alreadyAssignedSelection();
@@ -2038,8 +2140,26 @@
                         // animation and so would race the submit the confirm
                         // button itself kicks off.
                         if (assignForm) assignForm.dataset.reassignConfirmed = '';
+                        if (editing && !loadingEdit) setEditMode(null);
                         refresh();
                     });
+                });
+
+                document.querySelectorAll('[data-edit-panel-for]').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        startEdit(btn.dataset.editPanelFor);
+                    });
+                });
+
+                editCancel.addEventListener('click', function () {
+                    var target = editing;
+                    setEditMode(null);
+                    clearPanelPicks();
+                    if (target) {
+                        target.checked = false;
+                        target.dispatchEvent(new Event('change'));
+                    }
+                    backupSelect.dispatchEvent(new Event('change'));
                 });
                 assignedBoxes.forEach(function (cb) {
                     cb.addEventListener('change', function () {
@@ -2183,14 +2303,11 @@
                     countLabel.textContent = picked.length + ' selected';
                     editBtn.classList.toggle('d-none', picked.length !== 1);
 
-                    // A group parked on a date that is over can only be
-                    // transferred out of it; everything else needs an ongoing
-                    // or upcoming date.
+                    // A group parked on a date that is over can't be moved or
+                    // deferred there, only transferred out of it. Its own data
+                    // can always be edited (user-directed 2026-10-12).
                     var anyAwaiting = picked.some(function (cb) { return cb.dataset.awaiting === '1'; });
                     var awaitingTitle = 'A group on a date that is over can only be transferred.';
-
-                    editBtn.disabled = anyAwaiting;
-                    editBtn.title = anyAwaiting ? awaitingTitle : '';
                     // Delete works on any selectable group, a day that is over
                     // included (user-directed 2026-09-30).
                     if (deleteBtn) {

@@ -46,6 +46,26 @@ class PanelistNotifier
         $this->notifications->notify($panelist, 'PANELIST_ASSIGNED', 'New assignment', $message, null, ['attempt_ids' => $attemptIds]);
     }
 
+    /** Like assigned(), for a panel the group chose itself at registration. */
+    public function chosenByGroup(int $panelistUserId, array $attemptIds): void
+    {
+        $attemptIds = array_values(array_unique($attemptIds));
+        $panelist = User::find($panelistUserId);
+
+        if (! $panelist || $attemptIds === []) {
+            return;
+        }
+
+        if (count($attemptIds) === 1) {
+            $reference = PresentationAttempt::with('researchGroup')->find($attemptIds[0])?->researchGroup?->group_reference ?? 'a group';
+            $message = "Assigned to {$reference}. Chosen by the group at registration.";
+        } else {
+            $message = 'Assigned to ' . count($attemptIds) . ' groups. Chosen by the groups at registration.';
+        }
+
+        $this->notifications->notify($panelist, 'PANELIST_ASSIGNED', 'New assignment', $message, null, ['attempt_ids' => $attemptIds]);
+    }
+
     /** Tells the panelist who was swapped out. $approvedByUserId is null for a backup's self-service swap. */
     public function replaced(PanelSubstitutionRequest $request, ?int $approvedByUserId): void
     {

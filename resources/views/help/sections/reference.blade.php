@@ -81,6 +81,8 @@
             <thead><tr><th>Task</th><th>Student</th><th>Panelist</th><th>Admin</th><th>Super Admin</th></tr></thead>
             <tbody>
                 <tr><td>Register a group</td><td class="hc-check">✓</td><td class="hc-dash">—</td><td class="hc-check">✓ (Add Group)</td><td class="hc-dash">—</td></tr>
+                <tr><td>Choose the group's panel</td><td class="hc-check">✓ (if the category allows, once)</td><td class="hc-dash">—</td><td class="hc-check">✓ (Assign / Edit Panel)</td><td class="hc-dash">—</td></tr>
+                <tr><td>Follow advised groups and their evaluations</td><td class="hc-dash">—</td><td class="hc-check">✓ (own advisees)</td><td class="hc-check">✓</td><td class="hc-dash">—</td></tr>
                 <tr><td>Edit a registration</td><td class="hc-dash">—</td><td class="hc-dash">—</td><td class="hc-check">✓</td><td class="hc-dash">—</td></tr>
                 <tr><td>View schedule and queue</td><td class="hc-check">✓</td><td class="hc-check">✓</td><td class="hc-check">✓</td><td class="hc-dash">—</td></tr>
                 <tr><td>Evaluate a group</td><td class="hc-dash">—</td><td class="hc-check">✓ (seated)</td><td class="hc-dash">—</td><td class="hc-dash">—</td></tr>
@@ -98,6 +100,7 @@
 <div class="hc-topic" id="rf-glossary">
     <h3><x-icon name="book-open" /> Glossary</h3>
     <div class="hc-panel">
+        <div class="hc-legend-row"><strong>Advisee</strong><span>A group that names a panelist as its technical adviser. Listed in that panelist's My Advisees.</span></div>
         <div class="hc-legend-row"><strong>Attempt</strong><span>One presentation by a group. A re-defense is the group's second (or later) attempt.</span></div>
         <div class="hc-legend-row"><strong>Backup / Alternate Panel</strong><span>The standby panelist who can take an assigned seat.</span></div>
         <div class="hc-legend-row"><strong>Category</strong><span>One presentation event, e.g. "Capstone Final Defense", with its own registration, dates, rooms and form.</span></div>
@@ -113,6 +116,7 @@
         <div class="hc-legend-row"><strong>Queue strategy</strong><span>How groups are ordered: First In First Out, Section Based or Random Draw.</span></div>
         <div class="hc-legend-row"><strong>Reinsert</strong><span>Put a deferred group back in a queue.</span></div>
         <div class="hc-legend-row"><strong>Room account</strong><span>A room's shared, day-only login used to set up its devices.</span></div>
+        <div class="hc-legend-row"><strong>Technical adviser</strong><span>The panelist who advises a group, chosen from a list at registration. Never sits on that group's panel.</span></div>
         <div class="hc-legend-row"><strong>Terminal</strong><span>One numbered device seat in a room, one per panelist.</span></div>
         <div class="hc-legend-row"><strong>Track</strong><span>A research area (e.g. Web, Mobile). Track rooms only take their tracks' groups.</span></div>
         <div class="hc-legend-row"><strong>Transfer</strong><span>Move a group to another room or day.</span></div>

@@ -2,8 +2,8 @@
      role: students, panelists, room devices, administrators and super
      administrators. Standalone rather than inside a role layout so it reads
      the same signed in or out, stays white in both themes, and prints to a
-     clean PDF (Download PDF = the browser's Save as PDF on this page's print
-     stylesheet). The chapter list below drives the sidebar, the printed
+     clean PDF (Download PDF serves the file `php artisan help:export-pdf`
+     prints from this page — re-run it after editing the guide). The chapter list below drives the sidebar, the printed
      Contents page and the search index, so a topic added to a chapter
      partial must also be listed here with the same id. --}}
 @php
@@ -40,6 +40,7 @@
             'st-register' => 'Registering your group',
             'st-rules' => 'Registration rules',
             'st-confirmation' => 'Your group reference',
+            'st-choose-panel' => 'Choosing your panel',
             'st-schedule' => 'Viewing the schedule and queue',
             'st-times' => 'Planned, expected and actual times',
             'st-day' => 'On presentation day',
@@ -49,6 +50,7 @@
             'pn-account' => 'Your panelist account',
             'pn-dashboard' => 'Dashboard',
             'pn-assignments' => 'My Assignments',
+            'pn-advisees' => 'My Advisees',
             'pn-unavailable' => 'Marking yourself unavailable',
             'pn-notifications' => 'Notifications',
             'pn-schedule' => 'View Schedule',

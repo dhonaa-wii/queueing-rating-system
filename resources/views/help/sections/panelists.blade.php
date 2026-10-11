@@ -19,20 +19,22 @@
                         <div class="m-side-brand">ARPQRS</div>
                         <div class="m-nav is-on"><x-icon name="grid" /> Dashboard</div>
                         <div class="m-nav"><x-icon name="list-check" /> My Assignments</div>
+                        <div class="m-nav"><x-icon name="graduation-cap" /> My Advisees</div>
                         <div class="m-nav"><x-icon name="calendar" /> View Schedule</div>
                         <div class="m-side-foot"><div class="m-nav"><x-icon name="settings" /> Settings</div></div>
                     </div>
                     <div class="m-body">
                         <div class="m-top"><span class="m-title">Dashboard</span><span class="m-btn is-ghost"><x-icon name="help-circle" /> Help Center</span><span class="m-icon-btn"><x-icon name="bell" /><span class="m-count">2</span></span><span class="m-pin">1</span><span class="m-icon-btn"><x-icon name="qr-code" /></span><span class="m-pin">2</span></div>
                         <div class="m-page">
-                            <div class="m-between"><span class="m-input" style="min-width:10rem">Capstone Final Defense ▾</span><span class="m-pin">3</span></div>
+                            <div class="m-between"><span class="m-bold">Good morning, Maria</span><span class="m-row"><span class="m-btn is-soft"><x-icon name="list-check" /> Category ▾</span><span class="m-pin">3</span></span></div>
                             <div class="m-stats">
-                                <div class="m-stat"><div class="m-label">Assigned</div><div class="m-stat-value">12</div></div>
-                                <div class="m-stat"><div class="m-label">Completed</div><div class="m-stat-value">7</div></div>
-                                <div class="m-stat"><div class="m-label">Pending</div><div class="m-stat-value">5</div></div>
-                                <div class="m-stat"><div class="m-label">Upcoming</div><div class="m-stat-value">5</div></div>
+                                <div class="m-stat"><div class="m-label">Assigned Groups <span class="m-pin">4</span></div><div class="m-stat-value">12</div></div>
+                                <div class="m-stat"><div class="m-label">Evaluated</div><div class="m-stat-value">7 <span class="m-small m-muted">/ 7</span></div></div>
+                                <div class="m-stat"><div class="m-label">Next Presentation</div><div class="m-stat-value">9:20 AM</div></div>
+                                <div class="m-stat"><div class="m-label">Advisees</div><div class="m-stat-value">2</div></div>
                             </div>
-                            <div class="m-card"><div class="m-between"><span class="m-label">Live Room Status · Room 101</span><span class="hc-badge hc-badge-success">Active</span></div><div class="m-small">Now: CFD-2026-0007 · Next: CFD-2026-0012</div></div>
+                            <div class="m-card"><div class="m-between"><span class="m-label">Live Now · Room 101 <span class="m-pin">5</span></span><span class="hc-badge hc-badge-success">Active</span></div><div class="m-small">Presenting: CFD-2026-0007 · Next: CFD-2026-0012</div></div>
+                            <div class="m-grid-2"><div class="m-card"><div class="m-label">Upcoming Assignments <span class="m-pin">6</span></div><div class="m-small">CFD-2026-0012 · Oct 20 · 9:20 AM</div></div><div class="m-card"><div class="m-label">My Advisees</div><div class="m-small">CFD-2026-0004 · Pass with Minor Revision</div></div></div>
                         </div>
                     </div>
                 </div>
@@ -43,7 +45,10 @@
     <ul class="hc-pins">
         <li><span class="m-pin">1</span><span><strong>Notifications</strong> — the number shows unread items.</span></li>
         <li><span class="m-pin">2</span><span><strong>Room Session</strong> — opens your phone camera to scan a room device's QR code.</span></li>
-        <li><span class="m-pin">3</span><span><strong>Category</strong> — switch between the categories you serve on. Counts, the live room and announcements follow it.</span></li>
+        <li><span class="m-pin">3</span><span><strong>Category</strong> — shown when you serve on or advise groups in more than one category. Everything on the page follows it.</span></li>
+        <li><span class="m-pin">4</span><span><strong>Summary</strong> — <strong>Assigned Groups</strong> (and how many are still to present), <strong>Evaluated</strong> (sheets you submitted out of groups that have presented), your <strong>Next Presentation</strong> with its room and group, and your <strong>Advisees</strong>.</span></li>
+        <li><span class="m-pin">5</span><span><strong>Live Now</strong> — appears only while one of your rooms is running: who is presenting or called, and who is next.</span></li>
+        <li><span class="m-pin">6</span><span><strong>Upcoming Assignments</strong> and <strong>My Advisees</strong> — the next few of each, nearest first; <strong>View all</strong> opens the full page.</span></li>
     </ul>
 </div>
 
@@ -55,8 +60,18 @@
         <div class="hc-legend-row"><span class="hc-badge hc-badge-danger">Deferred</span><span>Set aside, with the real time and reason. View only.</span></div>
         <div class="hc-legend-row"><span class="hc-badge hc-badge-success">Completed</span><span>Already presented, newest first, with the real completion time.</span></div>
     </div>
-    <p>Each row's <strong>⋮</strong> menu offers <strong>View</strong> (the group's members, titles, room, time and your role). On a Completed row, View opens the <strong>evaluation sheet</strong> the panel submitted. On a Scheduled row you can also <strong>Mark Unavailable</strong>.</p>
+    <p>Each row's <strong>⋮</strong> menu offers <strong>View</strong> (the group's members, titles, room, time and your role). On a Completed row, <strong>View Evaluation</strong> opens the evaluation sheets the panel submitted. On a Scheduled row you can also <strong>Mark Unavailable</strong>. Search by group code, title or room, and filter by track or section.</p>
     <p>Your role on each group is shown as <span class="hc-badge hc-badge-info">Lead Panelist</span>, <span class="hc-badge hc-badge-muted">Member</span> or <span class="hc-badge hc-badge-brand">Backup Panelist</span> — see <a href="#pn-roles">Lead Panelist, Member and Backup</a>.</p>
+</div>
+
+<div class="hc-topic" id="pn-advisees">
+    <h3><x-icon name="graduation-cap" /> My Advisees</h3>
+    <p>The groups that name you as their <strong>Technical Adviser</strong>, in your college's categories. You do not evaluate these groups — this page lets you follow them.</p>
+    <div class="hc-panel">
+        <div class="hc-legend-row"><span class="hc-badge hc-badge-brand">Upcoming</span><span>Still to present, nearest first, with the room, time and panel. <strong>View</strong> shows the group's details and its panel.</span></div>
+        <div class="hc-legend-row"><span class="hc-badge hc-badge-success">Completed</span><span>Already presented, with the real completion time and the outcome. <strong>View Evaluation</strong> opens the sheets the panel submitted.</span></div>
+    </div>
+    <p>Search by group code, title or leader, and filter by track, section or category.</p>
 </div>
 
 <div class="hc-topic" id="pn-unavailable">
@@ -73,7 +88,7 @@
     <h3><x-icon name="bell" /> Notifications</h3>
     <p>The <x-icon name="bell" style="width:.9em;height:.9em;vertical-align:-.1em" /> bell in the top bar lists what changed for you, newest first, each with its date and time. Clicking one marks it read and, where it applies, takes you to My Assignments with the affected rows highlighted.</p>
     <div class="hc-options">
-        <div class="hc-option"><div class="hc-option-icon is-success"><x-icon name="user-plus" /></div><div><div class="hc-option-title">New assignment</div><p>You were added to a panel — "Assigned to 3 groups." Press <strong>View</strong> to see them.</p></div></div>
+        <div class="hc-option"><div class="hc-option-icon is-success"><x-icon name="user-plus" /></div><div><div class="hc-option-title">New assignment</div><p>You were added to a panel — "Assigned to 3 groups." — by an Administrator, or chosen by a group at registration. Press <strong>View</strong> to see them.</p></div></div>
         <div class="hc-option"><div class="hc-option-icon is-info"><x-icon name="transfer" /></div><div><div class="hc-option-title">Schedule changed</div><p>A group you sit on moved to another room, date or time.</p></div></div>
         <div class="hc-option"><div class="hc-option-icon"><x-icon name="repeat" /></div><div><div class="hc-option-title">Replaced on panel</div><p>Someone took your seat on a group (for example a backup at the room device).</p></div></div>
         <div class="hc-option"><div class="hc-option-icon"><x-icon name="user-check" /></div><div><div class="hc-option-title">Unavailability approved</div><p>Your Mark Unavailable report was handled and a replacement assigned.</p></div></div>
@@ -82,7 +97,7 @@
 
 <div class="hc-topic" id="pn-schedule">
     <h3><x-icon name="calendar" /> View Schedule</h3>
-    <p>The same live schedule and queue the students see (<a href="#st-schedule">Viewing the schedule and queue</a>), for any of your categories: room tabs, search, Scheduled / Completed / Deferred lists, the group presenting now and who is next. Searching a group also shows its assigned panelists.</p>
+    <p>The same live schedule and queue the students see (<a href="#st-schedule">Viewing the schedule and queue</a>), for any of your categories: room tabs, search (including by group code), Scheduled / Completed / Deferred lists, groups awaiting a schedule, the group presenting now and who is next. Searching a group also shows its assigned panelists.</p>
 </div>
 
 <div class="hc-topic" id="pn-roles">

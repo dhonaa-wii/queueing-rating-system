@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\PresentationAttempt;
 use App\Models\PresentationCategory;
 use App\Models\ProposedTitle;
 use App\Models\ResearchGroup;
+use App\Models\ResearchGroupPanelistChoice;
 use App\Models\Student;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -50,8 +52,11 @@ class ResearchGroupRegistrationService
      *
      * Returns 'leader' and each entry of 'members' as
      * [last_name, first_name, middle_name, sex, section, research_track_name].
+     *
+     * $withPanelistChoices is false for the Admin's Edit Group: once a group
+     * is registered its panel is changed through Assign Panel, not its picks.
      */
-    public function validate(Request $request, PresentationCategory $category, bool $isTitleProposal): array
+    public function validate(Request $request, PresentationCategory $category, bool $isTitleProposal, bool $withPanelistChoices = true, ?string $keepAdviser = null): array
     {
         $memberSlots = max(0, $category->maximum_members - 1);
         $requiredTitleCount = $isTitleProposal ? ($category->required_proposed_title_count ?? 1) : 0;
@@ -122,10 +127,26 @@ class ResearchGroupRegistrationService
         }
 
         if ($category->technical_adviser_required) {
-            $rules['technical_adviser_name'] = ['required', 'string', 'max:200'];
+            // An edit may keep the group's current adviser even when that name
+            // is not (or no longer) in the Panelist Registry, so fixing a
+            // member's name doesn't force an adviser change.
+            $adviserChoices = $category->adviserOptions();
+            if (filled($keepAdviser)) {
+                $adviserChoices[] = $keepAdviser;
+            }
+            $rules['technical_adviser_name'] = ['required', 'string', 'max:200', Rule::in($adviserChoices)];
         }
 
-        $validated = $request->validate($rules, [
+        // The group's own panel (user-directed 2026-10-11): exactly panel-count
+        // different panelists of the category's college, the first one Chair.
+        $choosePanelists = $withPanelistChoices && $category->groupsChoosePanelists();
+
+        if ($choosePanelists) {
+            $rules += $this->panelistChoiceRules($category);
+        }
+
+        $validated = $request->validate($rules, self::PANELIST_CHOICE_MESSAGES + [
+            'technical_adviser_name.in' => 'Choose the technical adviser from the list.',
             'leader_section.regex' => self::SECTION_FORMAT_MESSAGE,
             'members.*.section.regex' => self::SECTION_FORMAT_MESSAGE,
             '*.regex' => self::NAME_FORMAT_MESSAGE,
@@ -196,13 +217,133 @@ class ResearchGroupRegistrationService
             $members[] = $person;
         }
 
+        $adviserName = $category->technical_adviser_required ? trim($validated['technical_adviser_name']) : null;
+        $panelistChoices = $choosePanelists ? array_values(array_map('intval', $validated['panelist_choices'])) : null;
+
+        if ($panelistChoices) {
+            $this->assertAdviserNotPicked($category, $adviserName, $panelistChoices);
+        }
+
         return [
             'leader' => $leader,
             'members' => $members,
             'project_title' => $isTitleProposal ? null : trim($validated['project_title']),
             'proposed_titles' => $isTitleProposal ? array_values(array_map('trim', $validated['proposed_titles'])) : [],
-            'technical_adviser_name' => $category->technical_adviser_required ? trim($validated['technical_adviser_name']) : null,
+            'technical_adviser_name' => $adviserName,
+            // null = the category doesn't let groups choose; leave any picks alone.
+            'panelist_choices' => $panelistChoices,
         ];
+    }
+
+    private const PANELIST_CHOICE_MESSAGES = [
+        'panelist_choices.required' => 'Choose a panelist for every seat.',
+        'panelist_choices.*.required' => 'Choose a panelist for every seat.',
+        'panelist_choices.*.distinct' => 'Choose a different panelist for each seat.',
+        'panelist_choices.*.in' => 'Choose one of the listed panelists.',
+    ];
+
+    /** Exactly panel-count different panelists of the category's college. */
+    private function panelistChoiceRules(PresentationCategory $category): array
+    {
+        return [
+            'panelist_choices' => ['required', 'array', 'size:'.(int) $category->panelist_count],
+            'panelist_choices.*' => ['required', 'integer', 'distinct', Rule::in($category->choosablePanelists()->pluck('id')->all())],
+        ];
+    }
+
+    /** A group's adviser can't sit on its own panel (PanelAssignmentService). */
+    private function assertAdviserNotPicked(PresentationCategory $category, ?string $adviserName, array $panelistIds): void
+    {
+        if (! $adviserName) {
+            return;
+        }
+
+        $panelists = $category->choosablePanelists()->keyBy('id');
+
+        foreach ($panelistIds as $index => $panelistId) {
+            $panelist = $panelists->get($panelistId);
+
+            if ($panelist && PanelAssignmentService::nameMatchesPanelist($adviserName, $panelist)) {
+                throw ValidationException::withMessages([
+                    "panelist_choices.$index" => 'Your technical adviser cannot be one of your panelists.',
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Select Panel on the public schedule (user-directed 2026-10-11): a group
+     * that registered before the category let groups choose (so it has no
+     * picks) and has no panel yet chooses it once. There is no edit — after
+     * this the panel is the Admin's (Edit Panel).
+     */
+    public function canChoosePanelLater(ResearchGroup $group, ?PresentationAttempt $attempt): bool
+    {
+        if (! $group->category?->groupsChoosePanelists() || $group->panelistChoices()->exists()) {
+            return false;
+        }
+
+        if (! $attempt) {
+            return true;
+        }
+
+        $attempt->loadMissing('presentationStatus');
+
+        return $attempt->attempt_number === 1
+            && ! $attempt->presentationStatus?->is_terminal
+            && ! in_array($attempt->presentationStatus?->code, ['ONGOING', 'PAUSED'], true)
+            && ! $attempt->attemptPanelAssignments()->exists();
+    }
+
+    /** Saves the picks and seats them at once if the group is already queued. */
+    public function choosePanelLater(ResearchGroup $group, Request $request): void
+    {
+        $category = $group->category;
+        $attempt = $group->presentationAttempts()->orderByDesc('attempt_number')->first();
+
+        if (! $this->canChoosePanelLater($group, $attempt)) {
+            throw ValidationException::withMessages([
+                'panelist_choices' => 'This group can no longer choose its panel.',
+            ]);
+        }
+
+        $validated = $request->validate($this->panelistChoiceRules($category), self::PANELIST_CHOICE_MESSAGES);
+        $panelistIds = array_values(array_map('intval', $validated['panelist_choices']));
+
+        $this->assertAdviserNotPicked($category, $group->technical_adviser_name, $panelistIds);
+
+        DB::transaction(function () use ($group, $panelistIds) {
+            // Locks the group so two submissions at once can't both save.
+            ResearchGroup::whereKey($group->id)->lockForUpdate()->first();
+
+            if ($group->panelistChoices()->exists()) {
+                throw ValidationException::withMessages([
+                    'panelist_choices' => 'This group has already chosen its panel.',
+                ]);
+            }
+
+            $this->savePanelistChoices($group, $panelistIds);
+        });
+
+        app(PanelAssignmentService::class)->applyGroupChoices($category, $category->actingUserId());
+    }
+
+    /** Replaces the group's chosen panel with $panelistIds, in order. */
+    private function savePanelistChoices(ResearchGroup $group, ?array $panelistIds): void
+    {
+        if ($panelistIds === null) {
+            return;
+        }
+
+        $group->panelistChoices()->delete();
+
+        foreach ($panelistIds as $index => $panelistId) {
+            ResearchGroupPanelistChoice::create([
+                'research_group_id' => $group->id,
+                'panelist_user_id' => $panelistId,
+                'sort_order' => $index + 1,
+            ]);
+        }
     }
 
     private function identityKey(array $person): string
@@ -292,6 +433,8 @@ class ResearchGroupRegistrationService
                 }
             }
 
+            $this->savePanelistChoices($researchGroup, $data['panelist_choices'] ?? null);
+
             return $researchGroup;
         });
     }
@@ -348,6 +491,8 @@ class ResearchGroupRegistrationService
 
                 $existingTitles->slice(count($data['proposed_titles']))->each->delete();
             }
+
+            $this->savePanelistChoices($group, $data['panelist_choices'] ?? null);
         });
     }
 }

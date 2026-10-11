@@ -63,17 +63,20 @@
                     <span class="m-xs m-muted">2</span><span class="m-input is-empty">Last</span><span class="m-input is-empty">First</span><span class="m-input is-empty">Middle</span><span class="m-input is-empty">–</span><span class="m-input is-empty">4B</span><span class="m-input is-empty">Track</span>
                 </div>
                 <div class="m-label" style="margin:.7rem 0 .3rem;">Project Information <span class="m-pin">3</span></div>
-                <div class="m-grid-2"><div class="m-field"><span>Project Title *</span><span class="m-input">Smart Campus Navigation App</span></div><div class="m-field"><span>Technical Adviser *</span><span class="m-input">Engr. M. Santos</span></div></div>
-                <div class="m-row" style="justify-content:flex-end;margin-top:.7rem;"><span class="m-btn"><x-icon name="eye" /> Review &amp; Submit</span><span class="m-pin">4</span></div>
+                <div class="m-grid-2"><div class="m-field"><span>Project Title *</span><span class="m-input">Smart Campus Navigation App</span></div><div class="m-field"><span>Technical Adviser *</span><span class="m-input">Santos, Maria ▾</span></div></div>
+                <div class="m-label" style="margin:.7rem 0 .3rem;">Panel <span class="m-pin">4</span></div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.35rem;"><div class="m-field"><span>Chair *</span><span class="m-input">Garcia, Luis ▾</span></div><div class="m-field"><span>Member 1 *</span><span class="m-input">Lim, Rosa ▾</span></div><div class="m-field"><span>Member 2 *</span><span class="m-input is-empty">Select a panelist…</span></div></div>
+                <div class="m-row" style="justify-content:flex-end;margin-top:.7rem;"><span class="m-btn"><x-icon name="eye" /> Review &amp; Submit</span><span class="m-pin">5</span></div>
             </div>
         </div>
-        <figcaption><strong>Figure 5.</strong> The registration form for a Standard category that requires a track and a technical adviser.</figcaption>
+        <figcaption><strong>Figure 5.</strong> The registration form for a Standard category that requires a track and a technical adviser, and lets groups choose their panel.</figcaption>
     </figure>
     <ol class="hc-steps">
         <li class="hc-step"><div class="hc-step-marker">1</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="user" /> Group Leader</div><p class="hc-step-text">Last, first and middle name, sex, section and — when the category asks for it — your research track. All required.</p></div></li>
         <li class="hc-step"><div class="hc-step-marker">2</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="users" /> Group Members</div><p class="hc-step-text">One row per member. The number of rows is the category's maximum group size minus the leader. Leave unused rows completely blank; a row you start must be filled in completely.</p></div></li>
-        <li class="hc-step"><div class="hc-step-marker">3</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="file-text" /> Project Information</div><p class="hc-step-text">Standard: your <strong>Project Title</strong>. Title Proposal: exactly the required number of <strong>Proposed Titles</strong>. Plus your technical adviser if the category requires one.</p></div></li>
-        <li class="hc-step"><div class="hc-step-marker">4</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="eye" /> Review &amp; Submit</div><p class="hc-step-text">The form checks everything, then shows a summary. Read it carefully. Choose <strong>Back to Edit</strong> to fix something, or <strong>Confirm &amp; Submit</strong> to register.</p><div class="hc-result">Registration <x-icon name="arrow-right" /> <span class="hc-badge hc-badge-success">Registration Recorded</span></div></div></li>
+        <li class="hc-step"><div class="hc-step-marker">3</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="file-text" /> Project Information</div><p class="hc-step-text">Standard: your <strong>Project Title</strong>. Title Proposal: exactly the required number of <strong>Proposed Titles</strong>. Plus your <strong>Technical Adviser</strong> if the category requires one — choose them from the list of your college's panelists.</p></div></li>
+        <li class="hc-step"><div class="hc-step-marker">4</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="crown" /> Panel (only in some categories)</div><p class="hc-step-text">If the category lets groups choose their panel, pick one panelist for each seat: the <strong>Chair</strong> first, then each <strong>Member</strong>. Each person can be picked once, and your adviser is greyed out. See <a href="#st-choose-panel">Choosing your panel</a>.</p></div></li>
+        <li class="hc-step"><div class="hc-step-marker">5</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="eye" /> Review &amp; Submit</div><p class="hc-step-text">The form checks everything, then shows a summary. Read it carefully. Choose <strong>Back to Edit</strong> to fix something, or <strong>Confirm &amp; Submit</strong> to register.</p><div class="hc-result">Registration <x-icon name="arrow-right" /> <span class="hc-badge hc-badge-success">Registration Recorded</span></div></div></li>
     </ol>
     <div class="hc-note hc-note-danger"><x-icon name="alert-triangle" /><p><span class="hc-note-title">You cannot edit a registration after submitting.</span> If something is wrong — a misspelled name, a missing member, a wrong title — ask your Administrator to correct it. Do not register a second time.</p></div>
 </div>
@@ -88,6 +91,8 @@
                 <tr><td>Section</td><td>A year level and a letter — <code>4B</code>, <code>3A</code>. No program prefix. Letters are capitalised for you, so <code>4b</code> and <code>4 - b</code> both become <code>4B</code>.</td></tr>
                 <tr><td>Sex</td><td>Male or Female.</td></tr>
                 <tr><td>Track</td><td>Shown only when the category requires it. If the category has a track list, choose from it; your group is scheduled into a room for its track.</td></tr>
+                <tr><td>Technical Adviser</td><td>Shown only when the category requires it. Choose from the list of your college's panelists; a name that is not on the list cannot be typed in.</td></tr>
+                <tr><td>Panel</td><td>Shown only when the category lets groups choose their panel. One panelist per seat (Chair, then Members), all different, and never your own adviser.</td></tr>
                 <tr><td>Members</td><td>A row is either completely blank (skipped) or completely filled. The same person cannot appear twice in a group.</td></tr>
                 <tr><td>Proposed Titles</td><td>Title Proposal categories only — exactly the number shown on the form.</td></tr>
                 <tr><td>Duplicates</td><td>A category refuses a second active registration with the same leader name, or (Standard mode) the same project title.</td></tr>
@@ -116,7 +121,7 @@
         </div>
         <figcaption><strong>Figure 6.</strong> The confirmation page.</figcaption>
     </figure>
-    <div class="hc-note hc-note-tip"><x-icon name="lightbulb" /><p>Take a screenshot of this page or write the reference down. It is the quickest way for an Administrator to find your group. You can always find your group again by searching your leader's name or project title on the schedule page.</p></div>
+    <div class="hc-note hc-note-tip"><x-icon name="lightbulb" /><p>Take a screenshot of this page or write the reference down. It is the quickest way for an Administrator to find your group. You can always find your group again by searching your group reference, leader's name or project title on the schedule page.</p></div>
 </div>
 
 <div class="hc-topic" id="st-schedule">
@@ -128,9 +133,10 @@
             <div class="hc-screen">
                 <div class="m-grid-2" style="grid-template-columns:1.25fr 1fr;align-items:start;">
                     <div class="m-col">
-                        <div class="m-row"><span class="m-input is-empty m-grow">Search by leader name or project title</span><span class="m-btn"><x-icon name="search" /></span><span class="m-pin">1</span></div>
-                        <div class="m-tabs"><span class="is-on">Room 101</span><span>Room 102</span><span class="m-pin" style="padding:0">2</span></div>
-                        <div class="m-row"><span class="m-seg"><span class="is-on">Scheduled</span><span>Completed</span><span>Deferred</span></span><span class="m-pin">3</span></div>
+                        <div class="m-row"><span class="m-input is-empty m-grow">Search leader, title or group code</span><span class="m-btn"><x-icon name="search" /></span><span class="m-pin">1</span></div>
+                        <div class="m-tabs"><span class="is-on">Scheduled</span><span>Awaiting Schedule <span class="hc-badge hc-badge-muted" style="padding:0 .3rem">3</span></span><span class="m-pin" style="padding:0">2</span></div>
+                        <div class="m-tabs"><span class="is-on">Room 101</span><span>Room 102</span></div>
+                        <div class="m-between"><span class="m-label">Scheduled</span><span class="m-row"><span class="m-btn is-ghost"><x-icon name="filter" /></span><span class="m-pin">3</span></span></div>
                         <table class="m-table">
                             <thead><tr><th>#</th><th>Date</th><th>Time</th><th>Group</th></tr></thead>
                             <tbody>
@@ -152,12 +158,26 @@
         <figcaption><strong>Figure 7.</strong> The schedule and queue page.</figcaption>
     </figure>
     <ul class="hc-pins">
-        <li><span class="m-pin">1</span><span><strong>Search</strong> — type the leader's name, project title, a proposed title or the group reference. Your group's status card appears with its room, time and panel.</span></li>
-        <li><span class="m-pin">2</span><span><strong>Room tabs</strong> — one tab per room still in use. Each tab lists every day that room runs.</span></li>
-        <li><span class="m-pin">3</span><span><strong>Lists</strong> — Scheduled (still to present), Completed and Deferred groups. An <strong>Awaiting Schedule</strong> list appears when some groups are waiting for a new date.</span></li>
+        <li><span class="m-pin">1</span><span><strong>Search</strong> — type the leader's name, project title, a proposed title or the group code (e.g. <code>CFD-2026-0012</code>). Your group's status card appears with its room, time and panel.</span></li>
+        <li><span class="m-pin">2</span><span><strong>Scheduled / Awaiting Schedule</strong> — <strong>Scheduled</strong> has one tab per room still in use, each listing every day that room runs. <strong>Awaiting Schedule</strong> lists groups waiting for a new date or room. These two tabs only appear when some groups are waiting.</span></li>
+        <li><span class="m-pin">3</span><span><strong>Filter</strong> — switch a room's list between Scheduled (still to present), Completed and Deferred groups.</span></li>
         <li><span class="m-pin">4</span><span><strong>Room status</strong> — whether the room is running, its start time, the group presenting now with a live timer, and who is next.</span></li>
     </ul>
     <p><strong>Announcements</strong> from the Administrators appear at the bottom; use <strong>View Announcements</strong> at the top of the page to jump to them. The page updates itself — no need to reload.</p>
+</div>
+
+<div class="hc-topic" id="st-choose-panel">
+    <h3><x-icon name="crown" /> Choosing your panel</h3>
+    <p>Some categories let each group choose its own panelists. When the category allows it, the registration form has a <strong>Panel</strong> section; otherwise the Administrator assigns your panel.</p>
+    <ul class="hc-list">
+        <li>Pick one panelist for every seat. The first is the <strong>Chair</strong>, who runs the room and gives the official outcome; the rest are <strong>Members</strong>.</li>
+        <li>Each panelist can be picked once. Your own technical adviser cannot sit on your panel and is greyed out.</li>
+        <li>Your choices become your panel as soon as your group is placed in the queue. If a chosen panelist is already busy at your time, that seat is left for the Administrator to fill.</li>
+        <li>The Administrator always chooses the backup (Alternate Panel), and can still change your panel later.</li>
+    </ul>
+    <h4>Registered before groups could choose?</h4>
+    <p>If your group registered before the category allowed it and has no panel yet, search your group on the schedule page. The status card shows a <strong>Select Panel</strong> button under Assigned Panelists. Pick the Chair and Members and press <strong>Save Panel</strong>.</p>
+    <div class="hc-note hc-note-warn"><x-icon name="alert-triangle" /><p>You can choose <strong>once</strong>. After saving, the button is gone; ask your Administrator if the panel has to change.</p></div>
 </div>
 
 <div class="hc-topic" id="st-times">

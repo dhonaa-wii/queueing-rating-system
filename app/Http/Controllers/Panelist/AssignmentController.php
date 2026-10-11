@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Panelist;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Panelist\Concerns\RendersEvaluationSheets;
 use App\Models\AttemptPanelAssignment;
-use App\Models\EvaluationLetterhead;
 use App\Models\PanelSubstitutionRequest;
 use App\Models\PresentationAttempt;
 use App\Models\ResearchGroup;
@@ -14,11 +14,12 @@ use App\Services\PanelSubstitutionService;
 use App\Services\RoomQueuePreviewService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class AssignmentController extends Controller
 {
+    use RendersEvaluationSheets;
+
     public function index(Request $request, RoomQueuePreviewService $roomQueuePreview)
     {
         $user = $request->user();
@@ -181,74 +182,25 @@ class AssignmentController extends Controller
      */
     public function evaluationSheet(Request $request, AttemptPanelAssignment $assignment)
     {
-        $attempt = $this->loadSheetAttempt($request, $assignment);
-
-        return view('admin.reports.partials.evaluation-sheets', [
-            'attempt' => $attempt,
-            'submissions' => $attempt->evaluationSubmissions,
-            'letterhead' => EvaluationLetterhead::forCollege($attempt->researchGroup?->category?->college_id),
-            'leadPanelistIds' => $this->leadPanelistIds($attempt),
-            'pdfUrl' => route('panelist.assignments.evaluation-sheet.export-pdf', $assignment),
-        ]);
+        return $this->evaluationSheetView(
+            $this->ownAttempt($request, $assignment),
+            route('panelist.assignments.evaluation-sheet.export-pdf', $assignment),
+        );
     }
 
     /** PDF of the same sheets, one per page. */
     public function exportEvaluationSheetPdf(Request $request, AttemptPanelAssignment $assignment, GradePdfExporter $exporter)
     {
-        $attempt = $this->loadSheetAttempt($request, $assignment);
-        $category = $attempt->researchGroup->category->load(['academicYear', 'college']);
-
-        $pdf = $exporter->renderEvaluationSheets(
-            $category,
-            $attempt,
-            $attempt->evaluationSubmissions,
-            $this->leadPanelistIds($attempt),
-            EvaluationLetterhead::forCollege($category->college_id),
-        );
-
-        return response($pdf, 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="' . Str::slug($attempt->researchGroup->group_reference) . '-evaluation-sheets-' . now()->format('Y-m-d') . '.pdf"',
-        ]);
+        return $this->evaluationSheetPdf($this->ownAttempt($request, $assignment), $exporter);
     }
 
-    private function leadPanelistIds(PresentationAttempt $attempt)
-    {
-        return $attempt->attemptPanelAssignments
-            ->reject(fn ($a) => in_array($a->assignmentStatus?->code, ['REPLACED', 'WITHDRAWN'], true))
-            ->where('is_lead', true)
-            ->pluck('panelist_user_id');
-    }
-
-    private function loadSheetAttempt(Request $request, AttemptPanelAssignment $assignment): PresentationAttempt
+    private function ownAttempt(Request $request, AttemptPanelAssignment $assignment): PresentationAttempt
     {
         if ($assignment->panelist_user_id !== $request->user()->id) {
             throw new NotFoundHttpException();
         }
 
-        $attempt = $assignment->presentationAttempt;
-
-        $attempt->load([
-            'researchGroup.category',
-            'researchGroup.students',
-            'researchGroup.proposedTitles',
-            'evaluationSubmissions' => fn ($q) => $q->whereHas(
-                'submissionStatus',
-                fn ($sq) => $sq->whereIn('code', ['SUBMITTED', 'FINALIZED'])
-            ),
-            'evaluationSubmissions.panelist.profile',
-            'evaluationSubmissions.submissionStatus',
-            'evaluationSubmissions.evaluationScores',
-            'evaluationSubmissions.studentScores',
-            'evaluationSubmissions.evaluationFormVersion.evaluationForm',
-            'evaluationSubmissions.evaluationFormVersion.scaleLabels',
-            'evaluationSubmissions.evaluationFormVersion.presentationOutcomes',
-            'evaluationSubmissions.evaluationFormVersion.applicablePresentationModes',
-            'evaluationSubmissions.evaluationFormVersion.evaluationCriteria.childCriteria',
-            'attemptPanelAssignments.assignmentStatus',
-        ]);
-
-        return $attempt;
+        return $assignment->presentationAttempt;
     }
 
     /** The real moment this group was pulled out of the queue. */

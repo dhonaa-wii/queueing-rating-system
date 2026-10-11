@@ -462,6 +462,7 @@ class PanelistController extends Controller
                 'dateTimeDisplay' => $dateTimeDisplay,
                 'sortAt' => $sortAt?->toIso8601String() ?? '',
                 'titleOrLeader' => $titleOrLeader,
+                'groupReference' => $group->group_reference ?? '',
                 'category' => $category->name ?? '—',
                 'otherPanels' => $otherPanels,
             ];

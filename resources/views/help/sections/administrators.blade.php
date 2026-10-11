@@ -28,7 +28,7 @@
 
 <div class="hc-topic" id="ad-panelists">
     <h3><x-icon name="users" /> Panelist Management</h3>
-    <p>The list of your college's panelists, with search and filters. Click a row to open its details drawer (categories, assigned groups and evaluations done).</p>
+    <p>The list of your college's panelists, with search and filters. Click a row to open its details drawer (categories, assigned groups and evaluations done); its group list can be searched by group code or title.</p>
     <ol class="hc-steps">
         <li class="hc-step"><div class="hc-step-marker">1</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="user-plus" /> Add Panelist</div><p class="hc-step-text">Enter the name, and the panelist's own department or program (free text — they may come from another department). Their College is set to yours automatically.</p></div></li>
         <li class="hc-step"><div class="hc-step-marker">2</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="key" /> Copy the credentials</div><p class="hc-step-text">The username and temporary password are shown <strong>once</strong>. Give them to the panelist; they must change the password on first sign-in.</p></div></li>
@@ -121,7 +121,7 @@
         <table class="hc-table">
             <thead><tr><th>Tab</th><th>What you set</th></tr></thead>
             <tbody>
-                <tr><td>Project Information</td><td>Name, description, subject, presentation mode, max group members, proposed title count (Title Proposal), requirement checklist (technical adviser, track), the track list, and <strong>Panelists per Room</strong>. Academic year, semester and college come from the active settings.</td></tr>
+                <tr><td>Project Information</td><td>Name, description, subject, presentation mode, max group members, proposed title count (Title Proposal), requirement checklist (technical adviser, track), the track list, <strong>Panelists per Room</strong> and whether <strong>groups choose their panelists at registration</strong>. Academic year, semester and college come from the active settings.</td></tr>
                 <tr><td>Schedules</td><td>Registration opens/closes, duration per group, presentation dates, rooms and their tracks, breaks. <a href="#ad-schedules">Details</a></td></tr>
                 <tr><td>Queue &amp; Payment</td><td>Queue strategy, called-group waiting period, payment requirement, payment types and instructions. <a href="#ad-queue">Details</a></td></tr>
                 <tr><td>Evaluation Configuration</td><td>Which published form panelists use. Only your college's forms for the category's mode are offered. When <strong>Track required</strong> is on, each track gets its own form instead. <a href="#ad-track-forms">Details</a></td></tr>
@@ -132,6 +132,15 @@
     <h4 id="ad-track-forms">One evaluation form per track</h4>
     <p>When the requirement checklist has <strong>Track required</strong> on, Evaluation Configuration lists the category's tracks in a <strong>Track | Evaluation Form</strong> table. Choose a form for each track and press <strong>Assign</strong>; several tracks may share one form. A track without a form keeps the red dot, and the category-wide form is not used.</p>
     <p>A group gets the form of its <strong>leader's track</strong>, fixed when its presentation starts. Start is refused, naming the group, if it has no track, its track is not on the list, or the track has no form.</p>
+    <h4 id="ad-group-choice">Letting groups choose their panel</h4>
+    <p>Under <strong>Panelists per Room</strong>, tick <strong>Groups choose their panelists at registration</strong> (a panel count is required first). The registration form — and Add Group — then asks for a Chair and each Member from your college's active panelists.</p>
+    <ul class="hc-list">
+        <li>A group's picks are seated automatically when it is placed in the queue; the first pick is the Chair. Each seated panelist is notified.</li>
+        <li>A pick who is busy at that time, no longer active, or the group's own adviser is skipped, and that seat is left for you to fill. The <strong>Alternate Panel</strong> is always yours to choose.</li>
+        <li>Groups registered before you turned it on can choose once from the public schedule (<strong>Select Panel</strong>) while they have no panel.</li>
+        <li>You can always change a group's panel with <a href="#ad-panels">Edit Panel</a>.</li>
+    </ul>
+    <p>Whether or not this is on, the <strong>Technical Adviser</strong> field is a list of your college's panelists, and a group's adviser can never sit on its panel.</p>
     <h4>Category status</h4>
     <p>The status is worked out by the system — you never set it by hand:</p>
     <div class="hc-panel">
@@ -270,14 +279,14 @@
         <figcaption><strong>Figure 15.</strong> Group &amp; Panel Assignment.</figcaption>
     </figure>
     <ul class="hc-pins">
-        <li><span class="m-pin">1</span><span><strong>Toolbar</strong> — search (leader, title, reference), room filter, bulk actions for ticked groups, and Add Group.</span></li>
+        <li><span class="m-pin">1</span><span><strong>Toolbar</strong> — search (leader, title, group code), room filter, bulk actions for ticked groups, and Add Group.</span></li>
         <li><span class="m-pin">2</span><span><strong>Tabs</strong> — Scheduled, Completed, Deferred and Re-Defense. Rows are grouped by day and room.</span></li>
         <li><span class="m-pin">3</span><span><strong>Red row</strong> — a panelist on this group is double-booked. Hover for details; click the row to replace that panelist.</span></li>
-        <li><span class="m-pin">4</span><span><strong>Row menu (⋮)</strong> — Edit, Move, Transfer, Defer, Delete.</span></li>
+        <li><span class="m-pin">4</span><span><strong>Row menu (⋮)</strong> — Edit, Edit Panel, Move, Transfer, Defer, Delete.</span></li>
         <li><span class="m-pin">5</span><span><strong>Assign Panel</strong> — choose the panel for every ticked group at once.</span></li>
     </ul>
     <h4>Adding and editing groups</h4>
-    <p><strong>Add Group</strong> registers a group with the same form students use — handy for late or walk-in registrations — and places it in the queue by the category's strategy — see <a href="#ad-generation">Groups registered after the queue exists</a>. <strong>Edit</strong> corrects a registration (names, members, titles, track, adviser) without moving it. Changing a group's section does not re-place it; Move or Transfer it afterwards if needed.</p>
+    <p><strong>Add Group</strong> registers a group with the same form students use — handy for late or walk-in registrations — and places it in the queue by the category's strategy — see <a href="#ad-generation">Groups registered after the queue exists</a>. <strong>Edit</strong> corrects a registration (names, members, titles, track, adviser) without moving it; the adviser must be chosen from the list. Edit does not change the panel — use Edit Panel. Changing a group's section does not re-place it; Move or Transfer it afterwards if needed.</p>
 </div>
 
 <div class="hc-topic" id="ad-panels">
@@ -289,7 +298,9 @@
         <li class="hc-step"><div class="hc-step-marker">4</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="user-plus" /> Pick the Alternate Panel (backup)</div><p class="hc-step-text">Exactly one backup, not one of the seated panelists.</p></div></li>
         <li class="hc-step"><div class="hc-step-marker">5</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="send" /> Assign to Selected Groups</div><p class="hc-step-text">If a ticked group already has a panel, you are asked to confirm replacing it. Panelists are notified.</p></div></li>
     </ol>
-    <div class="hc-note hc-note-warn"><x-icon name="alert-triangle" /><p>A panelist cannot be in two places at once. Assigning someone whose time overlaps another of their groups — in any category of your college — is refused and names the clash. Only your own college's panelists can be assigned.</p></div>
+    <div class="hc-note hc-note-warn"><x-icon name="alert-triangle" /><p>A panelist cannot be in two places at once. Assigning someone whose time overlaps another of their groups — in any category of your college — is refused and names the clash. Only your own college's panelists can be assigned, and a group's own technical adviser can never sit on its panel.</p></div>
+    <h4>Editing one group's panel</h4>
+    <p>Choose <strong>Edit Panel</strong> in a group's ⋮ menu. The Assign Panel card switches to <strong>Edit Panel · {group code}</strong> with that group's current panel ticked. Change the members, Chair or Alternate (optional here) and press <strong>Save Panel</strong>; <strong>Cancel</strong> returns to normal. Only the panelists you change are replaced — the others keep their seats — and the same conflict and adviser checks apply.</p>
     <h4>Substitution requests</h4>
     <p>When a panelist marks themselves unavailable, or someone at a room device asks to take a seat, it appears in <strong>Needs Attention</strong>. Confirm or Reject a seat request; for an unavailability report, choose the replacement with <strong>Assign Replacement</strong>.</p>
 </div>
@@ -388,7 +399,7 @@
             <div class="hc-window-bar"><div class="hc-window-dots"><i></i><i></i><i></i></div><div class="hc-window-url">/admin/reports/18/grades</div></div>
             <div class="hc-screen">
                 <div class="m-grid-2" style="grid-template-columns:2fr 1fr;align-items:start;">
-                    <div class="m-card"><div class="m-label">Filters</div><div class="m-row m-wrap" style="margin-top:.3rem;"><span class="m-input is-empty" style="min-width:6rem">Name</span><span class="m-input">All sections ▾</span><span class="m-input">All dates ▾</span><span class="m-input">Section, then name ▾</span></div></div>
+                    <div class="m-card"><div class="m-label">Filters</div><div class="m-row m-wrap" style="margin-top:.3rem;"><span class="m-input is-empty" style="min-width:6rem">Name or Group Code</span><span class="m-input">All sections ▾</span><span class="m-input">All dates ▾</span><span class="m-input">Section, then name ▾</span></div></div>
                     <div class="m-card"><div class="m-row"><x-icon name="trophy" style="width:.9rem;height:.9rem;color:var(--hc-accent)" /><span class="m-label">Best Group</span></div><div class="m-bold">CFD-2026-0005</div><div class="m-small">Group Grade 96.40</div></div>
                 </div>
                 <table class="m-table" style="margin-top:.5rem;">
@@ -404,7 +415,7 @@
         <figcaption><strong>Figure 17.</strong> Generated Grades.</figcaption>
     </figure>
     <ul class="hc-list">
-        <li><strong>Filters</strong> — name, section, presentation date, and sort (section then name, or last name). Exports follow the filters.</li>
+        <li><strong>Filters</strong> — name or group code (a code shows every member of that group), section, presentation date, and sort (section then name, or last name). Exports follow the filters.</li>
         <li><strong>Evaluation</strong> — view the evaluation sheets the panel submitted for a group.</li>
         <li><strong>Best Group</strong> and <strong>Best Presenter</strong> — the category's leaders; <strong>View</strong> shows the top five, exportable to PDF.</li>
         <li><strong>Panelist Sign-off Sheet</strong> — every panelist and how many groups they evaluated, with signature lines. View, print or export to PDF at any time.</li>

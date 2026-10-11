@@ -4,14 +4,28 @@ namespace App\Http\Controllers\Panelist;
 
 use App\Http\Controllers\Controller;
 use App\Models\AttemptPanelAssignment;
+use App\Models\AttemptSchedule;
+use App\Models\CategoryAnnouncement;
 use App\Models\EvaluationSubmission;
+use App\Models\PresentationAttempt;
 use App\Models\PresentationDateRoom;
+use App\Models\ResearchGroup;
+use App\Services\AdviseeService;
 use App\Services\RoomQueuePreviewService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
+/**
+ * Panelist Dashboard — a glance view across every category: the panelist's
+ * own seats, the groups they advise (2026-10-11), and the rooms they sit in
+ * while a day is actually running. Everything else lives on My Assignments /
+ * My Advisees, which the panels link to.
+ */
 class DashboardController extends Controller
 {
-    public function index(Request $request, RoomQueuePreviewService $roomQueuePreviewService)
+    private const LIST_SIZE = 5;
+
+    public function index(Request $request, RoomQueuePreviewService $roomQueuePreview, AdviseeService $adviseeService)
     {
         $user = $request->user();
 
@@ -23,115 +37,147 @@ class DashboardController extends Controller
                 'presentationAttempt.presentationStatus',
                 'presentationAttempt.researchGroup.category.academicYear',
                 'presentationAttempt.researchGroup.category.semester',
-                'presentationAttempt.researchGroup.category.college',
                 'presentationAttempt.researchGroup.students',
                 'presentationAttempt.attemptSchedule.presentationDateRoom.presentationDate.eventDateStatus',
                 'presentationAttempt.attemptSchedule.presentationDateRoom.roomSessions.roomSessionStatus',
-                // Read by AttemptSchedule::isAwaitingReschedule() for every
-                // row in the assignments table — loaded here so it stays free.
                 'presentationAttempt.attemptSchedule.queueEntry',
             ])
             ->get()
             ->filter(fn (AttemptPanelAssignment $assignment) => $assignment->presentationAttempt?->researchGroup?->category !== null)
             ->values();
 
-        // A panelist can hold assignments across more than one category
-        // (functional-spec §9.7) — the dashboard is scoped to one at a time,
-        // switcher only rendered when there's actually more than one.
-        $categories = $assignments
-            ->pluck('presentationAttempt.researchGroup.category')
+        $adviseeGroups = $adviseeService->groupsFor($user);
+
+        // Every category the panelist sits on a panel or advises a group in,
+        // shown together (2026-10-12: no longer one category at a time). A
+        // category where they only advise still counts.
+        $categories = $assignments->pluck('presentationAttempt.researchGroup.category')
+            ->merge($adviseeGroups->pluck('category'))
+            ->filter()
             ->unique('id')
             ->sortBy('name')
             ->values();
 
-        $selectedCategoryId = (int) $request->query('category', $categories->first()?->id);
-        $selectedCategory = $categories->firstWhere('id', $selectedCategoryId) ?? $categories->first();
+        $seats = $assignments;
+        $advisees = $adviseeGroups;
 
-        $categoryAssignments = $selectedCategory
-            ? $assignments->filter(
-                fn (AttemptPanelAssignment $assignment) => (int) $assignment->presentationAttempt->researchGroup->category_id === (int) $selectedCategory->id
-            )->values()
-            : collect();
-
-        $assignedRooms = $categoryAssignments
-            ->map(fn (AttemptPanelAssignment $assignment) => $assignment->presentationAttempt->attemptSchedule?->presentationDateRoom)
+        // Refresh each day's derived status once, like every other page that
+        // shows it, then read live expected times from the same forecast the
+        // room device and Event Control use.
+        $rooms = $seats->map(fn ($a) => $a->presentationAttempt->attemptSchedule?->presentationDateRoom)
+            ->merge($advisees->flatMap(fn ($g) => $g->presentationAttempts->map(fn ($attempt) => $attempt->attemptSchedule?->presentationDateRoom)))
             ->filter()
             ->unique('id')
-            ->sortBy(fn (PresentationDateRoom $room) => $room->presentationDate->presentation_date->format('Y-m-d').' '.($room->room_start_time ?? '').' '.$room->room_name)
+            ->values();
+        $rooms->pluck('presentationDate')->unique('id')->each(function ($date) {
+            $date->refreshStatus();
+            $date->load('eventDateStatus');
+        });
+
+        $previews = $rooms->mapWithKeys(fn (PresentationDateRoom $room) => [$room->id => $roomQueuePreview->forRoom($room)]);
+        // Keyed only after flattening: flatMap renumbers integer keys.
+        $expectedTimes = $previews->flatMap(fn ($preview) => $preview['schedules'])
+            ->mapWithKeys(fn ($schedule) => [$schedule->id => $schedule->expected_start_at]);
+
+        // ---- Seats ----
+        $openSeats = $seats->reject(fn ($a) => $a->presentationAttempt->presentationStatus->is_terminal);
+        $presentedSeats = $seats->filter(fn ($a) => $a->presentationAttempt->presentationStatus->is_terminal)
+            ->reject(fn ($a) => $a->assignmentKind?->code === 'BACKUP_PANELIST');
+
+        $evaluatedCount = EvaluationSubmission::where('panelist_user_id', $user->id)
+            ->whereHas('presentationAttempt.researchGroup', fn ($q) => $q->whereIn('category_id', $categories->pluck('id')))
+            ->whereHas('submissionStatus', fn ($q) => $q->whereIn('code', ['SUBMITTED', 'FINALIZED']))
+            ->count();
+
+        $upcoming = $openSeats
+            ->map(fn (AttemptPanelAssignment $a) => $this->row($a->presentationAttempt, $expectedTimes) + ['assignment' => $a])
+            ->sortBy('sort')
             ->values();
 
-        // Same "recompute derived status on every relevant page load" convention
-        // used by Admin's category/live-monitoring controllers — reload the
-        // relation afterward since refreshStatus() only updates the FK column,
-        // not the already-loaded belongsTo relation object.
-        $presentationDates = $assignedRooms->pluck('presentationDate')->filter()->unique('id');
-        $presentationDates->each->refreshStatus();
-        $presentationDates->each(fn ($date) => $date->load('eventDateStatus'));
+        $nextUp = $upcoming->first(fn ($row) => $row['at'] !== null);
 
-        $roomPreviews = $assignedRooms->mapWithKeys(fn (PresentationDateRoom $room) => [
-            $room->id => $roomQueuePreviewService->forRoom($room),
-        ]);
+        // ---- Advisees — one row per group, on its latest attempt ----
+        $adviseeRows = $advisees->map(function (ResearchGroup $group) use ($expectedTimes) {
+            $attempt = $group->presentationAttempts->last();
 
-        $assignedPresentationsCount = $categoryAssignments->count();
+            return $attempt
+                ? $this->row($attempt, $expectedTimes) + ['group' => $group]
+                : ['group' => $group, 'attempt' => null, 'state' => 'unqueued', 'at' => null, 'room' => null, 'sort' => '2'];
+        });
 
-        // Nothing writes EvaluationSubmission rows yet — this will genuinely
-        // be 0 completed / all-pending today, which is the honest state
-        // (assignments exist, none have been evaluated yet), not a fake number.
-        $completedEvaluationsCount = $selectedCategory
-            ? EvaluationSubmission::where('panelist_user_id', $user->id)
-                ->whereHas('presentationAttempt.researchGroup', fn ($q) => $q->where('category_id', $selectedCategory->id))
-                ->whereHas('submissionStatus', fn ($q) => $q->where('code', 'FINALIZED'))
-                ->count()
-            : 0;
-        $pendingEvaluationsCount = max($assignedPresentationsCount - $completedEvaluationsCount, 0);
-        $evaluationCompletionPercent = $assignedPresentationsCount > 0
-            ? (int) round($completedEvaluationsCount / $assignedPresentationsCount * 100)
-            : 0;
+        $adviseePresented = $adviseeRows->where('state', 'done');
+        $adviseeRows = $adviseeRows->reject(fn ($row) => $row['state'] === 'done')->sortBy('sort')
+            ->concat($adviseePresented->sortByDesc(fn ($row) => $row['attempt']->completed_at?->format('Y-m-d H:i:s') ?? ''))
+            ->values();
 
-        // Per-category assignment counts, shown next to each option in the
-        // category switcher — only meaningful once a panelist has more than
-        // one category.
-        $categoryCounts = $categories->count() > 1
-            ? $categories->mapWithKeys(fn ($category) => [
-                $category->id => $assignments->filter(
-                    fn (AttemptPanelAssignment $assignment) => (int) $assignment->presentationAttempt->researchGroup->category_id === (int) $category->id
-                )->count(),
+        // ---- Rooms running right now ----
+        $liveRooms = $seats->map(fn ($a) => $a->presentationAttempt->attemptSchedule?->presentationDateRoom)
+            ->filter(fn ($room) => $room?->presentationDate?->isRunning())
+            ->unique('id')
+            ->sortBy('room_name')
+            ->map(fn (PresentationDateRoom $room) => [
+                'room' => $room,
+                'session' => $room->roomSessions->sortByDesc('id')->first(),
+                'preview' => $previews[$room->id],
             ])
-            : collect();
-
-        // Compact "what's next" list for the dashboard overview — non-terminal
-        // assignments only (completed/awaiting-reschedule rows belong on the
-        // full My Assignments page, not this glance view), nearest first. Sort
-        // key is a formatted string rather than a raw Carbon instance, since a
-        // null (unscheduled) planned time sorts last instead of throwing.
-        $upcomingAssignments = $categoryAssignments
-            ->filter(fn (AttemptPanelAssignment $assignment) => ! $assignment->presentationAttempt->presentationStatus->is_terminal)
-            ->sortBy(fn (AttemptPanelAssignment $assignment) => $assignment->presentationAttempt->attemptSchedule?->planned_start_at?->format('Y-m-d H:i:s') ?? '9999-12-31 23:59:59')
-            ->take(6)
             ->values();
 
-        $announcements = $selectedCategory
-            ? $selectedCategory->categoryAnnouncements()
-                ->where('is_active', true)
-                ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
-                ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', now()))
-                ->latest('starts_at')
-                ->get()
-            : collect();
+        $announcements = CategoryAnnouncement::whereIn('category_id', $categories->pluck('id'))
+            ->where('is_active', true)
+            ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
+            ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', now()))
+            ->with('category')
+            ->latest('starts_at')
+            ->get();
 
         return view('panelist.dashboard', [
             'categories' => $categories,
-            'selectedCategory' => $selectedCategory,
-            'categoryAssignments' => $categoryAssignments,
-            'assignedRooms' => $assignedRooms,
-            'roomPreviews' => $roomPreviews,
-            'assignedPresentationsCount' => $assignedPresentationsCount,
-            'completedEvaluationsCount' => $completedEvaluationsCount,
-            'pendingEvaluationsCount' => $pendingEvaluationsCount,
-            'evaluationCompletionPercent' => $evaluationCompletionPercent,
-            'categoryCounts' => $categoryCounts,
-            'upcomingAssignments' => $upcomingAssignments,
+            'stats' => [
+                'seats' => $seats->count(),
+                'toPresent' => $openSeats->count(),
+                'evaluated' => $evaluatedCount,
+                'presented' => $presentedSeats->count(),
+                'advisees' => $advisees->count(),
+                'adviseesPresented' => $adviseePresented->count(),
+            ],
+            'nextUp' => $nextUp,
+            'upcoming' => $upcoming->take(self::LIST_SIZE),
+            'upcomingMore' => max($upcoming->count() - self::LIST_SIZE, 0),
+            'adviseeRows' => $adviseeRows->take(self::LIST_SIZE),
+            'adviseeMore' => max($adviseeRows->count() - self::LIST_SIZE, 0),
+            'liveRooms' => $liveRooms,
             'announcements' => $announcements,
         ]);
+    }
+
+    /**
+     * Where one attempt stands, for a dashboard row: done, deferred, waiting
+     * for a schedule, or scheduled at its live expected time (the plan until
+     * its day starts — RoomQueuePreviewService decides that).
+     */
+    private function row(PresentationAttempt $attempt, Collection $expectedTimes): array
+    {
+        $schedule = $attempt->attemptSchedule;
+        $room = $schedule?->presentationDateRoom;
+
+        $state = match (true) {
+            (bool) $attempt->presentationStatus?->is_terminal => 'done',
+            $schedule?->queueEntry?->removed_at !== null => 'deferred',
+            ! $schedule || $schedule->isAwaitingReschedule($attempt) => 'awaiting',
+            default => 'scheduled',
+        };
+
+        $at = $state === 'scheduled'
+            ? ($expectedTimes->get($schedule->id) ?? $schedule->adjusted_expected_at ?? $schedule->planned_start_at)
+            : null;
+
+        // Scheduled rows first by time, then deferred, then waiting.
+        $sort = match ($state) {
+            'scheduled' => '0 '.($at?->format('Y-m-d H:i:s') ?? '9999'),
+            'deferred' => '1',
+            default => '2',
+        };
+
+        return ['attempt' => $attempt, 'state' => $state, 'at' => $at, 'room' => $room, 'sort' => $sort];
     }
 }

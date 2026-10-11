@@ -19,6 +19,7 @@ use App\Http\Controllers\Admin\PresentationDateController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordChangeController;
+use App\Http\Controllers\Panelist\AdviseeController as PanelistAdviseeController;
 use App\Http\Controllers\Panelist\AssignmentController as PanelistAssignmentController;
 use App\Http\Controllers\Panelist\NotificationController as PanelistNotificationController;
 use App\Http\Controllers\Panelist\DashboardController as PanelistDashboardController;
@@ -114,6 +115,9 @@ Route::prefix('/room-session')->name('room-session.')->group(function () {
 Route::prefix('/categories')->name('student.categories.')->group(function () {
     Route::get('/', [StudentCategoryController::class, 'index'])->name('index');
     Route::get('/{category}/schedule', [StudentCategoryController::class, 'schedule'])->name('schedule');
+    Route::post('/{category}/groups/{groupReference}/panel', [StudentRegistrationController::class, 'choosePanel'])
+        ->middleware('throttle:10,1')
+        ->name('choose-panel');
 
     Route::prefix('/{category}/register')->name('registration.')->group(function () {
         Route::get('/', [StudentRegistrationController::class, 'create'])->name('create');
@@ -217,6 +221,7 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::post('/{category}/queue-entries/{entry}/reinsert', [PanelAssignmentController::class, 'reinsert'])->name('reinsert');
         Route::post('/{category}/attempts/{attempt}/verify-payment', [PanelAssignmentController::class, 'verifyPayment'])->name('verify-payment');
         Route::post('/{category}/attempts/{attempt}/replace-panelists', [PanelAssignmentController::class, 'replacePanelists'])->name('replace-panelists');
+        Route::put('/{category}/attempts/{attempt}/panel', [PanelAssignmentController::class, 'editPanel'])->name('edit-panel');
         Route::post('/{category}/attempts/{attempt}/re-defense', [PanelAssignmentController::class, 'scheduleReDefense'])->name('re-defense');
     });
 
@@ -293,6 +298,12 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::post('/{assignment}/unavailable', [PanelistAssignmentController::class, 'requestUnavailability'])->name('unavailable');
         Route::get('/{assignment}/evaluation-sheet', [PanelistAssignmentController::class, 'evaluationSheet'])->name('evaluation-sheet');
         Route::get('/{assignment}/evaluation-sheet/export-pdf', [PanelistAssignmentController::class, 'exportEvaluationSheetPdf'])->name('evaluation-sheet.export-pdf');
+    });
+
+    Route::prefix('/panelist/advisees')->name('panelist.advisees.')->middleware('role:PANELIST')->group(function () {
+        Route::get('/', [PanelistAdviseeController::class, 'index'])->name('index');
+        Route::get('/{attempt}/evaluation-sheet', [PanelistAdviseeController::class, 'evaluationSheet'])->name('evaluation-sheet');
+        Route::get('/{attempt}/evaluation-sheet/export-pdf', [PanelistAdviseeController::class, 'exportEvaluationSheetPdf'])->name('evaluation-sheet.export-pdf');
     });
 
     Route::prefix('/panelist/notifications')->name('panelist.notifications.')->middleware('role:PANELIST')->group(function () {

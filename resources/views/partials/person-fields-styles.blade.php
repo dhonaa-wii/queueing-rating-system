@@ -75,7 +75,8 @@
                     font-size: 0.72rem;
                 }
                 .person-row-word { display: inline; }
-                .person-fields-head { display: none; }
+                /* The head is its own query container, which can't style itself — hide its grid. */
+                .person-fields-head > .person-grid { display: none; }
             }
 
             /* Narrow (a phone): one field per line, sex and section paired. */

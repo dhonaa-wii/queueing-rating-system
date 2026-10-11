@@ -47,10 +47,10 @@
         <div class="{{ $showStatusColumn ? 'col-md-6' : 'col-12' }}">
             <div class="card-brand p-3 mb-3">
                 <form method="GET" action="{{ route($scheduleRouteName, $category) }}" role="search">
-                    <label class="visually-hidden" for="schedule-search">Search by leader name or project title</label>
+                    <label class="visually-hidden" for="schedule-search">Search by leader name, project title or group code</label>
                     <div class="sched-search">
                         <span class="sched-search-icon"><x-icon name="search" /></span>
-                        <input type="search" id="schedule-search" name="q" value="{{ $search }}" class="sched-search-input" placeholder="Search leader name or project title" autocomplete="off">
+                        <input type="search" id="schedule-search" name="q" value="{{ $search }}" class="sched-search-input" placeholder="Search leader, title or group code" autocomplete="off">
                         @if ($search !== '')
                             <a href="{{ route($scheduleRouteName, $category) }}" class="sched-search-clear" title="Clear search" aria-label="Clear search"><x-icon name="x" /></a>
                         @endif
@@ -83,43 +83,52 @@
                 @endif
             </div>
 
-            @if ($awaitingRows->isNotEmpty())
-                <div class="card-brand p-3 mb-3">
+            @php
+                // Scheduled and Awaiting Schedule share one card as two views
+                // (user-directed 2026-10-11): room tabs belong to Scheduled
+                // only, since an awaiting group has no room yet. A searched
+                // group that is awaiting opens on its own view.
+                $hasScheduledView = $rooms->isNotEmpty();
+                $hasAwaitingView = $awaitingRows->isNotEmpty();
+                $activeView = $hasScheduledView
+                    && ! ($selectedGroup && $awaitingRows->contains(fn ($row) => $row->presentationAttempt?->research_group_id === $selectedGroup->id))
+                    ? 'scheduled' : 'awaiting';
+            @endphp
+
+            @if ($hasScheduledView || $hasAwaitingView)
+            <div class="card-brand p-3 mb-3">
+                @if ($hasScheduledView && $hasAwaitingView)
+                    <ul class="nav sched-tabs sched-view-tabs mb-3" role="tablist">
+                        <li class="nav-item text-nowrap" role="presentation">
+                            <button type="button" class="nav-link {{ $activeView === 'scheduled' ? 'active' : '' }}" data-sched-view-tab="scheduled" role="tab">Scheduled</button>
+                        </li>
+                        <li class="nav-item text-nowrap" role="presentation">
+                            <button type="button" class="nav-link {{ $activeView === 'awaiting' ? 'active' : '' }}" data-sched-view-tab="awaiting" role="tab">
+                                Awaiting Schedule <span class="badge badge-muted-tint ms-1">{{ $awaitingRows->count() }}</span>
+                            </button>
+                        </li>
+                    </ul>
+                @elseif ($hasAwaitingView)
                     <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
                         <h4 class="h6 text-brand-muted mb-0">Awaiting Schedule</h4>
                         <span class="badge badge-muted-tint">{{ $awaitingRows->count() }}</span>
                     </div>
-                    <div class="queue-scroll" data-queue-scroll>
-                        @include('partials.schedule.queue-group-table', [
-                            'rows' => $awaitingRows,
-                            'variant' => 'awaiting',
-                            'emptyText' => 'No groups are awaiting a schedule.',
-                        ])
-                    </div>
-                </div>
-            @endif
+                @endif
 
-            @if ($orphanedDeferredRows->isNotEmpty())
-                <div class="card-brand p-3 mb-3">
-                    <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
-                        <h4 class="h6 text-brand-muted mb-0">Deferred</h4>
-                        <span class="badge badge-muted-tint">{{ $orphanedDeferredRows->count() }}</span>
+                @if ($hasAwaitingView)
+                    <div class="{{ $activeView === 'awaiting' ? '' : 'd-none' }}" data-sched-view-pane="awaiting">
+                        <div class="queue-scroll" data-queue-scroll>
+                            @include('partials.schedule.queue-group-table', [
+                                'rows' => $awaitingRows,
+                                'variant' => 'awaiting',
+                                'emptyText' => 'No groups are awaiting a schedule.',
+                            ])
+                        </div>
                     </div>
-                    {{-- Capped by CSS only, not JS-sized like the list above
-                    it: two lists both claiming the rest of the viewport would
-                    leave this one 220px tall whatever its length. --}}
-                    <div class="queue-scroll">
-                        @include('partials.schedule.queue-group-table', [
-                            'rows' => $orphanedDeferredRows,
-                            'variant' => 'deferred',
-                            'emptyText' => 'No groups have been deferred.',
-                        ])
-                    </div>
-                </div>
-            @endif
+                @endif
 
-            @if ($rooms->isNotEmpty())
-            <div class="card-brand p-3">
+                @if ($hasScheduledView)
+                <div class="{{ $activeView === 'scheduled' ? '' : 'd-none' }}" data-sched-view-pane="scheduled">
                 <ul class="nav sched-tabs mb-3 flex-nowrap overflow-x-auto overflow-y-hidden" role="tablist">
                     @foreach ($rooms as $room)
                         <li class="nav-item text-nowrap" role="presentation">
@@ -164,7 +173,7 @@
                                 2026-09-13): it is the only part that grows without bound,
                                 so it takes its own scrollbar and the search box, room tabs
                                 and filter above it stay put while a long queue is browsed. --}}
-                                                <div class="queue-scroll" data-queue-scroll>
+                                <div class="queue-scroll" data-queue-scroll>
                                     <div data-queue-section="scheduled">
                                         @include('partials.schedule.queue-group-table', ['rows' => $room->scheduledRows, 'variant' => 'scheduled', 'emptyText' => 'No groups currently scheduled in this room.'])
                                     </div>
@@ -179,7 +188,28 @@
                         </div>
                     @endforeach
                 </div>
+                </div>
+                @endif
             </div>
+            @endif
+
+            @if ($orphanedDeferredRows->isNotEmpty())
+                <div class="card-brand p-3 mb-3">
+                    <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                        <h4 class="h6 text-brand-muted mb-0">Deferred</h4>
+                        <span class="badge badge-muted-tint">{{ $orphanedDeferredRows->count() }}</span>
+                    </div>
+                    {{-- Capped by CSS only, not JS-sized like the list above
+                    it: two lists both claiming the rest of the viewport would
+                    leave this one 220px tall whatever its length. --}}
+                    <div class="queue-scroll">
+                        @include('partials.schedule.queue-group-table', [
+                            'rows' => $orphanedDeferredRows,
+                            'variant' => 'deferred',
+                            'emptyText' => 'No groups have been deferred.',
+                        ])
+                    </div>
+                </div>
             @endif
         </div>
 
@@ -359,9 +389,56 @@
                                     @endphp
                                     <span class="badge {{ $isBackup ? 'badge-brand-tint' : 'badge-muted-tint' }}">{{ $seatPrefix . $panelistName }}</span>
                                 @empty
-                                    <span class="small text-brand-muted">Not yet assigned</span>
+                                    @php $chosenPanel = $selectedGroup->panelistChoices()->with('panelist.profile')->get(); @endphp
+                                    @forelse ($chosenPanel as $choice)
+                                        <span class="badge badge-muted-tint">{{ ($loop->first ? 'Chair: ' : 'Member '.($loop->index).': ') . ($choice->panelist ? \App\Models\PresentationCategory::panelistName($choice->panelist) : 'N/A') }}</span>
+                                    @empty
+                                        <span class="small text-brand-muted">Not yet assigned</span>
+                                    @endforelse
                                 @endforelse
                             </div>
+
+                            {{-- Select Panel (user-directed 2026-10-11): a group that
+                               registered before the category let groups choose its
+                               panel, and has no panel yet, picks it once here. No
+                               edit afterwards — the Admin changes it with Edit Panel.
+                               Public student page only. --}}
+                            @if ($scheduleRouteName === 'student.categories.schedule')
+                                @if (session('panel_status'))
+                                    <div class="alert alert-success small py-2 px-3 mt-2 mb-0">{{ session('panel_status') }}</div>
+                                @elseif (session('panel_error'))
+                                    <div class="alert alert-danger small py-2 px-3 mt-2 mb-0">{{ session('panel_error') }}</div>
+                                @endif
+
+                                @if (app(\App\Services\ResearchGroupRegistrationService::class)->canChoosePanelLater($selectedGroup, $selectedAttempt))
+                                    <button type="button" class="btn btn-brand btn-sm mt-2" data-panel-pick-toggle>
+                                        <x-icon name="user-plus" /> Select Panel
+                                    </button>
+
+                                    <form method="POST" action="{{ route('student.categories.choose-panel', [$category, $selectedGroup->group_reference]) }}"
+                                          class="panel-pick-form mt-2 d-none" data-panel-pick-form>
+                                        @csrf
+                                        @for ($i = 0; $i < (int) $category->panelist_count; $i++)
+                                            <div class="mb-2">
+                                                <label for="panel_pick_{{ $i }}" class="form-label small mb-1">{{ $i === 0 ? 'Chair' : 'Member '.$i }} <span class="text-brand-accent">*</span></label>
+                                                <select name="panelist_choices[{{ $i }}]" id="panel_pick_{{ $i }}" class="form-select form-select-sm" required>
+                                                    <option value="">Select a panelist&hellip;</option>
+                                                    @foreach ($category->choosablePanelists() as $panelist)
+                                                        @php $panelistName = \App\Models\PresentationCategory::panelistName($panelist); @endphp
+                                                        {{-- The group's own adviser can't sit on its panel. --}}
+                                                        <option value="{{ $panelist->id }}" @disabled($panelistName === $selectedGroup->technical_adviser_name)>{{ $panelistName }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        @endfor
+                                        <div class="small text-danger mb-2 d-none" data-panel-pick-error></div>
+                                        <div class="d-flex gap-2 justify-content-end flex-wrap">
+                                            <button type="button" class="btn btn-outline-brand btn-sm" data-panel-pick-toggle>Cancel</button>
+                                            <button type="submit" class="btn btn-brand btn-sm"><x-icon name="save" /> Save Panel</button>
+                                        </div>
+                                    </form>
+                                @endif
+                            @endif
                         </div>
                     </div>
                 @endif
@@ -646,6 +723,40 @@
 
 @push('scripts')
     <script>
+        // Select Panel: opens/closes the group's panel form, and stops a
+        // submit that picks the same panelist twice (the server checks too).
+        (function () {
+            var form = document.querySelector('[data-panel-pick-form]');
+            if (! form) return;
+            var openBtn = form.previousElementSibling;
+            var error = form.querySelector('[data-panel-pick-error]');
+
+            document.querySelectorAll('[data-panel-pick-toggle]').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var opening = form.classList.contains('d-none');
+                    form.classList.toggle('d-none', ! opening);
+                    if (openBtn) openBtn.classList.toggle('d-none', opening);
+                    if (opening) form.querySelector('select').focus();
+                });
+            });
+
+            form.addEventListener('submit', function (e) {
+                var seen = [];
+                var duplicate = false;
+                form.querySelectorAll('select').forEach(function (select) {
+                    if (select.value && seen.indexOf(select.value) !== -1) duplicate = true;
+                    seen.push(select.value);
+                });
+                error.classList.toggle('d-none', ! duplicate);
+                if (duplicate) {
+                    e.preventDefault();
+                    error.textContent = 'Choose a different panelist for each seat.';
+                    return;
+                }
+                form.querySelector('button[type="submit"]').disabled = true;
+            });
+        })();
+
         // Sizes the queue list so its bottom edge lands just above the
         // viewport bottom, making it the page's only scroller. The CSS
         // max-height is a fallback: the real distance from the top of the
@@ -693,6 +804,23 @@
                 });
 
                 // The newly-revealed pane was unmeasurable while hidden.
+                sizeQueueLists();
+            });
+        });
+
+        // Scheduled / Awaiting Schedule views. Room tabs live inside the
+        // Scheduled pane, so they hide with it.
+        document.querySelectorAll('[data-sched-view-tab]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var view = btn.dataset.schedViewTab;
+
+                document.querySelectorAll('[data-sched-view-tab]').forEach(function (b) {
+                    b.classList.toggle('active', b === btn);
+                });
+                document.querySelectorAll('[data-sched-view-pane]').forEach(function (pane) {
+                    pane.classList.toggle('d-none', pane.dataset.schedViewPane !== view);
+                });
+
                 sizeQueueLists();
             });
         });

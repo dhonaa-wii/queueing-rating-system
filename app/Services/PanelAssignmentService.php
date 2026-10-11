@@ -100,7 +100,7 @@ class PanelAssignmentService
      * "same panel set for every selected group" (e.g. one panel sitting
      * through a whole room's queue for the day).
      */
-    public function assign(PresentationCategory $category, array $attemptIds, array $assignedPanelistUserIds, int $backupPanelistUserId, int $leadPanelistUserId, int $performedByUserId): array
+    public function assign(PresentationCategory $category, array $attemptIds, array $assignedPanelistUserIds, ?int $backupPanelistUserId, int $leadPanelistUserId, int $performedByUserId, bool $requireBackup = true): array
     {
         // A form posts every id as a string, while $backupPanelistUserId /
         // $leadPanelistUserId arrive already coerced to int by this method's
@@ -116,6 +116,12 @@ class PanelAssignmentService
             return $this->failure('Select at least one group.');
         }
 
+        // Edit Panel (one group) may leave the Alternate Panel empty; Assign
+        // Panel always seats one.
+        if ($backupPanelistUserId === null && $requireBackup) {
+            return $this->failure('Choose an alternate panel.');
+        }
+
         $attempts = PresentationAttempt::whereIn('id', $attemptIds)
             ->with([
                 'researchGroup',
@@ -129,7 +135,7 @@ class PanelAssignmentService
         }
 
         // A panel is drawn only from the category's own college (AdminCollege).
-        $outside = AdminCollege::panelistsOutside([...$assignedPanelistUserIds, $backupPanelistUserId], $category->college_id);
+        $outside = AdminCollege::panelistsOutside(array_filter([...$assignedPanelistUserIds, $backupPanelistUserId]), $category->college_id);
         if ($outside !== []) {
             return $this->failure(implode(', ', $outside) . ' is not a panelist of this college.');
         }
@@ -174,7 +180,7 @@ class PanelAssignmentService
             return $this->failure('The same panelist was selected more than once for the assigned seats.');
         }
 
-        if (in_array($backupPanelistUserId, $assignedPanelistUserIds, true)) {
+        if ($backupPanelistUserId !== null && in_array($backupPanelistUserId, $assignedPanelistUserIds, true)) {
             return $this->failure('The alternate panel must be different from the chair and members.');
         }
 
@@ -182,7 +188,7 @@ class PanelAssignmentService
             return $this->failure('The chair must be one of the selected panelists.');
         }
 
-        $panelUserIds = [...$assignedPanelistUserIds, $backupPanelistUserId];
+        $panelUserIds = array_values(array_filter([...$assignedPanelistUserIds, $backupPanelistUserId]));
 
         $adviserConflict = $this->findTechnicalAdviserConflict($category, $attempts, $panelUserIds);
 
@@ -216,7 +222,9 @@ class PanelAssignmentService
             foreach ($assignedPanelistUserIds as $panelistId) {
                 $target[$panelistId] = $assignedKind->id;
             }
-            $target[$backupPanelistUserId] = $backupKind->id;
+            if ($backupPanelistUserId !== null) {
+                $target[$backupPanelistUserId] = $backupKind->id;
+            }
 
             foreach ($attempts as $attempt) {
                 $existing = AttemptPanelAssignment::where('presentation_attempt_id', $attempt->id)
@@ -254,6 +262,78 @@ class PanelAssignmentService
         }
 
         return ['ok' => true, 'count' => $attempts->count()];
+    }
+
+    /**
+     * Seats the panel each group chose at registration (user-directed
+     * 2026-10-11), on every first attempt of the category that has been
+     * placed in the queue and has never had a panel. The first pick is the
+     * Chair. A pick that can't sit — no longer an active panelist of this
+     * college, the group's own adviser, or already booked at that time — is
+     * skipped, and that seat is left for the Admin to fill in Assign Panel.
+     * The Alternate Panel is always the Admin's.
+     *
+     * Runs after every queue placement (QueueGenerationService), so it is
+     * idempotent: an attempt with any panel row, current or replaced, is left
+     * alone — once a panel exists, it is the Admin's.
+     */
+    public function applyGroupChoices(PresentationCategory $category, int $performedByUserId): int
+    {
+        if (! $category->groupsChoosePanelists()) {
+            return 0;
+        }
+
+        $attempts = PresentationAttempt::whereHas('researchGroup', fn ($q) => $q->where('category_id', $category->id)->whereHas('panelistChoices'))
+            ->where('attempt_number', 1)
+            ->whereHas('presentationStatus', fn ($q) => $q->where('is_terminal', false)->whereNotIn('code', ['ONGOING', 'PAUSED']))
+            ->whereHas('attemptSchedule')
+            ->whereDoesntHave('attemptPanelAssignments')
+            ->with(['researchGroup.panelistChoices', 'attemptSchedule.presentationDateRoom'])
+            ->get();
+
+        if ($attempts->isEmpty()) {
+            return 0;
+        }
+
+        $eligible = $category->choosablePanelists()->keyBy('id');
+        $assignedKind = PanelAssignmentKind::where('code', 'ASSIGNED_PANELIST')->firstOrFail();
+        $assignedStatus = PanelAssignmentStatus::where('code', 'ASSIGNED')->firstOrFail();
+        $seated = [];
+
+        foreach ($attempts as $attempt) {
+            $schedule = $attempt->attemptSchedule;
+            $seats = (int) ($schedule->presentationDateRoom?->panelist_count ?: $category->panelist_count);
+            $adviser = trim((string) $attempt->researchGroup->technical_adviser_name);
+
+            foreach ($attempt->researchGroup->panelistChoices->take($seats) as $index => $choice) {
+                $panelist = $eligible->get($choice->panelist_user_id);
+
+                if (! $panelist
+                    || ($adviser !== '' && self::nameMatchesPanelist($adviser, $panelist))
+                    || $this->conflicts->conflictingAssignments($schedule, [$panelist->id])->isNotEmpty()) {
+                    continue;
+                }
+
+                AttemptPanelAssignment::create([
+                    'presentation_attempt_id' => $attempt->id,
+                    'panelist_user_id' => $panelist->id,
+                    'assignment_kind_id' => $assignedKind->id,
+                    'is_lead' => $index === 0,
+                    'assignment_status_id' => $assignedStatus->id,
+                    'assigned_by' => $performedByUserId,
+                    'assigned_at' => now(),
+                    'ended_at' => null,
+                ]);
+
+                $seated[$panelist->id][] = $attempt->id;
+            }
+        }
+
+        foreach ($seated as $panelistId => $attemptIds) {
+            $this->panelistNotifier->chosenByGroup((int) $panelistId, $attemptIds);
+        }
+
+        return count($seated);
     }
 
     /**

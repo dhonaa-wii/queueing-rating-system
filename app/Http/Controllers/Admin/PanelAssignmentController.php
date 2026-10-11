@@ -423,25 +423,15 @@ class PanelAssignmentController extends Controller
     {
         abort_unless($group->category_id === $category->id, 404);
 
-        // A registration is only edited while the group's schedule is
-        // ongoing or upcoming, and never while it is presenting (user-
-        // directed 2026-09-24) — judged on its latest attempt, the one that
-        // is still to happen. A group with no schedule yet has nothing to
-        // lock it.
-        $latestSchedule = $group->presentationAttempts()
-            ->orderByDesc('attempt_number')
-            ->first()
-            ?->attemptSchedule;
-
-        if ($latestSchedule && ($blocked = $queueService->adminBlockedReason($latestSchedule))) {
-            return back()->with('error', $blocked);
-        }
-
+        // A group's own data (names, sections, title, adviser...) can be
+        // edited at any time, whatever its schedule's state (user-directed
+        // 2026-10-12, superseding the 2026-09-24 lock). An edit never moves
+        // the group in the queue.
         $category->load('presentationMode');
         $isTitleProposal = $category->presentationMode->code === 'TITLE_PROPOSAL';
 
         try {
-            $data = $registrationService->validate($request, $category, $isTitleProposal);
+            $data = $registrationService->validate($request, $category, $isTitleProposal, withPanelistChoices: false, keepAdviser: $group->technical_adviser_name);
             $registrationService->guardAgainstDuplicate($category, $data['leader'], $data['project_title'], $isTitleProposal, $group->id);
         } catch (ValidationException $e) {
             return back()->with('error', collect($e->errors())->flatten()->first());
@@ -503,6 +493,48 @@ class PanelAssignmentController extends Controller
         }
 
         return back()->with('status', "Panel assigned to {$result['count']} group(s).");
+    }
+
+    /**
+     * Edit Panel — one group's panel (user-directed 2026-10-11). Runs in
+     * the Assign Panel card, which opens on the group's current panel and
+     * posts the same fields as Assign Panel, so changing one seat leaves the
+     * others as they are. Goes through assign() for the same checks; a
+     * panelist who stays keeps their row, and only the seat that changed is
+     * marked Replaced. The Alternate Panel may be left empty here.
+     */
+    public function editPanel(Request $request, PresentationCategory $category, PresentationAttempt $attempt, PanelAssignmentService $service)
+    {
+        abort_unless($attempt->researchGroup?->category_id === $category->id, 404);
+
+        $validated = $request->validate([
+            'assigned_panelist_ids' => ['required', 'array', 'min:1'],
+            'assigned_panelist_ids.*' => ['integer', 'exists:users,id'],
+            'lead_panelist_id' => ['required', 'integer', 'exists:users,id'],
+            'backup_panelist_id' => ['nullable', 'integer', 'exists:users,id'],
+        ], [
+            'lead_panelist_id.required' => 'Choose a chair.',
+        ]);
+
+        $result = $service->assign(
+            $category,
+            [$attempt->id],
+            array_map('intval', $validated['assigned_panelist_ids']),
+            filled($validated['backup_panelist_id'] ?? null) ? (int) $validated['backup_panelist_id'] : null,
+            (int) $validated['lead_panelist_id'],
+            $request->user()->id,
+            requireBackup: false,
+        );
+
+        if (! $result['ok']) {
+            if (isset($result['conflict'])) {
+                return back()->with('assign_conflict', $result['conflict']);
+            }
+
+            return back()->with('error', $result['error']);
+        }
+
+        return back()->with('status', "{$attempt->researchGroup->group_reference}'s panel updated.");
     }
 
     /**

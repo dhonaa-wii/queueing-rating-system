@@ -43,6 +43,12 @@ class ResearchGroup extends Model
         return $this->hasMany(ProposedTitle::class);
     }
 
+    /** The panel the group chose at registration, Chair first. */
+    public function panelistChoices(): HasMany
+    {
+        return $this->hasMany(ResearchGroupPanelistChoice::class)->orderBy('sort_order');
+    }
+
     public function leader(): ?Student
     {
         return $this->students->firstWhere('is_leader', true);

@@ -49,10 +49,10 @@
                     <form method="GET" action="{{ route('admin.reports.grades', $category) }}" class="rp-card-body">
                         <div class="rp-top-row">
                             <div class="rp-filter-search">
-                                <label for="filter-name" class="rp-field-label">Name</label>
+                                <label for="filter-name" class="rp-field-label">Name or Group Code</label>
                                 <div class="input-group input-group-sm">
                                     <input type="search" class="form-control" id="filter-name" name="q"
-                                           value="{{ $filters['search'] }}" placeholder="e.g. Dela Cruz" autocomplete="off">
+                                           value="{{ $filters['search'] }}" placeholder="e.g. Dela Cruz or SLD-2026-0002" autocomplete="off">
                                     <button type="submit" class="btn btn-brand"><x-icon name="search" /> Search</button>
                                 </div>
                             </div>

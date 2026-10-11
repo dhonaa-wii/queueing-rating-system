@@ -24,6 +24,7 @@ class PresentationCategory extends Model
         'registration_closes_at',
         'maximum_members',
         'panelist_count',
+        'students_choose_panelists',
         'technical_adviser_required',
         'research_track_required',
         'public_queue_visible',
@@ -36,6 +37,7 @@ class PresentationCategory extends Model
         return [
             'registration_opens_at' => 'datetime',
             'registration_closes_at' => 'datetime',
+            'students_choose_panelists' => 'boolean',
             'technical_adviser_required' => 'boolean',
             'research_track_required' => 'boolean',
             'public_queue_visible' => 'boolean',
@@ -107,6 +109,47 @@ class PresentationCategory extends Model
     public function activeTrackNames(): array
     {
         return $this->researchTracks()->where('is_active', true)->pluck('name')->all();
+    }
+
+    /**
+     * Whether a group picks its own panel at registration: the setting is on
+     * and there is a panel count to pick for.
+     */
+    public function groupsChoosePanelists(): bool
+    {
+        return $this->students_choose_panelists && $this->panelist_count;
+    }
+
+    /**
+     * The panelists a group may choose from: active panelist accounts of this
+     * category's college, by last name. Cached per category instance, so the
+     * many Edit Group modals on one page share one query.
+     */
+    public function choosablePanelists(): \Illuminate\Support\Collection
+    {
+        return once(fn () => User::whereHas('userRoles.role', fn ($q) => $q->where('code', 'PANELIST'))
+            ->whereHas('panelistProfile', fn ($q) => $q->where('college_id', $this->college_id ?? 0))
+            ->whereHas('accountStatus', fn ($q) => $q->where('is_login_allowed', true))
+            ->with('profile')
+            ->get()
+            ->sortBy(fn (User $user) => mb_strtolower(trim(($user->profile->last_name ?? '') . ' ' . ($user->profile->first_name ?? ''))))
+            ->values());
+    }
+
+    /** How a panelist is named in the registration dropdowns, and as an adviser. */
+    public static function panelistName(User $panelist): string
+    {
+        return trim(($panelist->profile->first_name ?? '') . ' ' . ($panelist->profile->last_name ?? '')) ?: $panelist->username;
+    }
+
+    /**
+     * The Technical Adviser is picked from the college's panelists
+     * (user-directed 2026-10-11) and stored by name in
+     * research_groups.technical_adviser_name.
+     */
+    public function adviserOptions(): array
+    {
+        return $this->choosablePanelists()->map(fn (User $p) => self::panelistName($p))->unique()->values()->all();
     }
 
     public function researchGroups(): HasMany

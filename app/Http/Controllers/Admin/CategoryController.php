@@ -270,10 +270,23 @@ class CategoryController extends Controller
 
         $validated = $request->validate([
             'panelist_count' => ['nullable', 'integer', 'min:1', 'max:50'],
+            'students_choose_panelists' => ['sometimes', 'boolean'],
         ]);
 
         $panelistCount = $validated['panelist_count'] ?? null;
-        $category->update(['panelist_count' => $panelistCount]);
+        $studentsChoose = $request->boolean('students_choose_panelists');
+
+        // Groups pick exactly panel-count panelists, so there must be a count.
+        if ($studentsChoose && $panelistCount === null) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'panelist_count' => 'Set the panel count before letting groups choose their panelists.',
+            ]);
+        }
+
+        $category->update([
+            'panelist_count' => $panelistCount,
+            'students_choose_panelists' => $studentsChoose,
+        ]);
 
         $applied = 0;
         $skippedLocked = 0;

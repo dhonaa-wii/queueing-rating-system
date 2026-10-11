@@ -97,7 +97,8 @@ class GradeReportService
      * $filters (all optional, user-directed 2026-09-17):
      *   section — one section name, or self::UNASSIGNED_SECTION for students
      *             with no section recorded
-     *   search  — case-insensitive substring of the student's name
+     *   search  — case-insensitive substring of the student's name, or of
+     *             the group code (keeps every member of that group)
      *   date    — presentation_dates.id the group presented on
      *   sort    — self::SORT_NAME (section, then name) or SORT_LAST_NAME
      */
@@ -176,12 +177,15 @@ class GradeReportService
                 return [$type->id => in_array($verification?->paymentStatus?->code, ['VERIFIED', 'RESOLVED'], true)];
             });
 
+            // A search matching the group code keeps every member of that group.
+            $groupCodeMatches = $search !== '' && str_contains(Str::lower((string) $group->group_reference), $search);
+
             foreach ($group->students as $student) {
                 if (! $this->matchesSection($student->section_name, $section)) {
                     continue;
                 }
 
-                if ($search !== '' && ! $this->matchesSearch($student, $search)) {
+                if ($search !== '' && ! $groupCodeMatches && ! $this->matchesSearch($student, $search)) {
                     continue;
                 }
 

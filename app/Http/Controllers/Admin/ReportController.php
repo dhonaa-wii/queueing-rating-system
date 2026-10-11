@@ -153,7 +153,7 @@ class ReportController extends Controller
         return collect([
             $sectionLabel ? 'Section: ' . $sectionLabel : null,
             $date ? 'Date: ' . $date->presentation_date->format('M j, Y') : null,
-            $filters['search'] !== '' ? 'Name: ' . $filters['search'] : null,
+            $filters['search'] !== '' ? 'Search: ' . $filters['search'] : null,
             $filters['sort'] === GradeReportService::SORT_LAST_NAME ? 'Sorted by last name' : null,
         ])->filter()->implode('   ·   ');
     }
@@ -286,7 +286,7 @@ class ReportController extends Controller
         $filterLabel = collect([
             'Section: ' . ($sectionLabel ?? 'All'),
             $date ? 'Date: ' . $date->presentation_date->format('M j, Y') : null,
-            $filters['search'] !== '' ? 'Name: ' . $filters['search'] : null,
+            $filters['search'] !== '' ? 'Search: ' . $filters['search'] : null,
             $filters['sort'] === GradeReportService::SORT_LAST_NAME ? 'Sorted by last name' : null,
         ])->filter()->implode('   ·   ');
 

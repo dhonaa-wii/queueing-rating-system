@@ -19,7 +19,7 @@
             <thead><tr><th>User</th><th>Account</th><th>What they do</th><th>Chapter</th></tr></thead>
             <tbody>
                 <tr><td>Student / Research Group</td><td>None</td><td>Register the group, view the schedule and queue, follow announcements.</td><td><a href="#students">2</a></td></tr>
-                <tr><td>Panelist</td><td>Created by an Administrator</td><td>View assignments, connect to a room terminal, evaluate groups; the Lead Panelist also runs the room.</td><td><a href="#panelists">3</a></td></tr>
+                <tr><td>Panelist</td><td>Created by an Administrator</td><td>View assignments and advisees, connect to a room terminal, evaluate groups; the Lead Panelist also runs the room.</td><td><a href="#panelists">3</a></td></tr>
                 <tr><td>Room Session device</td><td>Room account, new each day</td><td>A tablet or laptop in the room that panelists sign in to.</td><td><a href="#room-devices">4</a></td></tr>
                 <tr><td>Administrator</td><td>Created by the Super Administrator</td><td>Runs everything for one college: panelists, forms, categories, schedules, panels, event day, reports.</td><td><a href="#administrators">5</a></td></tr>
                 <tr><td>Super Administrator</td><td>System owner</td><td>Creates Administrator accounts, manages colleges and school years, audit log, backups.</td><td><a href="#super-admins">6</a></td></tr>
@@ -37,7 +37,7 @@
         <li><strong>Panelists:</strong> a phone with a camera is useful for joining a room by QR code, but not required — you can type your username and password on the room device instead.</li>
         <li><strong>Rooms:</strong> one tablet or laptop per panel seat. See <a href="#rd-check">Checking a device</a> to confirm an older tablet is compatible.</li>
     </ul>
-    <p>The system works on phones, tablets and computers. On a small screen the side menu folds into the <x-icon name="list-check" style="width:.9em;height:.9em;vertical-align:-.1em" /> menu button at the top left.</p>
+    <p>The system works on phones, tablets and computers. On a small screen the side menu is hidden; open it with the <x-icon name="panel-left" style="width:.9em;height:.9em;vertical-align:-.1em" /> button at the top left.</p>
 </div>
 
 <div class="hc-topic" id="gs-access">
@@ -104,7 +104,7 @@
             <div class="hc-screen is-flush">
                 <div class="m-app">
                     <div class="m-side">
-                        <div class="m-side-brand">ARPQRS <span class="m-pin" style="font-style:normal">1</span></div>
+                        <div class="m-side-brand">ARPQRS <x-icon name="panel-left" style="width:.8em;height:.8em;vertical-align:-.1em;color:var(--hc-muted)" /> <span class="m-pin" style="font-style:normal">1</span></div>
                         <div class="m-nav is-on"><x-icon name="grid" /> Dashboard</div>
                         <div class="m-nav"><x-icon name="users" /> Panelist Management</div>
                         <div class="m-nav"><x-icon name="grid" /> Presentation Setup</div>
@@ -134,7 +134,7 @@
         <figcaption><strong>Figure 2.</strong> The signed-in layout (Administrator shown; other roles have their own menu items).</figcaption>
     </figure>
     <ul class="hc-pins">
-        <li><span class="m-pin">1</span><span><strong>Side menu</strong> — every module of your role. The current page is highlighted.</span></li>
+        <li><span class="m-pin">1</span><span><strong>Side menu</strong> — every module of your role. The current page is highlighted. The <x-icon name="panel-left" style="width:.9em;height:.9em;vertical-align:-.1em" /> button beside the name closes it to give the page more room; the same button at the top left of the page opens it again. Your browser remembers the choice.</span></li>
         <li><span class="m-pin">2</span><span><strong>Settings</strong> — your profile, password, appearance and Log out.</span></li>
         <li><span class="m-pin">3</span><span><strong>Page title</strong> — and, on some pages, a category picker or page actions.</span></li>
         <li><span class="m-pin">4</span><span><strong>Help Center</strong> — opens this guide at your role's chapter, in a new tab.</span></li>

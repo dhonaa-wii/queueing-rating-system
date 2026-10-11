@@ -1,0 +1,124 @@
+<?php
+
+namespace App\Http\Controllers\Panelist;
+
+use App\Http\Controllers\Controller;
+use App\Http\Controllers\Panelist\Concerns\RendersEvaluationSheets;
+use App\Models\PresentationAttempt;
+use App\Models\ResearchGroup;
+use App\Services\AdviseeService;
+use App\Services\GradePdfExporter;
+use App\Services\RoomQueuePreviewService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+
+/**
+ * The signed-in panelist's advisees — groups they advise (user-directed 2026-10-11).
+ * Which groups count as an advisee is decided by AdviseeService, shared with
+ * the Panelist Dashboard's advisee summary.
+ */
+class AdviseeController extends Controller
+{
+    use RendersEvaluationSheets;
+
+    public function index(Request $request, RoomQueuePreviewService $roomQueuePreview, AdviseeService $advisees)
+    {
+        $groups = $advisees->groupsFor($request->user());
+
+        // One row per attempt — a group that went to Re-Defense has its first
+        // attempt under Completed and the follow-up under Upcoming.
+        // A group with no attempt yet (not queued) still belongs on the list.
+        $rows = $groups->flatMap(function (ResearchGroup $group) {
+            return $group->presentationAttempts->isEmpty()
+                ? [(object) ['group' => $group, 'attempt' => null]]
+                : $group->presentationAttempts->map(fn ($attempt) => (object) ['group' => $group, 'attempt' => $attempt])->all();
+        });
+
+        $isDone = fn ($row) => (bool) $row->attempt?->presentationStatus?->is_terminal;
+
+        $completed = $rows->filter($isDone)
+            ->sortByDesc(fn ($row) => $this->sortKey($row->attempt->completed_at))
+            ->values();
+
+        $upcomingRows = $rows->reject($isDone);
+        $expectedTimes = $this->expectedTimes($upcomingRows, $roomQueuePreview);
+
+        $upcoming = $upcomingRows
+            ->sortBy(fn ($row) => $this->sortKey($this->expectedAt($row, $expectedTimes), '9999-12-31 23:59:59'))
+            ->values();
+
+        $categoryOptions = $groups->pluck('category')->unique('id')->sortBy('name')->values();
+
+        return view('panelist.advisees.index', [
+            'upcoming' => $upcoming,
+            'completed' => $completed,
+            'expectedTimes' => $expectedTimes,
+            'hasGroups' => $groups->isNotEmpty(),
+            'categoryOptions' => $categoryOptions,
+            'trackOptions' => $groups->flatMap(fn ($g) => $g->students->pluck('research_track_name'))->filter()->unique()->sort()->values(),
+            'sectionOptions' => $groups->flatMap(fn ($g) => $g->students->pluck('section_name'))->filter()->unique()->sort()->values(),
+        ]);
+    }
+
+    public function evaluationSheet(Request $request, PresentationAttempt $attempt)
+    {
+        return $this->evaluationSheetView(
+            $this->advisedAttempt($request, $attempt),
+            route('panelist.advisees.evaluation-sheet.export-pdf', $attempt),
+        );
+    }
+
+    public function exportEvaluationSheetPdf(Request $request, PresentationAttempt $attempt, GradePdfExporter $exporter)
+    {
+        return $this->evaluationSheetPdf($this->advisedAttempt($request, $attempt), $exporter);
+    }
+
+    /** Only an attempt of a group this panelist advises — anything else 404s. */
+    private function advisedAttempt(Request $request, PresentationAttempt $attempt): PresentationAttempt
+    {
+        $group = $attempt->researchGroup()->with('category')->first();
+
+        if (! $group || ! app(AdviseeService::class)->advises($request->user(), $group)) {
+            throw new NotFoundHttpException();
+        }
+
+        return $attempt;
+    }
+
+    /**
+     * Expected start times keyed by attempt_schedule id — the same
+     * RoomQueuePreviewService forecast My Assignments, the tablet and Event
+     * Control read, so a group shows the same time everywhere.
+     */
+    private function expectedTimes(Collection $rows, RoomQueuePreviewService $roomQueuePreview): Collection
+    {
+        return $rows
+            ->map(fn ($row) => $row->attempt?->attemptSchedule?->presentationDateRoom)
+            ->filter()
+            ->unique('id')
+            // Keyed only after flattening: flatMap collapses with array_merge,
+            // which renumbers integer keys and would throw the ids away.
+            ->flatMap(fn ($room) => $roomQueuePreview->forRoom($room)['schedules'])
+            ->mapWithKeys(fn ($schedule) => [$schedule->id => $schedule->expected_start_at]);
+    }
+
+    private function expectedAt($row, Collection $expectedTimes)
+    {
+        $schedule = $row->attempt?->attemptSchedule;
+
+        if (! $schedule || $schedule->isAwaitingReschedule($row->attempt) || $schedule->queueEntry?->removed_at) {
+            return null;
+        }
+
+        return $expectedTimes->get($schedule->id)
+            ?? $schedule->adjusted_expected_at
+            ?? $schedule->planned_start_at;
+    }
+
+    /** Sort on a string — a sort mixing Carbon and null throws. */
+    private function sortKey($value, string $fallback = '0000-00-00 00:00:00'): string
+    {
+        return $value?->format('Y-m-d H:i:s') ?? $fallback;
+    }
+}

@@ -11,7 +11,9 @@
              $current     — the one being viewed (marked, and never absent:
                             each caller merges it in)
              $routeName   — route each item links to, called with the category
-    Optional: $fixed      — true when an ancestor clips its overflow, so the
+    Optional: $queryKey   — pass the category as this query parameter
+                            instead of a route parameter (Panelist Dashboard)
+              $fixed      — true when an ancestor clips its overflow, so the
                             menu has to escape it via Popper's fixed strategy
 --}}
 <div class="dropdown">
@@ -24,7 +26,7 @@
         @foreach ($categories as $option)
             <li>
                 <a class="dropdown-item category-picker-item {{ $option->id === $current->id ? 'active' : '' }}"
-                   href="{{ route($routeName, $option) }}">
+                   href="{{ isset($queryKey) ? route($routeName, [$queryKey => $option->id]) : route($routeName, $option) }}">
                     <span>
                         <span class="category-picker-item-name">{{ $option->name }}</span>
                         <span class="category-picker-item-meta d-block">

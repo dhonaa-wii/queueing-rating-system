@@ -345,6 +345,11 @@
                     <span>My Assignments</span>
                 </a>
 
+                <a href="{{ route('panelist.advisees.index') }}" class="admin-nav-link {{ request()->routeIs('panelist.advisees.*') ? 'active' : '' }}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5z"></path><path d="M6 12v5c3 2 9 2 12 0v-5"></path></svg>
+                    <span>My Advisees</span>
+                </a>
+
                 <a href="{{ route('panelist.schedule.index') }}" class="admin-nav-link {{ request()->routeIs('panelist.schedule.*') ? 'active' : '' }}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>
                     <span>View Schedule</span>

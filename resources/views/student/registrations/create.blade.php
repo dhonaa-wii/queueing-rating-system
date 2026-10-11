@@ -128,12 +128,35 @@
             @if ($category->technical_adviser_required)
                 <div class="mb-1 mt-3">
                     <label for="technical_adviser_name" class="form-label">Technical Adviser <span class="text-brand-accent">*</span></label>
-                    <input type="text" name="technical_adviser_name" id="technical_adviser_name" class="form-control" maxlength="200" required
-                           value="{{ old('technical_adviser_name') }}" @disabled(! $isOpen)>
+                    <select name="technical_adviser_name" id="technical_adviser_name" class="form-select" required data-adviser-select @disabled(! $isOpen)>
+                        <option value="">Select your adviser&hellip;</option>
+                        @foreach ($category->adviserOptions() as $adviserName)
+                            <option value="{{ $adviserName }}" @selected(old('technical_adviser_name') === $adviserName)>{{ $adviserName }}</option>
+                        @endforeach
+                    </select>
                     <div class="invalid-feedback" data-error-for="technical_adviser_name"></div>
                 </div>
             @endif
         </section>
+
+        @if ($category->groupsChoosePanelists())
+            @php $panelSeats = (int) $category->panelist_count; @endphp
+            <section class="reg-section">
+                <h3 class="reg-section-title">Panel</h3>
+                @for ($i = 0; $i < $panelSeats; $i++)
+                    <div class="mb-2">
+                        <label for="panelist_choice_{{ $i }}" class="form-label">{{ $i === 0 ? 'Chair' : 'Member '.$i }} <span class="text-brand-accent">*</span></label>
+                        <select name="panelist_choices[{{ $i }}]" id="panelist_choice_{{ $i }}" class="form-select" required data-panelist-choice @disabled(! $isOpen)>
+                            <option value="">Select a panelist&hellip;</option>
+                            @foreach ($category->choosablePanelists() as $panelist)
+                                <option value="{{ $panelist->id }}" @selected((string) old("panelist_choices.$i") === (string) $panelist->id)>{{ \App\Models\PresentationCategory::panelistName($panelist) }}</option>
+                            @endforeach
+                        </select>
+                        <div class="invalid-feedback" data-error-for="panelist_choices.{{ $i }}"></div>
+                    </div>
+                @endfor
+            </section>
+        @endif
 
         <div class="reg-panel-foot">
             <div class="text-brand-muted small" id="form-error-summary"></div>
@@ -326,6 +349,7 @@
 @endpush
 
 @include('partials.section-input-script')
+@include('partials.adviser-panel-exclusion-script')
 
 @push('scripts')
     <script>
@@ -466,6 +490,23 @@
                     }
                 @endif
 
+                var panelistNames = [];
+                var chosen = [];
+                form.querySelectorAll('[data-panelist-choice]').forEach(function (select) {
+                    if (! select.value) {
+                        showError(select.name, 'Choose a panelist for this seat.');
+                        valid = false;
+                    } else if (chosen.indexOf(select.value) !== -1) {
+                        showError(select.name, 'Choose a different panelist for each seat.');
+                        valid = false;
+                    } else if (select.options[select.selectedIndex].text === val('technical_adviser_name')) {
+                        showError(select.name, 'Your technical adviser cannot be one of your panelists.');
+                        valid = false;
+                    }
+                    chosen.push(select.value);
+                    panelistNames.push(select.value ? select.options[select.selectedIndex].text : '');
+                });
+
                 if (! valid) {
                     errorSummary.textContent = 'Please fix the highlighted fields above.';
                 }
@@ -475,6 +516,7 @@
                     members: members,
                     projectTitle: projectTitle,
                     proposedTitles: proposedTitles,
+                    panelists: panelistNames,
                 } : null;
             }
 
@@ -512,6 +554,12 @@
                 @if ($category->technical_adviser_required)
                     rows.push(['Technical Adviser', escapeHtml(val('technical_adviser_name'))]);
                 @endif
+
+                if (data.panelists.length) {
+                    rows.push(['Panel', data.panelists.map(function (name, i) {
+                        return (i === 0 ? 'Chair' : 'Member ' + i) + ': ' + escapeHtml(name);
+                    }).join('<br>')]);
+                }
 
                 var html = '';
                 rows.forEach(function (row) {
