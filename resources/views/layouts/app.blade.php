@@ -109,11 +109,13 @@
         </div>
     </nav>
 
-    <div class="@yield('container-class', 'container') py-4">
-        {{-- Back button: always the page's upper-left corner, every layout. --}}
-        @hasSection('back-link')
-            <div class="page-back">@yield('back-link')</div>
-        @endif
+    {{-- Back button: upper left, in its own .container so it lines up with the
+         navbar brand even on full-width pages (container-fluid). --}}
+    @hasSection('back-link')
+        <div class="container page-back">@yield('back-link')</div>
+    @endif
+
+    <div class="@yield('container-class', 'container') {{ View::hasSection('back-link') ? 'pt-2 pb-4' : 'py-4' }}">
         @yield('content')
     </div>
 

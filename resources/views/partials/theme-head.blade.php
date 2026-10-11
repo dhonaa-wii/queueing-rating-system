@@ -649,7 +649,7 @@
 
     /* Back button slot of layouts/app — the page's upper-left corner. */
     .page-back {
-        margin-bottom: 0.75rem;
+        padding-top: 1.25rem;
     }
 
     .text-brand-muted {
