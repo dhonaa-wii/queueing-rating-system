@@ -261,7 +261,17 @@
 
     /* ---- Screen-specific pieces layered on the same shell ---- */
 
-    /* Terminal-number choices on the picker. */
+    /* Category heading above each group of rooms on the room list. */
+    .rs-group-label {
+        margin: 0 0 0.4rem;
+        color: var(--brand-muted);
+        font-size: var(--rs-fs-xs);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    /* Room choices on the room list. */
     .rs-choice {
         display: flex;
         align-items: center;

@@ -67,13 +67,7 @@ class PresentationControlService
      * calling next only marks the group CALLED, it doesn't start the
      * presentation, so an empty evaluation seat isn't a blocker here. That
      * concern still applies once a presentation actually begins, which is
-     * what start() (and its own payment-verification gate) is for.
-     *
-     * User-directed 2026-08-18: it DOES require every enabled terminal in
-     * the room to be device-claimed (see allTerminalsActive()) — the
-     * physical tablets must be set up before groups start getting called,
-     * even though nobody has to be logged into them yet.
-     */
+     * what start() (and its own payment-verification gate) is for.     */
     public function callNext(RoomSession $session, ?TerminalConnection $connection): array
     {
         $session->loadMissing('roomSessionStatus', 'presentationDateRoom.presentationDate.category.categoryScheduleSetting', 'presentationDateRoom.presentationDate.category.categoryQueueSetting');
@@ -88,10 +82,6 @@ class PresentationControlService
 
         if ($session->current_attempt_id !== null) {
             return $this->failure('A group is already active in this room — complete or defer it first.');
-        }
-
-        if (! $this->allTerminalsActive($session)) {
-            return $this->failure('All terminals in this room must be connected before calling the next group.');
         }
 
         $room = $session->presentationDateRoom;
@@ -224,12 +214,10 @@ class PresentationControlService
         }
 
         // User-directed 2026-08-21: Start must not proceed with an empty
-        // panelist seat — unlike Call Next (allTerminalsActive() above,
-        // device-claimed only, panelist login not required yet at that
-        // point), an actual presentation can't begin evaluation-ready with
+        // panelist seat — unlike Call Next (which needs
+        // only the Lead signed in), an actual presentation can't begin evaluation-ready with
         // a terminal nobody's occupying. Same "every enabled terminal, not
-        // specifically every assigned panelist" shape as
-        // allTerminalsActive() — a backup/approved-substitute filling any
+        // specifically every assigned panelist" shape — a backup/approved-substitute filling any
         // seat still counts, matching recordPanelParticipation()'s own
         // substitute-is-fine posture below.
         if (! $this->allTerminalsStaffed($session)) {
@@ -562,24 +550,7 @@ class PresentationControlService
     }
 
     /**
-     * User-directed 2026-08-18: "active" here means device-claimed
-     * (room_terminals.device_identifier set at the terminal-picker step),
-     * not that a panelist is currently logged into the seat — Call Next
-     * gates on every enabled terminal in the room having been physically
-     * set up, regardless of who (if anyone) is presently connected to
-     * each one.
-     */
-    public function allTerminalsActive(RoomSession $session): bool
-    {
-        $terminals = $session->roomTerminals()->where('is_enabled', true)->get();
-
-        return $terminals->isNotEmpty() && $terminals->every(fn ($terminal) => $terminal->device_identifier !== null);
-    }
-
-    /**
-     * User-directed 2026-08-21: gates Start (unlike allTerminalsActive()
-     * above, which only requires the physical tablets to be device-claimed
-     * and gates Call Next instead) — every enabled
+     * User-directed 2026-08-21: gates Start — every enabled
      * terminal in the room must have an actual panelist currently
      * connected (terminal_connections.disconnected_at null), not just a
      * claimed device. Room-scoped, not attempt-specific: whoever occupies a

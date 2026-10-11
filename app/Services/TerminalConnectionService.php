@@ -5,28 +5,32 @@ namespace App\Services;
 use App\Models\AttemptPanelAssignment;
 use App\Models\ConnectionStatus;
 use App\Models\RoomSession;
-use App\Models\RoomSessionAccount;
 use App\Models\RoomTerminal;
 use App\Models\TerminalConnection;
 use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
- * The single place that decides whether a panelist may occupy a specific
- * room_terminal seat, and does it — shared by both ways a panelist can
- * identify themselves on an already room-account-claimed tablet: scanning
- * the QR with their phone (Panelist\TerminalScanController) or typing their
- * personal username/password directly into the tablet's fallback form
- * (RoomSessionController::manualLogin()). Keeping the eligibility/conflict
- * rules in one place avoids the two entry points drifting apart.
+ * The single place that decides whether a panelist may take a seat in a room
+ * session, and does it — shared by both ways a panelist can identify
+ * themselves on a device viewing that room: scanning its QR with their phone
+ * (Panelist\TerminalScanController) or typing their personal username/password
+ * into the room screen (RoomSessionController::manualLogin()).
  *
- * User-directed 2026-08-22: this used to hard-block anyone not already
- * assigned/backup somewhere in the room (see the removed eligibility check
- * below). It no longer does — a panelist who isn't the exact assigned
- * seat-holder for the room's current/next group is still let in; instead
- * classifyForRoom() below tells the caller (RoomSessionController) whether
- * to route them through App\Services\PanelSubstitutionService's
- * self-service (backup) or Admin-approval (unassigned) replacement flow.
+ * User-directed 2026-10-11 (room session redesign): devices no longer claim a
+ * terminal number with a shared room account. Any device can open a running
+ * room and watch it; a seat (room_terminals row, one per panelist_count) is
+ * only taken when a panelist logs in, and is handed out automatically. Once
+ * every seat is taken nobody else can log in. A panelist who already holds a
+ * seat and logs in again (another device, a laptop that died) moves their seat
+ * to the new device instead of being refused; the old device drops back to
+ * view-only.
+ *
+ * User-directed 2026-08-22: anyone is let in, not only the assigned panel;
+ * classifyForRoom() below tells the caller whether to route them through
+ * App\Services\PanelSubstitutionService's self-service (backup) or
+ * Admin-approval (unassigned) replacement flow.
  */
 class TerminalConnectionService
 {
@@ -34,82 +38,118 @@ class TerminalConnectionService
     {
     }
 
-    public function connect(RoomTerminal $terminal, User $panelist, string $authenticatedVia, ?string $ip, ?string $userAgent): array
+    /**
+     * Seats a panelist in the room. $preferred is the seat a QR token was
+     * issued for: used when it is still free, otherwise the first free seat.
+     */
+    public function connectToRoom(RoomSession $roomSession, User $panelist, string $authenticatedVia, ?string $ip, ?string $userAgent, ?RoomTerminal $preferred = null): array
     {
-        $terminal->loadMissing('roomSession.presentationDateRoom.presentationDate');
-
-        if (! $terminal->is_enabled) {
-            return $this->failure('This terminal is not enabled.');
+        if (! $roomSession->isOpen()) {
+            return $this->failure('This room session has ended.');
         }
 
-        $roomSession = $terminal->roomSession;
-        $room = $roomSession->presentationDateRoom;
+        return DB::transaction(function () use ($roomSession, $panelist, $authenticatedVia, $ip, $userAgent, $preferred) {
+            // Locks the room's seats so two panelists logging in at the same
+            // moment can't both be handed the last free one.
+            $terminals = RoomTerminal::where('room_session_id', $roomSession->id)
+                ->where('is_enabled', true)
+                ->orderBy('terminal_number')
+                ->lockForUpdate()
+                ->get();
 
-        $occupied = TerminalConnection::where('room_terminal_id', $terminal->id)
-            ->whereNull('disconnected_at')
-            ->exists();
+            if ($terminals->isEmpty()) {
+                return $this->failure('This room has no panel seats.');
+            }
 
-        if ($occupied) {
-            return $this->failure('This terminal seat is already occupied — ask an Administrator to clear it if that\'s wrong.');
-        }
+            $active = TerminalConnection::whereIn('room_terminal_id', $terminals->pluck('id'))
+                ->whereNull('disconnected_at')
+                ->get();
 
-        $roomTerminalIds = $roomSession->roomTerminals()->pluck('id');
+            // database-schema.md: "One panelist cannot occupy two terminals in
+            // the same room session." Logging in again moves the seat.
+            $own = $active->firstWhere('panelist_user_id', $panelist->id);
+            $moved = false;
 
-        // database-schema.md's own rule for terminal_connections: "One
-        // panelist cannot occupy two terminals in the same room session."
-        $alreadyElsewhere = TerminalConnection::whereIn('room_terminal_id', $roomTerminalIds)
-            ->where('panelist_user_id', $panelist->id)
-            ->whereNull('disconnected_at')
-            ->exists();
+            if ($own) {
+                $own->update([
+                    'disconnected_at' => now(),
+                    'connection_status_id' => ConnectionStatus::where('code', 'DISCONNECTED')->firstOrFail()->id,
+                ]);
+                $terminal = $terminals->firstWhere('id', $own->room_terminal_id);
+                $moved = true;
+            } else {
+                $taken = $active->pluck('room_terminal_id');
+                $free = $terminals->reject(fn ($terminal) => $taken->contains($terminal->id));
 
-        if ($alreadyElsewhere) {
-            return $this->failure('You are already connected to another seat in this room.');
-        }
+                if ($free->isEmpty()) {
+                    return $this->failure("This room's panel is complete ({$terminals->count()}/{$terminals->count()}).");
+                }
 
-        // Scoped by presentation_date_id (not just category+room_name) —
-        // user-directed 2026-09-07: an account is generated fresh per day
-        // now, so two different dates in the same category could each have
-        // their own live account for a same-named room at once (e.g. an
-        // extended day overlapping the next day's Start Event); this must
-        // resolve to the one belonging to *this* room's own day, not
-        // whichever row happens to match category+room_name first.
-        $account = RoomSessionAccount::where('presentation_date_id', $room->presentation_date_id)
-            ->where('room_name', $room->room_name)
-            ->where('is_active', true)
-            ->first();
+                $terminal = ($preferred && $free->contains('id', $preferred->id))
+                    ? $free->firstWhere('id', $preferred->id)
+                    : $free->first();
+            }
 
-        // Falls back to the room's own terminal count if the account is
-        // somehow missing — the seat count itself is the real cap either way.
-        $cap = $account->max_concurrent_logins ?? $roomTerminalIds->count();
+            $connection = TerminalConnection::create([
+                'room_terminal_id' => $terminal->id,
+                'panelist_user_id' => $panelist->id,
+                'connected_at' => now(),
+                'connection_status_id' => ConnectionStatus::where('code', 'CONNECTED')->firstOrFail()->id,
+                'authenticated_via' => $authenticatedVia,
+                'ip_address' => $ip,
+                'user_agent' => $userAgent ? substr($userAgent, 0, 250) : null,
+            ]);
 
-        $activeInRoom = TerminalConnection::whereIn('room_terminal_id', $roomTerminalIds)
+            return [
+                'ok' => true,
+                'connection' => $connection,
+                'classification' => $this->classifyForRoom($roomSession, $panelist),
+                'moved' => $moved,
+            ];
+        });
+    }
+
+    /**
+     * Seats taken / total — drives "Panel complete" on the room screen and
+     * the room list.
+     */
+    public function seatSummary(RoomSession $roomSession): array
+    {
+        $terminalIds = RoomTerminal::where('room_session_id', $roomSession->id)
+            ->where('is_enabled', true)
+            ->pluck('id');
+
+        $taken = TerminalConnection::whereIn('room_terminal_id', $terminalIds)
             ->whereNull('disconnected_at')
             ->count();
 
-        if ($activeInRoom >= $cap) {
-            return $this->failure("This room is already at its maximum of {$cap} logged-in panelist(s).");
-        }
+        return [
+            'taken' => $taken,
+            'total' => $terminalIds->count(),
+            'full' => $terminalIds->isNotEmpty() && $taken >= $terminalIds->count(),
+        ];
+    }
 
-        $connectedStatus = ConnectionStatus::where('code', 'CONNECTED')->firstOrFail();
+    /**
+     * First seat with nobody on it — the seat a new QR token is issued for.
+     */
+    public function firstFreeTerminal(RoomSession $roomSession): ?RoomTerminal
+    {
+        $taken = TerminalConnection::whereHas('roomTerminal', fn ($query) => $query->where('room_session_id', $roomSession->id))
+            ->whereNull('disconnected_at')
+            ->pluck('room_terminal_id');
 
-        $connection = TerminalConnection::create([
-            'room_terminal_id' => $terminal->id,
-            'panelist_user_id' => $panelist->id,
-            'connected_at' => now(),
-            'connection_status_id' => $connectedStatus->id,
-            'authenticated_via' => $authenticatedVia,
-            'ip_address' => $ip,
-            'user_agent' => $userAgent ? substr($userAgent, 0, 250) : null,
-        ]);
-
-        return ['ok' => true, 'connection' => $connection, 'classification' => $this->classifyForRoom($roomSession, $panelist)];
+        return RoomTerminal::where('room_session_id', $roomSession->id)
+            ->where('is_enabled', true)
+            ->whereNotIn('id', $taken)
+            ->orderBy('terminal_number')
+            ->first();
     }
 
     /**
      * Any assigned/backup panelist for *any* attempt ever scheduled in this
-     * room — deliberately broad, unrelated to classifyForRoom() below. Still
-     * used for canEvaluate gating and PresentationControlService's staffing
-     * checks, so it's left exactly as it always was.
+     * room — deliberately broad, unrelated to classifyForRoom() below. Used
+     * for canEvaluate gating and PresentationControlService's staffing checks.
      */
     public function eligiblePanelistIds(RoomSession $roomSession): Collection
     {
@@ -123,18 +163,11 @@ class TerminalConnectionService
     }
 
     /**
-     * User-directed 2026-09-07: flow control (Presentation Control's Call
-     * Next/Start/Pause/Resume/Complete/Defer/End Room buttons) no longer
-     * belongs to a fixed "Terminal 1/Lead" seat — it follows whichever
-     * panelist the Admin explicitly designated Lead/Chair in Group & Panel
-     * Assignment (attempt_panel_assignments.is_lead), wherever that
-     * panelist actually logs in. Deliberately room-wide, same broad scope
-     * as eligiblePanelistIds() above rather than scoped to one specific
-     * current/called/next attempt — a panel is normally assigned
-     * identically across a whole room's queue for the day
-     * (PanelAssignmentService::assign()'s multi-select "same panel for
-     * every selected group" case), so this reads as "is this panelist the
-     * room's Lead" rather than "the Lead for this exact group."
+     * User-directed 2026-09-07: flow control follows whichever panelist the
+     * Admin designated Lead/Chair (attempt_panel_assignments.is_lead),
+     * wherever that panelist logs in. Room-wide, same broad scope as
+     * eligiblePanelistIds() above — a panel is normally assigned identically
+     * across a whole room's queue for the day.
      */
     public function isLead(RoomSession $roomSession, User $panelist): bool
     {
@@ -149,14 +182,9 @@ class TerminalConnectionService
     }
 
     /**
-     * Narrow, room-current-moment classification — drives the terminal's
-     * post-login UX (App\Services\PanelSubstitutionService), unlike
-     * eligiblePanelistIds() above. Scoped to the room's immediate target
-     * attempt (current ?? called ?? next, from RoomQueuePreviewService,
-     * same triage the tablet's own Current/Called/Next display already
-     * uses) — "assigned panel for the next/current group," per spec. If the
-     * room has nothing current/called/queued at all, there's nothing to
-     * classify against.
+     * Narrow, room-current-moment classification — drives the room screen's
+     * post-login UX (App\Services\PanelSubstitutionService). Scoped to the
+     * room's immediate target attempt (current ?? called ?? next).
      */
     public function classifyForRoom(RoomSession $roomSession, User $panelist): array
     {

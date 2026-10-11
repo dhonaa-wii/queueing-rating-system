@@ -45,7 +45,7 @@
             'st-day' => 'On presentation day',
             'st-outcomes' => 'Outcomes and what comes next',
         ]],
-        ['id' => 'panelists', 'icon' => 'users', 'title' => 'Panelists', 'sub' => 'See your assignments, join a room terminal, evaluate groups and run the room as Lead.', 'topics' => [
+        ['id' => 'panelists', 'icon' => 'users', 'title' => 'Panelists', 'sub' => 'See your assignments, join a room, evaluate groups and run the room as Lead.', 'topics' => [
             'pn-account' => 'Your panelist account',
             'pn-dashboard' => 'Dashboard',
             'pn-assignments' => 'My Assignments',
@@ -53,18 +53,18 @@
             'pn-notifications' => 'Notifications',
             'pn-schedule' => 'View Schedule',
             'pn-roles' => 'Lead Panelist, Member and Backup',
-            'pn-join' => 'Joining a room terminal',
+            'pn-join' => 'Joining a room',
             'pn-evaluate' => 'Evaluating a group',
             'pn-control' => 'Running the room (Lead Panelist)',
             'pn-breaks' => 'Scheduled breaks',
             'pn-substitute' => 'Backups and substitutions',
         ]],
-        ['id' => 'room-devices', 'icon' => 'tablet', 'title' => 'Room Session Devices', 'sub' => 'Preparing the tablets or laptops that panelists use inside each room.', 'topics' => [
+        ['id' => 'room-devices', 'icon' => 'tablet', 'title' => 'Room Session Devices', 'sub' => 'Opening a room on any tablet or laptop, and how panelists take their seats.', 'topics' => [
             'rd-what' => 'What a room device is',
             'rd-check' => 'Checking a device',
-            'rd-setup' => 'Setting up a device',
-            'rd-screen' => 'The device screen',
-            'rd-release' => 'Releasing a device',
+            'rd-setup' => 'Opening a room',
+            'rd-screen' => 'The room screen',
+            'rd-release' => 'Leaving and switching devices',
         ]],
         ['id' => 'administrators', 'icon' => 'layers', 'title' => 'Administrators', 'sub' => 'Configure categories, build evaluation forms, assign panels, run the event and produce reports.', 'topics' => [
             'ad-workflow' => 'The presentation workflow',

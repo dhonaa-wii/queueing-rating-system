@@ -17,7 +17,6 @@ use App\Models\PresentationDateRoom;
 use App\Models\QueueEntry;
 use App\Models\ResearchGroup;
 use App\Models\RoomSession;
-use App\Models\RoomSessionAccount;
 use App\Models\RoomTerminal;
 use App\Models\ScheduleBreak;
 use App\Models\User;
@@ -57,7 +56,6 @@ class AdminCollege
             $model instanceof PresentationDate,
             $model instanceof CategoryRoom,
             $model instanceof CategoryResearchTrack,
-            $model instanceof RoomSessionAccount,
             $model instanceof ResearchGroup => $model->category?->college_id,
 
             $model instanceof EvaluationFormVersion => $model->evaluationForm?->college_id,

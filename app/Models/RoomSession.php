@@ -29,6 +29,34 @@ class RoomSession extends Model
         ];
     }
 
+    /**
+     * Started and not yet closed — the rooms the Room Session list shows and
+     * a device can watch or a panelist can join.
+     */
+    public function isOpen(): bool
+    {
+        $this->loadMissing('roomSessionStatus');
+
+        return $this->ended_at === null && $this->roomSessionStatus?->code !== 'CLOSED';
+    }
+
+    /**
+     * A group is on stage right now (ONGOING or PAUSED). A merely CALLED
+     * group doesn't count, the same test End Room uses.
+     */
+    public function isPresenting(): bool
+    {
+        $this->loadMissing('currentAttempt.presentationStatus');
+
+        return in_array($this->currentAttempt?->presentationStatus?->code, ['ONGOING', 'PAUSED'], true);
+    }
+
+    public function scopeOpen($query)
+    {
+        return $query->whereNull('ended_at')
+            ->whereHas('roomSessionStatus', fn ($status) => $status->where('code', '!=', 'CLOSED'));
+    }
+
     public function presentationEvent(): BelongsTo
     {
         return $this->belongsTo(PresentationEvent::class);

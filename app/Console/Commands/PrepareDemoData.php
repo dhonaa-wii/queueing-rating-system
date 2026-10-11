@@ -43,7 +43,6 @@ use App\Models\QueueStrategy;
 use App\Models\ResearchGroup;
 use App\Models\Role;
 use App\Models\RoomSession;
-use App\Models\RoomSessionAccount;
 use App\Models\RoomTerminal;
 use App\Models\RoomUseStatus;
 use App\Models\ScheduleBreak;
@@ -65,6 +64,7 @@ use App\Services\TerminalConnectionService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 
 /**
@@ -285,9 +285,8 @@ class PrepareDemoData extends Command
         $this->at($day->copy()->setTime(8, 2));
         $connections = [];
         foreach ($session->roomTerminals()->orderBy('terminal_number')->get() as $index => $terminal) {
-            $terminal->update(['device_identifier' => 'demo-tablet-'.$terminal->terminal_number]);
             $panelist = User::findOrFail([$panelists['elena'], $panelists['francisco'], $panelists['gloria']][$index]);
-            $result = app(TerminalConnectionService::class)->connect($terminal, $panelist, 'QR', '192.168.1.20', 'Demo Tablet');
+            $result = app(TerminalConnectionService::class)->connectToRoom($session, $panelist, 'QR', '192.168.1.20', 'Demo Device', $terminal);
             $this->ensureOk($result, 'Connect panelist');
             $connections[$panelist->id] = $result['connection'];
         }
@@ -689,7 +688,9 @@ class PrepareDemoData extends Command
 
         ScheduleBreak::whereIn('presentation_date_room_id', $roomIds)->delete();
         CapacityAnalysisSnapshot::whereIn('presentation_date_room_id', $roomIds)->delete();
-        RoomSessionAccount::whereIn('presentation_category_id', $categoryIds)->delete();
+        if (Schema::hasTable('room_session_accounts')) {
+            DB::table('room_session_accounts')->whereIn('presentation_category_id', $categoryIds)->delete();
+        }
         PresentationDateRoom::whereIn('id', $roomIds)->delete();
         EndOfDayProcessingLog::whereIn('presentation_date_id', $dateIds)->delete();
         PresentationDate::whereIn('id', $dateIds)->delete();

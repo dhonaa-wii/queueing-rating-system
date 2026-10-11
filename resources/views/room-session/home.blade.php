@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Terminal ' . $terminal->terminal_number . ' — ' . $room->room_name)
+@section('title', $room->room_name . ' — Room Session')
 
 @section('container-class', 'container-fluid px-2 px-md-3 px-lg-4')
 
@@ -10,7 +10,7 @@
     </div>
     <div class="d-flex align-items-center gap-2">
         <div class="small text-brand-muted text-end">
-            {{ $room->room_name }} &middot; Terminal {{ $terminal->terminal_number }}
+            {{ $room->room_name }}
         </div>
         <button type="button" class="settings-icon-btn" data-bs-toggle="modal" data-bs-target="#room-session-settings-modal" aria-label="Settings">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
@@ -181,36 +181,11 @@
                         <button type="submit" class="btn btn-outline-danger-brand w-100"><x-icon name="log-out" /> Log Out</button>
                     </form>
 
-                    <form method="POST" action="{{ route('room-session.release') }}" id="settings-release-form">
+                    <form method="POST" action="{{ route('room-session.leave') }}" id="settings-leave-form">
                         @csrf
-                        <button type="button" class="btn btn-outline-danger-brand w-100" id="settings-release-btn" @disabled($connection)
-                                data-bs-toggle="modal" data-bs-target="#release-device-modal"
-                                title="{{ $connection ? 'Log out the connected panelist first' : '' }}"><x-icon name="log-out" /> Release This Device</button>
+                        <button type="submit" class="btn btn-outline-brand w-100" @disabled($connection)
+                                title="{{ $connection ? 'Log out first' : '' }}"><x-icon name="arrow-left" /> Leave Room</button>
                     </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- Sibling of the settings modal, not nested inside it, so it stacks
-    cleanly on top rather than being clipped by the settings modal's own
-    stacking context. Matches the "Submit Evaluation" confirm modal's
-    trigger/target pattern (evaluation-panel.blade.php) — a plain button
-    referencing the real form by id via form="settings-release-form",
-    replacing the native confirm() this used before. --}}
-    <div class="modal fade" id="release-device-modal" tabindex="-1" aria-labelledby="release-device-modal-label" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="release-device-modal-label">Release This Device</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p class="mb-0">Release this device? It will need to be set up again.</p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-brand" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" form="settings-release-form" class="btn btn-outline-danger-brand"><x-icon name="log-out" /> Release This Device</button>
                 </div>
             </div>
         </div>
@@ -440,6 +415,7 @@
             var evaluationPanel = document.getElementById('evaluation-panel');
             var queuePanel = document.getElementById('queue-panel');
             var wasConnected = {{ $connection ? 'true' : 'false' }};
+            var wasSeatsFull = {{ $seats['full'] ? 'true' : 'false' }};
             // Tracks the backup/unassigned/assigned/no-target classification
             // (see TerminalConnectionService::classifyForRoom()) so an
             // Admin's approval — which flips this without `connected` ever
@@ -893,7 +869,12 @@
                 fetch(statusUrl, { headers: { 'Accept': 'application/json' }, cache: 'no-store' })
                     .then(function (response) { return response.json(); })
                     .then(function (data) {
-                        if (data.connected !== wasConnected || data.classification !== wasClassification) {
+                        if (data.redirect) {
+                            window.location.href = data.redirect;
+                            return;
+                        }
+
+                        if (data.connected !== wasConnected || data.classification !== wasClassification || (!data.connected && data.seatsFull !== wasSeatsFull)) {
                             window.location.reload();
                             return;
                         }
@@ -924,7 +905,11 @@
                         if (!data.connected) {
                             var qrContainer = document.getElementById('qr-code-container');
                             if (qrContainer) {
-                                qrContainer.innerHTML = data.qrSvg;
+                                qrContainer.innerHTML = data.qrSvg || "";
+                            }
+                            var seatCount = document.getElementById("seat-count");
+                            if (seatCount && data.seatsLabel) {
+                                seatCount.textContent = data.seatsLabel;
                             }
                         }
                     })

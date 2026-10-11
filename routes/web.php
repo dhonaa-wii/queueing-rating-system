@@ -62,29 +62,25 @@ Route::get('/letterhead/{letterhead}/logo/{slot}', [LetterheadLogoController::cl
     ->whereIn('slot', ['primary', 'secondary'])
     ->name('letterhead.logo');
 
-// Public device-claim flow for the physical tablet in a room (user-directed
-// 2026-08-15) — a room_session_accounts row is a shared credential the
-// Administrator uses once per tablet to bind it to a terminal number, not a
-// per-panelist login. See App\Http\Controllers\RoomSessionController. The
-// per-panelist identification layer (QR scan) is instead under
+// Public room screen (user-directed 2026-10-11 redesign): a list of running
+// rooms any device can open and watch; panelists join with their own account
+// and seats are handed out automatically up to the room's panel count. See
+// App\Http\Controllers\RoomSessionController. The QR sign-in is under
 // Panelist\TerminalScanController, gated by that role's normal auth.
 Route::prefix('/room-session')->name('room-session.')->group(function () {
-    Route::get('/', [RoomSessionController::class, 'login'])->name('entry');
+    Route::get('/', [RoomSessionController::class, 'entry'])->name('entry');
+    Route::post('/join', [RoomSessionController::class, 'join'])->name('join');
+    Route::post('/leave', [RoomSessionController::class, 'leave'])->name('leave');
 
-    // Standalone diagnostic for the physical tablets — reports the browser and
-    // which CSS features it actually supports. No session or account needed,
-    // so it still answers on a device that can't get past anything else.
+    // Standalone diagnostic for room devices — reports the browser and which
+    // CSS features it actually supports. No session needed, so it still
+    // answers on a device that can't get past anything else.
     Route::view('/device-check', 'room-session.device-check')->name('device-check');
-    Route::post('/login', [RoomSessionController::class, 'authenticate'])->name('login');
-    Route::get('/terminal', [RoomSessionController::class, 'terminalPicker'])->name('terminal');
-    Route::post('/terminal', [RoomSessionController::class, 'claimTerminal'])->name('terminal.claim');
-    Route::post('/cancel', [RoomSessionController::class, 'cancel'])->name('cancel');
     Route::get('/home', [RoomSessionController::class, 'home'])->name('home');
     Route::get('/home/status', [RoomSessionController::class, 'status'])->name('status');
     Route::post('/home/manual-login', [RoomSessionController::class, 'manualLogin'])->name('manual-login');
     Route::post('/home/logout', [RoomSessionController::class, 'logoutPanelist'])->name('logout');
     Route::post('/home/substitution/request', [RoomSessionController::class, 'requestSubstitution'])->name('substitution.request');
-    Route::post('/release', [RoomSessionController::class, 'release'])->name('release');
 
     // Presentation Control (functional-spec §5.5/§9.9) — Terminal 1/Lead
     // only, enforced per-request in RoomSessionController::requireLeadConnection().
@@ -227,9 +223,7 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::post('/{category}/room-sessions/{roomSession}/end', [LiveMonitoringController::class, 'endRoom'])->name('room-sessions.end');
         Route::post('/{category}/room-sessions/{roomSession}/pause', [LiveMonitoringController::class, 'pauseRoomSession'])->name('room-sessions.pause');
         Route::post('/{category}/room-sessions/{roomSession}/resume', [LiveMonitoringController::class, 'resumeRoomSession'])->name('room-sessions.resume');
-        Route::post('/{category}/room-accounts/{account}/reset', [LiveMonitoringController::class, 'resetRoomAccountCredentials'])->name('room-accounts.reset');
         Route::post('/{category}/terminals/{terminal}/disconnect', [LiveMonitoringController::class, 'forceDisconnectTerminal'])->name('terminals.disconnect');
-        Route::post('/{category}/terminals/{terminal}/release-device', [LiveMonitoringController::class, 'releaseTerminalDevice'])->name('terminals.release-device');
         Route::post('/{category}/schedules/{schedule}/complete', [LiveMonitoringController::class, 'completeAttempt'])->name('schedules.complete');
         Route::delete('/{category}/schedules/{schedule}/delete', [LiveMonitoringController::class, 'deleteAttempt'])->name('schedules.delete');
         Route::post('/{category}/complete', [LiveMonitoringController::class, 'completeCategory'])->name('complete');

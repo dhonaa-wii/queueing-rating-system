@@ -1,7 +1,7 @@
 {{-- Help Center styles. Always light (white page, built for reading and for
      printing to PDF), so the tokens are fixed here rather than taken from
      theme-head's light/dark set. The visual language follows Event Control's
-     "How Terminals Work" guide: icon tiles, uppercase section labels,
+     "How Panel Seats Work" guide: icon tiles, uppercase section labels,
      numbered timelines, option cards, legend panels and tinted notes. --}}
 <style>
     :root {

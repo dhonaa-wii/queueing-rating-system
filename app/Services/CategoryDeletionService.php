@@ -29,13 +29,13 @@ use App\Models\QueueAdjustment;
 use App\Models\QueueEntry;
 use App\Models\ResearchGroup;
 use App\Models\RoomSession;
-use App\Models\RoomSessionAccount;
 use App\Models\RoomTerminal;
 use App\Models\ScheduleBreak;
 use App\Models\Student;
 use App\Models\TerminalAccessToken;
 use App\Models\TerminalConnection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Full purge of a category once it's done for good — user-directed
@@ -55,8 +55,8 @@ use Illuminate\Support\Facades\DB;
  * PresentationAttemptAdminActionService::delete(), and
  * PresentationDate::deleteWithChildren() each cover a slice of, plus the
  * terminal/room-session infrastructure Event Activation and Room Session
- * Accounts write (RoomTerminal/TerminalConnection/TerminalAccessToken/
- * PresentationEvent/RoomSessionAccount) — none of those three existing
+ * Accounts wrote (RoomTerminal/TerminalConnection/TerminalAccessToken/
+ * PresentationEvent/room accounts) — none of those three existing
  * helpers reach that infrastructure, since none of them expected to ever
  * run on a category/date that had actually gone live.
  */
@@ -138,7 +138,11 @@ class CategoryDeletionService
             EndOfDayProcessingLog::whereIn('presentation_date_id', $dateIds)->delete();
             PresentationDate::whereIn('id', $dateIds)->delete();
 
-            RoomSessionAccount::where('presentation_category_id', $category->id)->delete();
+            // Room accounts were removed 2026-10-11 (room session redesign); the
+            // table is kept until that is confirmed, so clear any old rows.
+            if (Schema::hasTable('room_session_accounts')) {
+                DB::table('room_session_accounts')->where('presentation_category_id', $category->id)->delete();
+            }
 
             $category->categoryAnnouncements()->delete();
             $category->categoryEvaluationForms()->delete();

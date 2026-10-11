@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\CategoryStatus;
+use App\Models\ConnectionStatus;
 use App\Models\EventDateStatus;
 use App\Models\EventStatus;
 use App\Models\Notification;
@@ -18,7 +19,9 @@ use App\Models\QueueEntry;
 use App\Models\RoomSession;
 use App\Models\RoomSessionStatus;
 use App\Models\RoomTerminal;
+use App\Models\TerminalConnection;
 use App\Models\TerminalType;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -37,7 +40,6 @@ class EventActivationService
     public function __construct(
         private QueueAdjustmentService $queueAdjustments,
         private NotificationService $notifications,
-        private RoomSessionAccountService $roomSessionAccounts,
         private ReDefenseService $reDefense,
     ) {
     }
@@ -217,13 +219,6 @@ class EventActivationService
                     'event_date_status_id' => $cancelledStatus->id,
                     'completed_at' => now(),
                 ]);
-
-                // Normally a no-op here — a date reaching this method was
-                // never started (whereNull('activated_at') above), so
-                // startRoom() never ran for it — kept for the same
-                // "ended/completed/cancelled" belt-and-suspenders coverage
-                // as end()'s own call.
-                $this->roomSessionAccounts->removeForDate($date);
             });
 
             $this->queueAdjustments->processEndOfDay($date, $performedByUserId);
@@ -394,10 +389,7 @@ class EventActivationService
             $date->update(['completed_at' => $now]);
             $date->refreshStatus();
 
-            // User-directed 2026-09-07: the day's room login account(s)
-            // stop existing the moment the day itself does — see
-            // RoomSessionAccountService's class doc.
-            $this->roomSessionAccounts->removeForDate($date);
+            $this->disconnectPanelists(RoomSession::where('presentation_event_id', $event->id)->pluck('id'));
         });
 
         // Run outside the transaction above (and its own per-entry
@@ -496,14 +488,12 @@ class EventActivationService
                 ]);
             }
 
-            $this->roomSessionAccounts->generateForRoom($date, $room, $performedByUserId);
-
             return ['ok' => true, 'session' => $session];
         });
     }
 
     /**
-     * Per-room End. Closes one room and takes its login account with it,
+     * Per-room End. Closes one room and signs its panelists out,
      * leaving every other room in the day running. Blocked by the same
      * ONGOING/PAUSED test end() uses — a presentation genuinely underway
      * has to be completed or deferred first; a merely CALLED group does not
@@ -536,7 +526,7 @@ class EventActivationService
         $room = $session->presentationDateRoom;
         $date = $room->presentationDate;
 
-        DB::transaction(function () use ($session, $date, $room, $performedByUserId) {
+        DB::transaction(function () use ($session, $performedByUserId) {
             $session->update([
                 'room_session_status_id' => RoomSessionStatus::where('code', 'CLOSED')->firstOrFail()->id,
                 'ended_at' => now(),
@@ -544,7 +534,7 @@ class EventActivationService
                 'current_attempt_id' => null,
             ]);
 
-            $this->roomSessionAccounts->removeForRoom($date, $room);
+            $this->disconnectPanelists(collect([$session->id]));
         });
 
         $roomsRemaining = $this->roomsStillToRun($date);
@@ -745,6 +735,25 @@ class EventActivationService
         }
 
         return null;
+    }
+
+    /**
+     * Signs every panelist out of the given room sessions when the room (or
+     * the day) ends, so no seat stays held on a closed room. Devices that
+     * were watching drop back to the room list on their next poll.
+     */
+    private function disconnectPanelists(Collection $roomSessionIds): void
+    {
+        if ($roomSessionIds->isEmpty()) {
+            return;
+        }
+
+        TerminalConnection::whereHas('roomTerminal', fn ($query) => $query->whereIn('room_session_id', $roomSessionIds))
+            ->whereNull('disconnected_at')
+            ->update([
+                'disconnected_at' => now(),
+                'connection_status_id' => ConnectionStatus::where('code', 'DISCONNECTED')->firstOrFail()->id,
+            ]);
     }
 
     private function failure(string $message): array

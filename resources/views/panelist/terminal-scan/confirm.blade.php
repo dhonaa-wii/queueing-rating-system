@@ -1,23 +1,23 @@
 @extends('layouts.panelist')
 
-@section('title', 'Join Terminal')
+@section('title', 'Join Room')
 
 @section('content')
     <div class="row justify-content-center">
         <div class="col-md-7 col-lg-5">
             <div class="card-brand p-4 p-md-5 text-center mt-4">
-                <h1 class="h4 mb-3">Join This Terminal?</h1>
+                <h1 class="h4 mb-3">Join This Room?</h1>
 
                 <dl class="detail-list small mb-4 text-start">
                     <dt>Room</dt>
                     <dd>{{ $terminal->roomSession->presentationDateRoom->room_name }}</dd>
 
-                    <dt>Terminal</dt>
-                    <dd>{{ $terminal->terminal_number }} &mdash; {{ $terminal->terminalType->name ?? 'Panelist' }}</dd>
+                    <dt>Category</dt>
+                    <dd>{{ $terminal->roomSession->presentationDateRoom->presentationDate->category->name ?? '—' }}</dd>
                 </dl>
 
                 <p class="text-brand-muted small mb-4">
-                    You'll be connected to this terminal as <strong>{{ trim((auth()->user()->profile->first_name ?? '') . ' ' . (auth()->user()->profile->last_name ?? '')) ?: auth()->user()->username }}</strong>.
+                    You'll join as <strong>{{ trim((auth()->user()->profile->first_name ?? '') . ' ' . (auth()->user()->profile->last_name ?? '')) ?: auth()->user()->username }}</strong>.
                 </p>
 
                 <form method="POST" action="{{ route('panelist.terminal-scan.claim', $token) }}">

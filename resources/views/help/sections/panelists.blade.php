@@ -92,15 +92,15 @@
         <div class="hc-option"><div class="hc-option-icon is-info"><x-icon name="user-check" /></div><div><div class="hc-option-title">Member</div><p>Evaluates every group on the panel from their own device.</p></div></div>
         <div class="hc-option"><div class="hc-option-icon is-success"><x-icon name="user-plus" /></div><div><div class="hc-option-title">Backup Panelist</div><p>On standby. Can take an assigned panelist's seat at the room device when they cannot attend.</p></div></div>
     </div>
-    <p>Lead powers follow the <strong>person</strong>, not the device: whichever terminal the Lead signs in to gets the controls.</p>
+    <p>Lead powers follow the <strong>person</strong>, not the device: whichever device the Lead signs in on gets the controls.</p>
 </div>
 
 <div class="hc-topic" id="pn-join">
-    <h3><x-icon name="qr-code" /> Joining a room terminal</h3>
-    <p>Each room has one device per panel seat, already set up by the Administrator (<a href="#rd-setup">Setting up a device</a>). An empty device shows a QR code and a sign-in form. Join it one of two ways:</p>
+    <h3><x-icon name="qr-code" /> Joining a room</h3>
+    <p>Open the room on any device, a shared tablet or your own laptop (<a href="#rd-setup">Opening a room</a>). While a seat is free it shows a QR code and a sign-in form. Join one of two ways:</p>
     <figure class="hc-figure">
         <div class="hc-window">
-            <div class="hc-window-bar"><div class="hc-window-dots"><i></i><i></i><i></i></div><div class="hc-window-url">/room-session/home · Room 101 · Terminal 2</div></div>
+            <div class="hc-window-bar"><div class="hc-window-dots"><i></i><i></i><i></i></div><div class="hc-window-url">/room-session/home · Room 101</div></div>
             <div class="hc-screen is-tinted">
                 <div class="m-grid-2" style="grid-template-columns:1.3fr 1fr;align-items:start;">
                     <div class="m-col">
@@ -123,12 +123,12 @@
                 </div>
             </div>
         </div>
-        <figcaption><strong>Figure 9.</strong> An empty room terminal waiting for its panelist.</figcaption>
+        <figcaption><strong>Figure 9.</strong> A room screen with a free seat.</figcaption>
     </figure>
     <div class="hc-options-or">
-        <div class="hc-option"><div class="hc-option-icon"><x-icon name="smartphone" /></div><div><div class="hc-option-title"><span class="m-pin">1</span> Scan QR Code</div><p>On your phone, sign in to your own panelist account, tap the <x-icon name="qr-code" style="width:.9em;height:.9em;vertical-align:-.1em" /> Room Session button in the top bar, point the camera at the device's code, then press <strong>Join This Terminal?</strong> → confirm. You can also scan with the phone's normal camera app. The code refreshes every few minutes.</p></div></div>
+        <div class="hc-option"><div class="hc-option-icon"><x-icon name="smartphone" /></div><div><div class="hc-option-title"><span class="m-pin">1</span> Scan QR Code</div><p>On your phone, sign in to your own panelist account, tap the <x-icon name="qr-code" style="width:.9em;height:.9em;vertical-align:-.1em" /> Room Session button in the top bar, point the camera at the device's code, then press <strong>Confirm &amp; Join</strong> on <strong>Join This Room?</strong>. You can also scan with the phone's normal camera app. The code refreshes every few minutes.</p></div></div>
         <div class="hc-or">or</div>
-        <div class="hc-option"><div class="hc-option-icon"><x-icon name="key" /></div><div><div class="hc-option-title"><span class="m-pin">2</span> Log In Directly</div><p>Type <strong>your own</strong> username and password into the device's form. Never use the room account here.</p></div></div>
+        <div class="hc-option"><div class="hc-option-icon"><x-icon name="key" /></div><div><div class="hc-option-title"><span class="m-pin">2</span> Log In Directly</div><p>Type <strong>your own</strong> username and password into the room screen's form.</p></div></div>
     </div>
     <p>Once connected the device shows your name and badges:</p>
     <div class="hc-panel">
@@ -137,7 +137,7 @@
         <div class="hc-legend-row"><span class="hc-badge hc-badge-info">Alternate Panel</span><span>You are a backup on this room.</span></div>
         <div class="hc-legend-row"><span class="hc-badge hc-badge-muted">Not Assigned</span><span>You are not on this panel; see <a href="#pn-substitute">Backups and substitutions</a>.</span></div>
     </div>
-    <div class="hc-note hc-note-warn"><x-icon name="alert-triangle" /><p>When you leave the room, press <strong>Log Out</strong> on the device so the next panelist can sit. You cannot be connected to two seats in the same room.</p></div>
+    <div class="hc-note hc-note-warn"><x-icon name="alert-triangle" /><p>When you leave the room, press <strong>Log Out</strong> on the device so the next panelist can sit. You hold one seat per room: signing in on another device moves your seat there.</p></div>
 </div>
 
 <div class="hc-topic" id="pn-evaluate">
@@ -216,7 +216,7 @@
         <figcaption><strong>Figure 11.</strong> The Lead Panelist's controls while a group presents.</figcaption>
     </figure>
     <ol class="hc-steps">
-        <li class="hc-step"><div class="hc-step-marker">1</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="megaphone" /> Call Next</div><p class="hc-step-text">Calls the next group in the queue. Locked until <strong>every terminal in the room has a panelist connected</strong>, and while the room is on a break.</p><div class="hc-result">Group <x-icon name="arrow-right" /> <span class="hc-badge hc-badge-brand">Called</span></div></div></li>
+        <li class="hc-step"><div class="hc-step-marker">1</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="megaphone" /> Call Next</div><p class="hc-step-text">Calls the next group in the queue. Locked while the room is on a break. <strong>Start</strong> stays locked until every seat has a panelist.</p><div class="hc-result">Group <x-icon name="arrow-right" /> <span class="hc-badge hc-badge-brand">Called</span></div></div></li>
         <li class="hc-step"><div class="hc-step-marker">2</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="wallet" /> Verify payment (if required)</div><p class="hc-step-text">Type each receipt's reference number and press <strong>Verify</strong>, one row per payment type. A number already used anywhere in the system is refused and the screen says which group holds it.</p></div></li>
         <li class="hc-step"><div class="hc-step-marker">3</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="play" /> Start</div><p class="hc-step-text">Starts the presentation timer. Locked until every payment type is verified.</p><div class="hc-result">Group <x-icon name="arrow-right" /> <span class="hc-badge hc-badge-success">Ongoing</span></div></div></li>
         <li class="hc-step"><div class="hc-step-marker">4</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="pause" /> Pause / Resume</div><p class="hc-step-text">Stops the clock for an interruption; paused time does not count against the group. Going over the time limit is allowed — the timer turns red and shows the extra time.</p></div></li>
@@ -239,7 +239,7 @@
 
 <div class="hc-topic" id="pn-substitute">
     <h3><x-icon name="repeat" /> Backups and substitutions</h3>
-    <p>If you sign in to a terminal for a group you are not seated on, the device asks whose seat you are taking:</p>
+    <p>If you sign in to a room for a group you are not seated on, the device asks whose seat you are taking:</p>
     <div class="hc-options-or">
         <div class="hc-option"><div class="hc-option-icon is-success"><x-icon name="user-plus" /></div><div><div class="hc-option-title">You are the Backup</div><p>Choose the assigned panelist you are filling in for. The swap happens immediately; if they were the Lead, you become the Lead. They are notified.</p></div></div>
         <div class="hc-or">or</div>

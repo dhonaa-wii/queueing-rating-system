@@ -380,12 +380,6 @@
             font-weight: 600;
         }
 
-        .event-page .room-status-account {
-            padding: 0.65rem 0.75rem;
-            border-radius: 0.5rem;
-            background-color: var(--brand-surface);
-        }
-
         /* --- Action buttons: the tablet's pill treatment, admin-sized --- */
         .event-page .control-btn {
             padding: 0.35rem 0.7rem;

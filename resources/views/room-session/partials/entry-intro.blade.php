@@ -1,18 +1,16 @@
 {{--
-    Left-hand feature panel, shared by the three room-session entry screens so
-    they read as one flow rather than three unrelated cards.
+    Left-hand feature panel on the room-session entry screen.
 
-    Optional: $introTitle overrides the headline for a screen where "set this
-    device up" is no longer the step in front of the user.
+    Optional: $introTitle overrides the headline.
 --}}
 <section class="rs-intro">
-    <span class="rs-eyebrow"><x-icon name="monitor" /> Room Terminal</span>
+    <span class="rs-eyebrow"><x-icon name="monitor" /> Room Session</span>
 
-    <h1 class="rs-title">{{ $introTitle ?? 'Set this device up as a room terminal.' }}</h1>
+    <h1 class="rs-title">{{ $introTitle ?? 'Open a running room on this device.' }}</h1>
 
     <p class="rs-lede">
-        A claimed device becomes one of the room's terminals for the day — showing the
-        room's live queue and letting the assigned panel run the presentations from it.
+        Any device can show a room's live queue. Panelists sign in on it with their own
+        account to evaluate and, for the Chair, to run the presentations.
     </p>
 
     <ul class="rs-features">
@@ -27,7 +25,7 @@
             <span class="rs-feature-icon"><x-icon name="user-check" /></span>
             <div class="rs-feature-body">
                 <p class="rs-feature-title">Panelists join with their own account</p>
-                <p class="rs-feature-text">Each seat is claimed by scanning its QR code or signing in on the terminal itself.</p>
+                <p class="rs-feature-text">Scan the room's QR code or sign in on the device. The room takes as many panelists as its panel needs.</p>
             </div>
         </li>
         <li class="rs-feature">

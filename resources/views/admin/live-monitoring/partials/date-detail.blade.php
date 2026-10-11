@@ -1,5 +1,5 @@
 {{-- Full detail card for exactly one "featured" date — room tabs, live queue
-     preview, terminals, room session accounts. Rendered once per page load
+     preview, panel seats. Rendered once per page load
      (for whichever date admin.live-monitoring.show resolved as featured),
      never duplicated, so the per-date modal ids below stay unique. --}}
 @php
@@ -144,34 +144,13 @@
                                 @endif
                             </div>
 
-                            @if ($panel->account)
-                                <div class="room-status-account mt-3">
-                                    <div class="capacity-stat-label mb-2">Room Session Account</div>
-                                    <dl class="detail-list small mb-2">
-                                        <dt>Username</dt>
-                                        <dd>{{ $panel->account->username }}</dd>
-
-                                        <dt>Password</dt>
-                                        <dd><code>{{ $panel->account->password }}</code></dd>
-                                    </dl>
-                                    <form method="POST" action="{{ route('admin.live-monitoring.room-accounts.reset', [$category, $panel->account]) }}"
-                                          onsubmit="return confirm('Issue a new password for this room account? The old one will stop working immediately.');"
-                                          class="control-btn-grid">
-                                        @csrf
-                                        <button type="submit" class="btn btn-outline-brand control-btn control-btn-primary">
-                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"></path><path d="M21 3v6h-6"></path></svg>
-                                            Reset Password
-                                        </button>
-                                    </form>
-                                </div>
-                            @endif
                         </div>
 
                         <div class="card-brand p-3 mt-3">
                             <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
-                                <h4 class="h6 mb-0">Terminals</h4>
+                                <h4 class="h6 mb-0">Panel Seats</h4>
                                 <button type="button" class="info-icon-btn" data-bs-toggle="modal" data-bs-target="#terminals-guide-modal"
-                                        aria-label="How terminals work" title="How terminals work">
+                                        aria-label="How panel seats work" title="How panel seats work">
                                     <x-icon name="info" />
                                 </button>
                             </div>
@@ -182,9 +161,7 @@
                                     <table class="table table-sm align-middle mb-0 small">
                                         <thead>
                                             <tr>
-                                                <th>#</th>
-                                                <th>Type</th>
-                                                <th>Device</th>
+                                                <th>Seat</th>
                                                 <th>Status</th>
                                                 <th>Panelist</th>
                                                 <th></th>
@@ -195,14 +172,6 @@
                                                 @php $activeConnection = $terminal->terminalConnections->firstWhere('disconnected_at', null); @endphp
                                                 <tr>
                                                     <td>{{ $terminal->terminal_number }}</td>
-                                                    <td>{{ $terminal->terminalType->name ?? '—' }}</td>
-                                                    <td>
-                                                        @if ($terminal->device_identifier)
-                                                            <span class="badge badge-brand-tint">Claimed</span>
-                                                        @else
-                                                            <span class="badge badge-muted-tint">Unclaimed</span>
-                                                        @endif
-                                                    </td>
                                                     <td>
                                                         @if ($activeConnection)
                                                             <span class="badge badge-success-tint">Connected</span>
@@ -219,25 +188,18 @@
                                                     </td>
                                                     <td class="text-end text-nowrap">
                                                         @if ($activeConnection)
+                                                            {{-- Not while a group is presenting (user-directed
+                                                                 2026-10-11); refused server-side too. --}}
                                                             <button type="button" class="btn btn-sm btn-outline-danger-brand"
                                                                     data-bs-toggle="modal" data-bs-target="#confirm-action-modal"
                                                                     data-confirm-action="{{ route('admin.live-monitoring.terminals.disconnect', [$category, $terminal]) }}"
-                                                                    data-confirm-title="Disconnect Terminal {{ $terminal->terminal_number }}"
-                                                                    data-confirm-message="Disconnect this terminal seat?"
+                                                                    data-confirm-title="Disconnect Panelist"
+                                                                    data-confirm-message="Sign this panelist out of their seat?"
                                                                     data-confirm-submit-label="Disconnect"
-                                                                    data-confirm-variant="btn-outline-danger-brand">
+                                                                    data-confirm-variant="btn-outline-danger-brand"
+                                                                    @disabled($presentingNow)
+                                                                    title="{{ $presentingNow ? 'A presentation is in progress in this room' : '' }}">
                                                                 <x-icon name="unlink" /> Disconnect
-                                                            </button>
-                                                        @endif
-                                                        @if ($terminal->device_identifier)
-                                                            <button type="button" class="btn btn-sm btn-outline-brand"
-                                                                    data-bs-toggle="modal" data-bs-target="#confirm-action-modal"
-                                                                    data-confirm-action="{{ route('admin.live-monitoring.terminals.release-device', [$category, $terminal]) }}"
-                                                                    data-confirm-title="Release Terminal {{ $terminal->terminal_number }}"
-                                                                    data-confirm-message="The tablet currently set up as Terminal {{ $terminal->terminal_number }} will need to be set up again, and any connected panelist will be logged out."
-                                                                    data-confirm-submit-label="Release Device"
-                                                                    data-confirm-variant="btn-outline-danger-brand">
-                                                                <x-icon name="log-out" /> Release Device
                                                             </button>
                                                         @endif
                                                     </td>

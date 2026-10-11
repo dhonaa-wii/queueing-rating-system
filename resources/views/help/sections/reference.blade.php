@@ -25,9 +25,7 @@
         <div class="hc-legend-row"><span class="hc-badge hc-badge-info">Break</span><span>Inside a scheduled break with nobody on stage.</span></div>
         <div class="hc-legend-row"><span class="hc-badge hc-badge-muted">Closed</span><span>Ended for the day.</span></div>
 
-        <div class="hc-legend-group">A terminal</div>
-        <div class="hc-legend-row"><span class="hc-badge hc-badge-muted">Unclaimed</span><span>No device set up as this terminal.</span></div>
-        <div class="hc-legend-row"><span class="hc-badge hc-badge-brand">Claimed</span><span>A device is set up as this terminal.</span></div>
+        <div class="hc-legend-group">A panel seat</div>
         <div class="hc-legend-row"><span class="hc-badge hc-badge-muted">Empty</span><span>No panelist is signed in on it.</span></div>
         <div class="hc-legend-row"><span class="hc-badge hc-badge-success">Connected</span><span>A panelist is signed in on it.</span></div>
 
@@ -112,8 +110,7 @@
         <div class="hc-legend-row"><strong>Presentation mode</strong><span>Standard (one project) or Title Proposal (several proposed titles).</span></div>
         <div class="hc-legend-row"><strong>Queue strategy</strong><span>How groups are ordered: First In First Out, Section Based or Random Draw.</span></div>
         <div class="hc-legend-row"><strong>Reinsert</strong><span>Put a deferred group back in a queue.</span></div>
-        <div class="hc-legend-row"><strong>Room account</strong><span>A room's shared, day-only login used to set up its devices.</span></div>
-        <div class="hc-legend-row"><strong>Terminal</strong><span>One numbered device seat in a room, one per panelist.</span></div>
+        <div class="hc-legend-row"><strong>Seat</strong><span>One place on a room's panel, one per panelist. Taken by signing in on any device showing the room.</span></div>
         <div class="hc-legend-row"><strong>Track</strong><span>A research area (e.g. Web, Mobile). Track rooms only take their tracks' groups.</span></div>
         <div class="hc-legend-row"><strong>Transfer</strong><span>Move a group to another room or day.</span></div>
     </div>

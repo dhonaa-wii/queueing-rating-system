@@ -11,7 +11,6 @@ use App\Models\PresentationDateRoom;
 use App\Models\PresentationOutcome;
 use App\Models\ConnectionStatus;
 use App\Models\RoomSession;
-use App\Models\RoomSessionAccount;
 use App\Models\RoomTerminal;
 use App\Models\TerminalConnection;
 use App\Services\CapacityAnalysisService;
@@ -19,7 +18,6 @@ use App\Services\CategoryDeletionService;
 use App\Services\EventActivationService;
 use App\Services\PresentationAttemptAdminActionService;
 use App\Services\RoomQueuePreviewService;
-use App\Services\RoomSessionAccountService;
 use App\Support\DefaultCategoryPicker;
 use Illuminate\Http\Request;
 
@@ -142,16 +140,6 @@ class LiveMonitoringController extends Controller
         // choice fighting the auto-selection on the next page load.
         $featuredDate = $this->resolveFeaturedDate($category, $request->integer('date') ?: null);
 
-        // User-directed 2026-09-07: accounts are no longer synced/created
-        // here — they only ever exist while the featured date's own event
-        // is actually ACTIVE (generated at Start Room, removed at End
-        // Event — see RoomSessionAccountService). This just reads whatever
-        // currently exists for that one date; a not-yet-started or
-        // already-ended date correctly shows no account at all.
-        $roomAccountsByName = $featuredDate
-            ? RoomSessionAccount::where('presentation_date_id', $featuredDate->id)->get()->keyBy('room_name')
-            : collect();
-
         // Only the featured date needs the expensive per-room queue preview
         // built — the others only need their own already-loaded status/room
         // data for the compact card.
@@ -160,14 +148,13 @@ class LiveMonitoringController extends Controller
         if ($featuredDate) {
             $registeredInCategory = $category->researchGroups()->count();
 
-            $roomPanels = $featuredDate->presentationDateRooms->map(function (PresentationDateRoom $room) use ($featuredDate, $roomQueuePreviewService, $roomAccountsByName, $registeredInCategory) {
+            $roomPanels = $featuredDate->presentationDateRooms->map(function (PresentationDateRoom $room) use ($featuredDate, $roomQueuePreviewService, $registeredInCategory) {
                 $room->setRelation('presentationDate', $featuredDate);
 
                 return (object) [
                     'room' => $room,
                     'session' => $room->roomSessions->sortByDesc('id')->first(),
                     'queue' => $roomQueuePreviewService->forRoom($room),
-                    'account' => $roomAccountsByName->get($room->room_name),
                     // Same shape/logic as RoomSessionController::buildDayStats()
                     // — reused here so the admin "Room Data" card (mirroring
                     // the room-session tablet's own info card) shows the
@@ -324,23 +311,6 @@ class LiveMonitoringController extends Controller
     }
 
     /**
-     * The password stays visible on the Room Session Account card at all
-     * times (user-directed 2026-08-15 — an Admin needs to be able to
-     * notice unexpected terminal activity against the credential currently
-     * in use, not just at the moment it's issued). This still always
-     * issues a brand-new password — it's a reset, not a re-reveal of the
-     * existing one — so the old one stops working immediately.
-     */
-    public function resetRoomAccountCredentials(Request $request, PresentationCategory $category, RoomSessionAccount $account, RoomSessionAccountService $service)
-    {
-        abort_unless($account->presentation_category_id === $category->id, 404);
-
-        $service->resetCredentials($account, $request->user()->id);
-
-        return back()->with('status', "Room \"{$account->room_name}\" account password reset.");
-    }
-
-    /**
      * Manual escape hatch for a seat a panelist forgot to log out of —
      * nothing currently expires a terminal_connections row on its own.
      */
@@ -350,37 +320,11 @@ class LiveMonitoringController extends Controller
 
         abort_unless($terminal->roomSession->presentationDateRoom->presentationDate->category_id === $category->id, 404);
 
-        $disconnectedStatus = ConnectionStatus::where('code', 'DISCONNECTED')->firstOrFail();
-
-        TerminalConnection::where('room_terminal_id', $terminal->id)
-            ->whereNull('disconnected_at')
-            ->update([
-                'disconnected_at' => now(),
-                'connection_status_id' => $disconnectedStatus->id,
-            ]);
-
-        return back()->with('status', 'Terminal seat cleared.');
-    }
-
-    /**
-     * Frees up a terminal number for a different physical tablet
-     * (2026-08-22, user-directed) — RoomSessionController::claimTerminal()
-     * now refuses to let a second device claim a terminal number that's
-     * already device-claimed (room_terminals.device_identifier set), so
-     * this is the only remaining way to recover a terminal whose original
-     * tablet is gone/lost its session (previously the picker itself quietly
-     * allowed a re-claim to overwrite the old device_identifier, which is
-     * exactly the loophole this closes). Also force-clears any live
-     * TerminalConnection on the seat — unlike the tablet's own self-service
-     * release() (only reachable once the connected panelist has already
-     * logged out), an Admin invoking this is explicitly handling a stuck/
-     * abandoned tablet, so any stale connection should go with it.
-     */
-    public function releaseTerminalDevice(Request $request, PresentationCategory $category, RoomTerminal $terminal)
-    {
-        $terminal->loadMissing('roomSession.presentationDateRoom.presentationDate');
-
-        abort_unless($terminal->roomSession->presentationDateRoom->presentationDate->category_id === $category->id, 404);
+        // User-directed 2026-10-11: a panelist can't be pulled off the panel
+        // while the room's group is actually presenting.
+        if ($terminal->roomSession->isPresenting()) {
+            return back()->with('error', 'A presentation is in progress in this room. Complete or defer it first.');
+        }
 
         $disconnectedStatus = ConnectionStatus::where('code', 'DISCONNECTED')->firstOrFail();
 
@@ -391,9 +335,7 @@ class LiveMonitoringController extends Controller
                 'connection_status_id' => $disconnectedStatus->id,
             ]);
 
-        $terminal->update(['device_identifier' => null]);
-
-        return back()->with('status', "Terminal {$terminal->terminal_number} released — it can be set up on a new device now.");
+        return back()->with('status', 'Panelist disconnected.');
     }
 
     public function completeCategory(Request $request, PresentationCategory $category, EventActivationService $service)

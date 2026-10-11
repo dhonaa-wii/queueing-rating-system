@@ -1192,13 +1192,6 @@
         line-height: 1.3;
     }
 
-    .room-status-account {
-        padding: 0.85rem 0.95rem;
-        border-radius: 0.6rem;
-        background-color: var(--brand-surface-alt);
-        border: 1px solid var(--brand-border);
-    }
-
     /* Event Control "Room Data" card (admin live-monitoring date-detail).
        Base sizes match the room-session tablet's own info card; --rd-scale
        grows everything on wider screens so it stays readable on a desktop

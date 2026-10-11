@@ -1,4 +1,4 @@
-{{-- Help for the Room Data card's Terminals table, opened by the "i" beside
+{{-- Help for the Room Data card's Panel Seats table, opened by the "i" beside
      its heading. Rendered once per page (show.blade.php) since every room tab
      shares it. A modal rather than a page: it is reference for the table the
      admin is looking at, and leaving Event Control mid-event to read it would
@@ -10,8 +10,8 @@
             <div class="tg-header">
                 <div class="tg-header-icon"><x-icon name="tablet" /></div>
                 <div class="min-w-0">
-                    <h5 class="tg-title" id="terminals-guide-title">How Terminals Work</h5>
-                    <p class="tg-subtitle">A terminal is one device seat in the room, one for each panelist on the panel.</p>
+                    <h5 class="tg-title" id="terminals-guide-title">How Panel Seats Work</h5>
+                    <p class="tg-subtitle">A room has one seat for each panelist on its panel. Panelists use any device.</p>
                 </div>
                 <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -58,7 +58,7 @@
                                 </text>
                             </g>
                         @endforeach
-                        {{-- Panelist's own phone scanning terminal 3 --}}
+                        {{-- Panelist's own phone scanning seat 3 --}}
                         <path class="tg-art-beam" d="M407 84 C 412 66, 400 52, 384 50"/>
                         <g transform="translate(392 86)">
                             <rect class="tg-art-device tg-art-phone" x="0" y="0" width="32" height="50" rx="7"/>
@@ -74,15 +74,14 @@
                         <div class="tg-tl-marker">1</div>
                         <div class="tg-tl-body">
                             <div class="tg-tl-head"><x-icon name="play" /> Start the room</div>
-                            <p class="tg-step-text">Start Room creates one terminal per panelist and the room's login account, shown above in this card. The account is new each day and is removed when the room ends.</p>
+                            <p class="tg-step-text">Start Room creates one seat per panelist. The room then appears in the Room Session list.</p>
                         </div>
                     </li>
                     <li class="tg-tl-item">
                         <div class="tg-tl-marker">2</div>
                         <div class="tg-tl-body">
-                            <div class="tg-tl-head"><x-icon name="tablet" /> Set up each device</div>
-                            <p class="tg-step-text">On the device, open <strong>Room Session</strong>, sign in with the room's username and password, then pick its terminal number.</p>
-                            <div class="tg-result">Device <x-icon name="arrow-right" /> <span class="badge badge-brand-tint">Claimed</span></div>
+                            <div class="tg-tl-head"><x-icon name="tablet" /> Open the room on a device</div>
+                            <p class="tg-step-text">On any device, a shared tablet or a panelist's own laptop, open <strong>Room Session</strong> and pick the room. No room account is needed, and any number of devices can watch the room.</p>
                         </div>
                     </li>
                     <li class="tg-tl-item">
@@ -94,7 +93,7 @@
                                     <div class="tg-option-icon"><x-icon name="qr-code" /></div>
                                     <div>
                                         <div class="tg-option-title">Scan QR Code</div>
-                                        <p class="tg-step-text">Scan the device's QR code with a phone already signed in to the panelist's own account, then confirm.</p>
+                                        <p class="tg-step-text">Scan the QR code on the room screen with a phone already signed in to the panelist's own account, then confirm.</p>
                                     </div>
                                 </div>
                                 <div class="tg-option-or" aria-hidden="true">or</div>
@@ -102,18 +101,18 @@
                                     <div class="tg-option-icon"><x-icon name="key" /></div>
                                     <div>
                                         <div class="tg-option-title">Manual Login</div>
-                                        <p class="tg-step-text">Enter the panelist's own username and password in the device's <strong>Log In Directly</strong> form.</p>
+                                        <p class="tg-step-text">Enter the panelist's own username and password in the room screen's <strong>Log In Directly</strong> form.</p>
                                     </div>
                                 </div>
                             </div>
-                            <div class="tg-result">Status <x-icon name="arrow-right" /> <span class="badge badge-success-tint">Connected</span></div>
+                            <div class="tg-result">Seat <x-icon name="arrow-right" /> <span class="badge badge-success-tint">Connected</span></div>
                         </div>
                     </li>
                     <li class="tg-tl-item">
                         <div class="tg-tl-marker">4</div>
                         <div class="tg-tl-body">
                             <div class="tg-tl-head"><x-icon name="crown" /> The Lead runs the queue</div>
-                            <p class="tg-step-text">The panelist assigned as Lead gets Call Next, Start and Complete on whichever device they use. Call Next stays locked until every terminal is connected.</p>
+                            <p class="tg-step-text">The panelist assigned as Lead gets Call Next, Start and Complete on whichever device they use. Start stays locked until every seat has a panelist.</p>
                         </div>
                     </li>
                     <li class="tg-tl-item">
@@ -129,15 +128,6 @@
                     <div class="col-md-6">
                         <h6 class="tg-section-title">Reading the table</h6>
                         <div class="tg-panel">
-                            <div class="tg-legend-group">Device</div>
-                            <div class="tg-legend-row">
-                                <span class="badge badge-muted-tint">Unclaimed</span>
-                                <span>No device has taken this terminal number yet.</span>
-                            </div>
-                            <div class="tg-legend-row">
-                                <span class="badge badge-brand-tint">Claimed</span>
-                                <span>A device is set up as this terminal.</span>
-                            </div>
                             <div class="tg-legend-group">Status</div>
                             <div class="tg-legend-row">
                                 <span class="badge badge-muted-tint">Empty</span>
@@ -156,14 +146,7 @@
                                 <div class="tg-option-icon tg-action-icon-danger"><x-icon name="unlink" /></div>
                                 <div>
                                     <div class="tg-option-title">Disconnect</div>
-                                    <p class="tg-step-text">Signs the panelist out of the seat. The device stays set up for the next panelist.</p>
-                                </div>
-                            </div>
-                            <div class="tg-action">
-                                <div class="tg-option-icon"><x-icon name="log-out" /></div>
-                                <div>
-                                    <div class="tg-option-title">Release Device</div>
-                                    <p class="tg-step-text">Frees the terminal number. The device has to sign in with the room account again, and anyone on it is signed out.</p>
+                                    <p class="tg-step-text">Signs the panelist out of the seat so someone else can take it. Not available while a group is presenting.</p>
                                 </div>
                             </div>
                         </div>

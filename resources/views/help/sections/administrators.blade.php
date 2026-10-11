@@ -324,17 +324,16 @@
                     <div class="m-card">
                         <div class="m-label">Room Data <span class="m-pin">1</span></div>
                         <div class="m-grid-3 m-small" style="margin:.3rem 0;"><div><div class="m-faint m-xs">Room</div>101</div><div><div class="m-faint m-xs">Panelists</div>3</div><div><div class="m-faint m-xs">Session</div><span class="hc-badge hc-badge-success">Active</span></div></div>
-                        <div class="m-card is-alt m-small"><div class="m-label">Room Session Account <span class="m-pin">2</span></div>Username <b>cfd-room101</b><br>Password •••••••• <span class="m-btn is-soft" style="margin-left:.3rem">Reset Password</span></div>
-                        <div class="m-row" style="margin-top:.45rem;"><span class="m-btn is-soft"><x-icon name="pause" /> Pause</span><span class="m-btn is-danger"><x-icon name="stop" /> End Room</span><span class="m-pin">3</span></div>
+                        <div class="m-row" style="margin-top:.45rem;"><span class="m-btn is-soft"><x-icon name="pause" /> Pause</span><span class="m-btn is-danger"><x-icon name="stop" /> End Room</span><span class="m-pin">2</span></div>
                     </div>
                     <div class="m-card">
-                        <div class="m-label">Terminals <span class="m-pin">4</span></div>
+                        <div class="m-label">Panel Seats <span class="m-pin">3</span></div>
                         <table class="m-table">
-                            <thead><tr><th>#</th><th>Device</th><th>Status</th><th>Panelist</th></tr></thead>
+                            <thead><tr><th>Seat</th><th>Status</th><th>Panelist</th></tr></thead>
                             <tbody>
-                                <tr><td>1</td><td><span class="hc-badge hc-badge-brand">Claimed</span></td><td><span class="hc-badge hc-badge-success">Connected</span></td><td>Santos</td></tr>
-                                <tr><td>2</td><td><span class="hc-badge hc-badge-brand">Claimed</span></td><td><span class="hc-badge hc-badge-success">Connected</span></td><td>Garcia</td></tr>
-                                <tr><td>3</td><td><span class="hc-badge hc-badge-muted">Unclaimed</span></td><td><span class="hc-badge hc-badge-muted">Empty</span></td><td class="m-faint">—</td></tr>
+                                <tr><td>1</td><td><span class="hc-badge hc-badge-success">Connected</span></td><td>Santos</td></tr>
+                                <tr><td>2</td><td><span class="hc-badge hc-badge-success">Connected</span></td><td>Garcia</td></tr>
+                                <tr><td>3</td><td><span class="hc-badge hc-badge-muted">Empty</span></td><td class="m-faint">—</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -345,13 +344,12 @@
     </figure>
     <ul class="hc-pins">
         <li><span class="m-pin">1</span><span><strong>Room Data</strong> — room, panel size, session status, start time, today's counts and the full queue (View All).</span></li>
-        <li><span class="m-pin">2</span><span><strong>Room Session Account</strong> — for setting up the room's devices. Reset Password shows a new one.</span></li>
-        <li><span class="m-pin">3</span><span><strong>Start Room / Pause / Resume / End Room</strong>.</span></li>
-        <li><span class="m-pin">4</span><span><strong>Terminals</strong> — which devices are set up and who is connected, with Disconnect and Release Device. The <x-icon name="info" style="width:.85em;height:.85em;vertical-align:-.1em" /> button explains them.</span></li>
+        <li><span class="m-pin">2</span><span><strong>Start Room / Pause / Resume / End Room</strong>.</span></li>
+        <li><span class="m-pin">3</span><span><strong>Panel Seats</strong> — who is signed in on each seat, with Disconnect (not while a group is presenting). The <x-icon name="info" style="width:.85em;height:.85em;vertical-align:-.1em" /> button explains them.</span></li>
     </ul>
     <ol class="hc-steps">
-        <li class="hc-step"><div class="hc-step-marker">1</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="play" /> Start Room</div><p class="hc-step-text">Available on the day, once its planned time arrives. The first room started makes the day <span class="hc-badge hc-badge-success">Active</span>. Each room creates its terminals and room account.</p></div></li>
-        <li class="hc-step"><div class="hc-step-marker">2</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="tablet" /> Set up the devices</div><p class="hc-step-text">See <a href="#rd-setup">Setting up a device</a>. From then on the Lead Panelist runs the room.</p></div></li>
+        <li class="hc-step"><div class="hc-step-marker">1</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="play" /> Start Room</div><p class="hc-step-text">Available on the day, once its planned time arrives. The first room started makes the day <span class="hc-badge hc-badge-success">Active</span>. Each room creates one seat per panelist and appears in the Room Session list.</p></div></li>
+        <li class="hc-step"><div class="hc-step-marker">2</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="tablet" /> Open the room on its devices</div><p class="hc-step-text">See <a href="#rd-setup">Opening a room</a>. From then on the Lead Panelist runs the room.</p></div></li>
         <li class="hc-step"><div class="hc-step-marker">3</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="pause" /> Pause if needed</div><p class="hc-step-text">An emergency stop for the whole room, available at any time.</p></div></li>
         <li class="hc-step"><div class="hc-step-marker">4</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="stop" /> End Room</div><p class="hc-step-text">When the room is done. Refused while a group is presenting. The confirmation lists groups still queued in it.</p></div></li>
     </ol>

@@ -19,8 +19,8 @@
             <thead><tr><th>User</th><th>Account</th><th>What they do</th><th>Chapter</th></tr></thead>
             <tbody>
                 <tr><td>Student / Research Group</td><td>None</td><td>Register the group, view the schedule and queue, follow announcements.</td><td><a href="#students">2</a></td></tr>
-                <tr><td>Panelist</td><td>Created by an Administrator</td><td>View assignments, connect to a room terminal, evaluate groups; the Lead Panelist also runs the room.</td><td><a href="#panelists">3</a></td></tr>
-                <tr><td>Room Session device</td><td>Room account, new each day</td><td>A tablet or laptop in the room that panelists sign in to.</td><td><a href="#room-devices">4</a></td></tr>
+                <tr><td>Panelist</td><td>Created by an Administrator</td><td>View assignments, join a room, evaluate groups; the Lead Panelist also runs the room.</td><td><a href="#panelists">3</a></td></tr>
+                <tr><td>Room Session device</td><td>None</td><td>Any tablet or laptop showing a running room; panelists sign in on it with their own account.</td><td><a href="#room-devices">4</a></td></tr>
                 <tr><td>Administrator</td><td>Created by the Super Administrator</td><td>Runs everything for one college: panelists, forms, categories, schedules, panels, event day, reports.</td><td><a href="#administrators">5</a></td></tr>
                 <tr><td>Super Administrator</td><td>System owner</td><td>Creates Administrator accounts, manages colleges and school years, audit log, backups.</td><td><a href="#super-admins">6</a></td></tr>
             </tbody>
@@ -187,5 +187,5 @@
 <div class="hc-topic" id="gs-sign-out">
     <h3><x-icon name="log-out" /> Signing out</h3>
     <p>Open <strong>Settings</strong> and choose <strong>Log out</strong>. Always sign out on a shared or public computer. Closing the browser tab alone does not sign you out.</p>
-    <div class="hc-note hc-note-warn"><x-icon name="alert-triangle" /><p>Signing out of your <strong>personal account</strong> does not sign you out of a <strong>room device</strong>. On a room device, use the device's own Log Out button — see <a href="#pn-join">Joining a room terminal</a>.</p></div>
+    <div class="hc-note hc-note-warn"><x-icon name="alert-triangle" /><p>Signing out of your <strong>personal account</strong> does not sign you out of a <strong>room device</strong>. On a room device, use the device's own Log Out button — see <a href="#pn-join">Joining a room</a>.</p></div>
 </div>
