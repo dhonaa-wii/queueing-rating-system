@@ -2,10 +2,13 @@
 
 @section('title', 'New Admin Account')
 
+@section('back-link')
+    @include('partials.back-link', ['href' => route('super-admin.administrators.index')])
+@endsection
+
 @section('content')
     <div class="page-shell aac-page">
-        @include('partials.back-link', ['href' => route('super-admin.administrators.index')])
-        <h2 class="h4 mt-1 mb-3">New Admin Account</h2>
+        <h2 class="h4 mb-3">New Admin Account</h2>
 
         <div class="card-brand p-3 p-md-4 aac-card">
             @if ($colleges->isEmpty())

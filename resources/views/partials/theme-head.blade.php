@@ -647,6 +647,11 @@
         gap: 0.5rem;
     }
 
+    /* Back button slot of layouts/app — the page's upper-left corner. */
+    .page-back {
+        margin-bottom: 0.75rem;
+    }
+
     .text-brand-muted {
         color: var(--brand-muted);
     }

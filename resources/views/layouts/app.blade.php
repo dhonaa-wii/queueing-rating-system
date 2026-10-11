@@ -110,6 +110,10 @@
     </nav>
 
     <div class="@yield('container-class', 'container') py-4">
+        {{-- Back button: always the page's upper-left corner, every layout. --}}
+        @hasSection('back-link')
+            <div class="page-back">@yield('back-link')</div>
+        @endif
         @yield('content')
     </div>
 

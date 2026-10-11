@@ -21,6 +21,10 @@
     @include('room-session.partials.entry-styles')
 @endpush
 
+@section('back-link')
+    @include('partials.back-link', ['href' => route('landing')])
+@endsection
+
 @section('content')
     <div class="rs-auth">
         <div class="rs-grid">
@@ -77,9 +81,6 @@
                 </div>
             </section>
 
-            <p class="rs-back">
-                @include('partials.back-link', ['href' => route('landing')])
-            </p>
         </div>
     </div>
 @endsection

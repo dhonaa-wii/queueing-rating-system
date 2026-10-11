@@ -117,6 +117,10 @@
             min-width: 0;
         }
 
+        .admin-topbar-back {
+            margin-top: 0.4rem;
+        }
+
         .admin-topbar-title {
             margin: 0;
             font-size: 1.05rem;
@@ -361,8 +365,16 @@
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M3 6h18M3 18h18"></path></svg>
                     </button>
 
+                    {{-- Back button: upper left, same slot as the Admin layout. --}}
                     @hasSection('heading')
-                        <h2 class="admin-topbar-title">@yield('heading')</h2>
+                        <div>
+                            <h2 class="admin-topbar-title">@yield('heading')</h2>
+                            @hasSection('back-link')
+                                <div class="admin-topbar-back">@yield('back-link')</div>
+                            @endif
+                        </div>
+                    @elseif (trim($__env->yieldContent('back-link')) !== '')
+                        <div>@yield('back-link')</div>
                     @endif
                 </div>
 

@@ -9,12 +9,15 @@
     $trackOptions = $category->activeTrackNames();
 @endphp
 
+@section('back-link')
+    @include('partials.back-link', ['href' => route('student.categories.index')])
+@endsection
+
 @section('content')
     <div class="reg-shell">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
         <div>
-            @include('partials.back-link', ['href' => route('student.categories.index')])
-            <h1 class="h4 mt-1 mb-1">Register — {{ $category->name }}</h1>
+            <h1 class="h4 mb-1">Register — {{ $category->name }}</h1>
             <p class="text-brand-muted mb-0">
                 {{ $category->academicYear->name ?? '' }} &middot; {{ $category->semester->name ?? '' }} &middot; {{ $category->college->name ?? '' }}
             </p>

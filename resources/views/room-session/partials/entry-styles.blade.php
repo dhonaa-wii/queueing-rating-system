@@ -250,15 +250,6 @@
             border-radius: 0.55rem;
         }
 
-        /* Always the last thing on the page, whichever way the grid is laid out. */
-        .rs-back {
-            order: 3;
-            flex: 1 1 100%;
-            margin: 0;
-            text-align: center;
-            font-size: var(--rs-fs-sm);
-        }
-
     /* ---- Screen-specific pieces layered on the same shell ---- */
 
     /* Category heading above each group of rooms on the room list. */
