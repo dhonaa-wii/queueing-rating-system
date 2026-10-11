@@ -82,6 +82,10 @@ class RunAdminMaintenanceSweeps
         // cheaply when nothing overflows.
         $queueAdjustments = app(QueueAdjustmentService::class);
 
+        // Fallback for a call left hanging after its room or day closed: the
+        // group goes back to SCHEDULED in the same queue place.
+        $queueAdjustments->releaseStrandedCalls();
+
         PresentationCategory::whereNull('archived_at')->get()
             ->each(function (PresentationCategory $category) use ($queueAdjustments, $userId) {
                 // Groups carried past a follow-up session return to it, even if

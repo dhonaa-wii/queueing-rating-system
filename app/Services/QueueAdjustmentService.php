@@ -1174,6 +1174,31 @@ class QueueAdjustmentService
     }
 
     /**
+     * A called group belongs to the room session that called it. Once no open
+     * session holds it — its room was ended, its day ended, or anything else
+     * left it behind — the call is void and the group goes back to SCHEDULED
+     * in the same queue place, so it can be called again (user-directed
+     * 2026-10-12). Run by End Room, by the end of a day, and by the admin
+     * maintenance sweep as the fallback for any call left hanging.
+     */
+    public function releaseStrandedCalls(): int
+    {
+        $calledId = PresentationStatus::where('code', 'CALLED')->value('id');
+
+        if (! $calledId) {
+            return 0;
+        }
+
+        $heldIds = RoomSession::whereNull('ended_at')
+            ->whereNotNull('current_attempt_id')
+            ->pluck('current_attempt_id');
+
+        return \App\Models\PresentationAttempt::where('presentation_status_id', $calledId)
+            ->whereNotIn('id', $heldIds)
+            ->update(['presentation_status_id' => PresentationStatus::where('code', 'SCHEDULED')->firstOrFail()->id]);
+    }
+
+    /**
      * When an Administrator moves, transfers, defers or deletes the group a
      * room's panel has just called, that call is void: the room session lets
      * go of it (so the Lead can call the next group), the group goes back to

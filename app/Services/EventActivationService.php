@@ -391,6 +391,8 @@ class EventActivationService
                 'current_attempt_id' => null,
             ]);
 
+            $this->queueAdjustments->releaseStrandedCalls();
+
             $date->update(['completed_at' => $now]);
             $date->refreshStatus();
 
@@ -545,6 +547,10 @@ class EventActivationService
             ]);
 
             $this->roomSessionAccounts->removeForRoom($date, $room);
+
+            // A group the room had called but not started goes back to
+            // SCHEDULED in its own queue place.
+            $this->queueAdjustments->releaseStrandedCalls();
         });
 
         $roomsRemaining = $this->roomsStillToRun($date);
