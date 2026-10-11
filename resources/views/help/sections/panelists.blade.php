@@ -75,7 +75,7 @@
     <div class="hc-options">
         <div class="hc-option"><div class="hc-option-icon is-success"><x-icon name="user-plus" /></div><div><div class="hc-option-title">New assignment</div><p>You were added to a panel — "Assigned to 3 groups." Press <strong>View</strong> to see them.</p></div></div>
         <div class="hc-option"><div class="hc-option-icon is-info"><x-icon name="transfer" /></div><div><div class="hc-option-title">Schedule changed</div><p>A group you sit on moved to another room, date or time.</p></div></div>
-        <div class="hc-option"><div class="hc-option-icon"><x-icon name="repeat" /></div><div><div class="hc-option-title">Replaced on panel</div><p>Someone took your seat on a group (for example a backup at the room device).</p></div></div>
+        <div class="hc-option"><div class="hc-option-icon"><x-icon name="repeat" /></div><div><div class="hc-option-title">Replaced on panel</div><p>Someone took your seat on a group (for example the Backup, in Live Room).</p></div></div>
         <div class="hc-option"><div class="hc-option-icon"><x-icon name="user-check" /></div><div><div class="hc-option-title">Unavailability approved</div><p>Your Mark Unavailable report was handled and a replacement assigned.</p></div></div>
     </div>
 </div>
@@ -90,7 +90,7 @@
     <div class="hc-options">
         <div class="hc-option"><div class="hc-option-icon"><x-icon name="crown" /></div><div><div class="hc-option-title">Lead Panelist (Chair)</div><p>Evaluates, and runs the room: Call Next, payment verification, Start, Pause, Complete, Defer and breaks. The Lead's remark becomes the group's official outcome. One per group.</p></div></div>
         <div class="hc-option"><div class="hc-option-icon is-info"><x-icon name="user-check" /></div><div><div class="hc-option-title">Member</div><p>Evaluates every group on the panel from their own device.</p></div></div>
-        <div class="hc-option"><div class="hc-option-icon is-success"><x-icon name="user-plus" /></div><div><div class="hc-option-title">Backup Panelist</div><p>On standby. Can take an assigned panelist's seat at the room device when they cannot attend.</p></div></div>
+        <div class="hc-option"><div class="hc-option-icon is-success"><x-icon name="user-plus" /></div><div><div class="hc-option-title">Backup Panelist</div><p>On standby. Can take an assigned panelist's seat in Live Room when they cannot attend.</p></div></div>
     </div>
     <p>Lead powers follow the <strong>person</strong>, not the device: whichever device the Lead signs in on gets the controls.</p>
 </div>
@@ -136,7 +136,7 @@
 
 <div class="hc-topic" id="pn-evaluate">
     <h3><x-icon name="clipboard-check" /> Evaluating a group</h3>
-    <p>When a group is called, the evaluation sheet opens on every connected panelist's device. It is the same sheet the Administrator built in the Evaluation Library.</p>
+    <p>When a group is called, the evaluation sheet opens on every connected panelist's device. It is the same sheet the Administrator built in the Evaluation Library. In a category with tracks, each track can have its own sheet; you get the one for the group's track.</p>
     <figure class="hc-figure">
         <div class="hc-window">
             <div class="hc-window-bar"><div class="hc-window-dots"><i></i><i></i><i></i></div><div class="hc-window-url">Evaluation · CFD-2026-0012</div></div>
@@ -154,7 +154,7 @@
                         </tbody>
                     </table>
                     <div class="m-grid-2" style="margin-top:.5rem;">
-                        <div><div class="m-label">Researchers · Individual <span class="m-pin">2</span></div><div class="m-between m-small"><span>Dela Cruz, Juan</span><span class="m-input" style="width:2.6rem">92</span></div><div class="m-between m-small" style="margin-top:.2rem"><span>Reyes, Ana</span><span class="m-input" style="width:2.6rem">90</span></div></div>
+                        <div><div class="m-label">Researchers · Individual <span class="m-pin">2</span></div><div class="m-between m-small"><span>Dela Cruz, Juan</span><span class="m-input" style="width:2.6rem">92</span></div><div class="m-between m-small" style="margin-top:.2rem"><span>Reyes, Ana</span><span class="m-input" style="width:2.6rem">90</span></div><div class="m-between m-small" style="margin-top:.2rem"><span>Engr. Ramos (Adviser)</span><span class="m-faint">—</span></div></div>
                         <div><div class="m-label">Remarks <span class="m-pin">3</span></div>
                             <div class="m-row m-small"><span class="m-check is-on"></span> Pass with Minor Revision</div>
                             <div class="m-row m-small"><span class="m-check"></span> Re-Defense</div>
@@ -165,11 +165,11 @@
                 </div>
             </div>
         </div>
-        <figcaption><strong>Figure 10.</strong> The evaluation sheet on a room device (Standard mode).</figcaption>
+        <figcaption><strong>Figure 10.</strong> The evaluation sheet on your device (Standard mode).</figcaption>
     </figure>
     <ul class="hc-pins">
         <li><span class="m-pin">1</span><span><strong>Rate every criterion</strong> from 1 (Very Insufficient) to 5 (Very Sufficient). Each tap is saved immediately.</span></li>
-        <li><span class="m-pin">2</span><span><strong>Individual score</strong> for each researcher, 0–100 (Standard mode).</span></li>
+        <li><span class="m-pin">2</span><span><strong>Individual score</strong> for each researcher, 0–100 (Standard mode). The group's technical adviser is listed under the researchers but is not scored.</span></li>
         <li><span class="m-pin">3</span><span><strong>Remarks</strong> — choose one outcome, and add comments if needed.</span></li>
         <li><span class="m-pin">4</span><span><strong>Submit Evaluation</strong> — available once every required part is filled.</span></li>
     </ul>

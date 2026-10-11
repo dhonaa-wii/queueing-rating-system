@@ -124,11 +124,14 @@
                 <tr><td>Project Information</td><td>Name, description, subject, presentation mode, max group members, proposed title count (Title Proposal), requirement checklist (technical adviser, track), the track list, and <strong>Panelists per Room</strong>. Academic year, semester and college come from the active settings.</td></tr>
                 <tr><td>Schedules</td><td>Registration opens/closes, duration per group, presentation dates, rooms and their tracks, breaks. <a href="#ad-schedules">Details</a></td></tr>
                 <tr><td>Queue &amp; Payment</td><td>Queue strategy, called-group waiting period, payment requirement, payment types and instructions. <a href="#ad-queue">Details</a></td></tr>
-                <tr><td>Evaluation Configuration</td><td>Which published form panelists use. Only forms for the category's mode are offered.</td></tr>
+                <tr><td>Evaluation Configuration</td><td>Which published form panelists use. Only your college's forms for the category's mode are offered. When <strong>Track required</strong> is on, each track gets its own form instead. <a href="#ad-track-forms">Details</a></td></tr>
                 <tr><td>Announcements</td><td>Messages shown on the public schedule page, optionally only between a start and end time.</td></tr>
             </tbody>
         </table>
     </div>
+    <h4 id="ad-track-forms">One evaluation form per track</h4>
+    <p>When the requirement checklist has <strong>Track required</strong> on, Evaluation Configuration lists the category's tracks in a <strong>Track | Evaluation Form</strong> table. Choose a form for each track and press <strong>Assign</strong>; several tracks may share one form. A track without a form keeps the red dot, and the category-wide form is not used.</p>
+    <p>A group gets the form of its <strong>leader's track</strong>, fixed when its presentation starts. Start is refused, naming the group, if it has no track, its track is not on the list, or the track has no form.</p>
     <h4>Category status</h4>
     <p>The status is worked out by the system — you never set it by hand:</p>
     <div class="hc-panel">
@@ -216,7 +219,16 @@
         <li>Each room only takes groups its tracks accept.</li>
         <li>Groups that do not fit anywhere are kept as <span class="hc-badge hc-badge-warn">To be scheduled</span> — add a date or room and they are placed.</li>
     </ul>
-    <p>Changing the <strong>strategy</strong> before any day has started rebuilds the whole queue — and removes panels already assigned, so settle the strategy before assigning panels. Changing <strong>tracks or rooms</strong> rebuilds only while no panel is assigned; after that, groups are re-placed without touching their panels. Groups registered later are added to the end. The <strong>Capacity Analysis</strong> card on the Schedules tab shows whether the remaining days and rooms can hold every group.</p>
+    <p>Changing the <strong>strategy</strong> or the <strong>Section Order</strong> before any day has started rebuilds the whole queue — and removes moves, deferrals and panels already assigned, so settle the strategy first. Saving the Queue tab without changing either leaves the queue as it is. Changing <strong>tracks or rooms</strong> rebuilds only while nothing has been moved, deferred or given a panel; after that, groups are re-placed without touching their panels.</p>
+    <h4>Groups registered after the queue exists</h4>
+    <p>A late registration — from a student or from <strong>Add Group</strong> — is fitted into the queue as it stands. Nothing is rebuilt, so your moves, transfers, deferrals and panels stay. Where it goes follows the strategy:</p>
+    <ul class="hc-list">
+        <li><strong>First In, First Out</strong> — after the last group already queued, ahead of groups deferred to the end of the queue.</li>
+        <li><strong>Section Based</strong> — at the end of its section, in the room that reaches that point first. Groups pushed past closing time move to the next day, ahead of that day's groups of the same section.</li>
+        <li><strong>Random Draw</strong> — a random place among the groups still to present.</li>
+        <li>It is <strong>never</strong> placed on a day that has already started: it goes to the next day that has not, or waits as <span class="hc-badge hc-badge-warn">To be scheduled</span> if there is none. You can still Transfer it onto a running day yourself.</li>
+    </ul>
+    <p>The <strong>Capacity Analysis</strong> card on the Schedules tab shows whether the remaining days and rooms can hold every group.</p>
 </div>
 
 <div class="hc-topic" id="ad-assignment">
@@ -265,7 +277,7 @@
         <li><span class="m-pin">5</span><span><strong>Assign Panel</strong> — choose the panel for every ticked group at once.</span></li>
     </ul>
     <h4>Adding and editing groups</h4>
-    <p><strong>Add Group</strong> registers a group with the same form students use — handy for late or walk-in registrations — and places it in the queue. <strong>Edit</strong> corrects a registration (names, members, titles, track, adviser) without moving it.</p>
+    <p><strong>Add Group</strong> registers a group with the same form students use — handy for late or walk-in registrations — and places it in the queue by the category's strategy — see <a href="#ad-generation">Groups registered after the queue exists</a>. <strong>Edit</strong> corrects a registration (names, members, titles, track, adviser) without moving it. Changing a group's section does not re-place it; Move or Transfer it afterwards if needed.</p>
 </div>
 
 <div class="hc-topic" id="ad-panels">
@@ -279,16 +291,16 @@
     </ol>
     <div class="hc-note hc-note-warn"><x-icon name="alert-triangle" /><p>A panelist cannot be in two places at once. Assigning someone whose time overlaps another of their groups — in any category of your college — is refused and names the clash. Only your own college's panelists can be assigned.</p></div>
     <h4>Substitution requests</h4>
-    <p>When a panelist marks themselves unavailable, or someone at a room device asks to take a seat, it appears in <strong>Needs Attention</strong>. Confirm or Reject a seat request; for an unavailability report, choose the replacement with <strong>Assign Replacement</strong>.</p>
+    <p>When a panelist marks themselves unavailable, or a panelist who is not on a group's panel asks to take a seat in Live Room, it appears in <strong>Needs Attention</strong>. Confirm or Reject a seat request; for an unavailability report, choose the replacement with <strong>Assign Replacement</strong>.</p>
 </div>
 
 <div class="hc-topic" id="ad-adjust">
     <h3><x-icon name="move" /> Editing, moving and deferring groups</h3>
     <div class="hc-options">
-        <div class="hc-option"><div class="hc-option-icon"><x-icon name="move" /></div><div><div class="hc-option-title">Move</div><p>Change a group's position within its room. The list shows the room's order; already-presented positions cannot be taken.</p></div></div>
-        <div class="hc-option"><div class="hc-option-icon"><x-icon name="transfer" /></div><div><div class="hc-option-title">Transfer</div><p>Send to another room or day — ongoing or upcoming only, and only a room that accepts the group's track. Lands at the end of that room.</p></div></div>
+        <div class="hc-option"><div class="hc-option-icon"><x-icon name="move" /></div><div><div class="hc-option-title">Move</div><p>Change a group's position within its room. The list shows the room's order; already-presented positions cannot be taken. In a <strong>Section Based</strong> category a group can only move within its own section — the list shows each row's section and the positions available, e.g. "Section 4B · positions 4–5 available".</p></div></div>
+        <div class="hc-option"><div class="hc-option-icon"><x-icon name="transfer" /></div><div><div class="hc-option-title">Transfer</div><p>Send to another room or day — ongoing or upcoming only, and only a room that accepts the group's track. In a <strong>Section Based</strong> category it lands at the end of its section in that room, and only days that keep the sections in order are offered; otherwise it lands at the end of that room.</p></div></div>
         <div class="hc-option"><div class="hc-option-icon is-danger"><x-icon name="defer" /></div><div><div class="hc-option-title">Defer</div><p>Take the group out of the active queue, with a reason. It appears under Deferred.</p></div></div>
-        <div class="hc-option"><div class="hc-option-icon is-success"><x-icon name="reinsert" /></div><div><div class="hc-option-title">Reinsert</div><p>Put a deferred group back, at a position you choose. In a payment category you can <strong>Verify Payment</strong> for it first.</p></div></div>
+        <div class="hc-option"><div class="hc-option-icon is-success"><x-icon name="reinsert" /></div><div><div class="hc-option-title">Reinsert</div><p>Put a deferred group back, at any position you choose — the strategy does not restrict it. In a payment category you can <strong>Verify Payment</strong> for it first.</p></div></div>
         <div class="hc-option"><div class="hc-option-icon is-danger"><x-icon name="trash" /></div><div><div class="hc-option-title">Delete</div><p>Removes the group's place in the queue (its registration stays). Refused once evaluations exist.</p></div></div>
     </div>
     <p>Every action works on one row (⋮) or on all ticked rows (toolbar). Times recalculate automatically, panelists are told when their groups move, and panel conflicts are re-checked.</p>
@@ -403,7 +415,7 @@
 <div class="hc-topic" id="ad-analytics">
     <h3><x-icon name="bar-chart" /> Analytics</h3>
     <p>Compares the <strong>planned</strong> schedule with what <strong>actually happened</strong>, across all categories or one: presentations measured, median duration against the configured slot, hours used of hours booked, room utilization, days run, and time from call to start. When there is enough data it <strong>recommends a slot length</strong> (based on the 90th percentile, so almost every group fits) with a link to change it in Presentation Setup.</p>
-    <div class="hc-note hc-note-info"><x-icon name="info" /><p>Only presentations run on a room device are measured; cancelled or never-started days are ignored. Each figure shows how many presentations it is based on.</p></div>
+    <div class="hc-note hc-note-info"><x-icon name="info" /><p>Only presentations run from the Lead's Presentation Controls are measured; cancelled or never-started days are ignored. Each figure shows how many presentations it is based on.</p></div>
 </div>
 
 <div class="hc-topic" id="ad-attention">

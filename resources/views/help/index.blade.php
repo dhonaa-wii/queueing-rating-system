@@ -60,7 +60,7 @@
             'pn-substitute' => 'Backups and substitutions',
         ]],
         ['id' => 'room-devices', 'icon' => 'tablet', 'title' => 'Room Displays', 'sub' => 'Showing a running room\'s live queue on a projector, TV or tablet.', 'topics' => [
-            'rd-what' => 'What a room device is',
+            'rd-what' => 'What a room display is',
             'rd-check' => 'Checking a device',
             'rd-setup' => 'Showing a room',
             'rd-screen' => 'What the display shows',
@@ -106,7 +106,7 @@
         ['id' => 'faq', 'icon' => 'help-circle', 'title' => 'FAQ & Troubleshooting', 'sub' => 'Answers to the questions users ask most, grouped by topic.', 'topics' => [
             'fq-account' => 'Accounts and signing in',
             'fq-students' => 'Registration and schedules',
-            'fq-panelists' => 'Panelists and room devices',
+            'fq-panelists' => 'Panelists and live rooms',
             'fq-admins' => 'Administration',
             'fq-technical' => 'Technical problems',
             'fq-support' => 'Getting more help',

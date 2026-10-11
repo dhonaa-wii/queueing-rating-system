@@ -40,7 +40,7 @@ class LoginController extends Controller
         $request->session()->regenerate();
         $user->forceFill(['last_login_at' => now()])->save();
 
-        if ($user->mustChangePassword() && ! $user->hasRole('PANELIST')) {
+        if ($user->mustChangePassword()) {
             return redirect()->route('password.change');
         }
 

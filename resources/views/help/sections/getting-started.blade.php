@@ -5,7 +5,7 @@
         <div class="hc-option"><div class="hc-option-icon"><x-icon name="file-plus" /></div><div><div class="hc-option-title">Online registration</div><p>Research groups register themselves for a presentation category, without an account.</p></div></div>
         <div class="hc-option"><div class="hc-option-icon"><x-icon name="calendar" /></div><div><div class="hc-option-title">Automatic scheduling</div><p>Groups are placed into rooms, days and time slots automatically once registration closes.</p></div></div>
         <div class="hc-option"><div class="hc-option-icon"><x-icon name="list-check" /></div><div><div class="hc-option-title">Live queue</div><p>Everyone sees who is presenting, who is next and the expected time of every group.</p></div></div>
-        <div class="hc-option"><div class="hc-option-icon"><x-icon name="clipboard-check" /></div><div><div class="hc-option-title">Digital evaluation</div><p>Panelists rate each group on a room device; scores and outcomes are computed instantly.</p></div></div>
+        <div class="hc-option"><div class="hc-option-icon"><x-icon name="clipboard-check" /></div><div><div class="hc-option-title">Digital evaluation</div><p>Panelists rate each group on their own device; scores and outcomes are computed instantly.</p></div></div>
         <div class="hc-option"><div class="hc-option-icon"><x-icon name="bar-chart" /></div><div><div class="hc-option-title">Reports and analytics</div><p>Grades, sign-off sheets, recommendations and schedule analytics, exportable to Excel and PDF.</p></div></div>
         <div class="hc-option"><div class="hc-option-icon"><x-icon name="shield-check" /></div><div><div class="hc-option-title">Accountability</div><p>Every important action is recorded, and data is protected by backups.</p></div></div>
     </div>
@@ -44,9 +44,9 @@
     <h3><x-icon name="home" /> Opening the system</h3>
     <p>Open the system's web address. The <strong>home page</strong> is the starting point for everyone:</p>
     <div class="hc-options">
-        <div class="hc-option"><div class="hc-option-icon"><x-icon name="graduation-cap" /></div><div><div class="hc-option-title">Student / Research Group</div><p>Opens the list of presentation categories — register or view a schedule from there.</p></div></div>
-        <div class="hc-option"><div class="hc-option-icon"><x-icon name="log-in" /></div><div><div class="hc-option-title">Sign in</div><p>For panelists, administrators and super administrators.</p></div></div>
-        <div class="hc-option"><div class="hc-option-icon"><x-icon name="monitor" /></div><div><div class="hc-option-title">Room Session</div><p>Top-right button, used only on the devices inside a presentation room.</p></div></div>
+        <div class="hc-option"><div class="hc-option-icon"><x-icon name="graduation-cap" /></div><div><div class="hc-option-title">Browse Presentations</div><p>The home page lists the presentations students can act on now — presenting now, registration open, opening soon — each with <strong>Register</strong> and <strong>View Schedule</strong> (<strong>View Live Queue</strong> while a day is running). <strong>View all presentations</strong> opens the full list.</p></div></div>
+        <div class="hc-option"><div class="hc-option-icon"><x-icon name="log-in" /></div><div><div class="hc-option-title">Log in</div><p>Top-right button, for panelists, administrators and super administrators.</p></div></div>
+        <div class="hc-option"><div class="hc-option-icon"><x-icon name="monitor" /></div><div><div class="hc-option-title">Room display</div><p>Open <code>/room-session</code> on a projector or TV to show a running room's queue. It is not linked from the home page — see <a href="#room-devices">Room Displays</a>.</p></div></div>
         <div class="hc-option"><div class="hc-option-icon"><x-icon name="help-circle" /></div><div><div class="hc-option-title">Help Center</div><p>This guide. It is linked from the top bar of every page and needs no sign-in.</p></div></div>
     </div>
 </div>
@@ -61,11 +61,13 @@
             <div class="hc-screen is-tinted" style="display:grid;place-items:center;padding:1.5rem;">
                 <div class="m-card" style="width:min(17rem,100%);padding:1rem;">
                     <div class="m-title" style="font-size:.95rem;">Welcome back</div>
-                    <div class="m-muted m-small" style="margin-bottom:.6rem;">Sign in to continue</div>
+                    <div class="m-muted m-small" style="margin-bottom:.6rem;">Sign in to your ARPQRS account.</div>
                     <div class="m-col">
                         <div class="m-field"><span>Username <span class="m-pin">1</span></span><span class="m-input">jdelacruz</span></div>
-                        <div class="m-field"><span>Password <span class="m-pin">2</span></span><span class="m-input">••••••••</span></div>
+                        <div class="m-field"><span>Password <span class="m-pin">2</span></span><span class="m-input m-between">•••••••• <x-icon name="eye" style="width:.85em;height:.85em" /></span></div>
                         <span class="m-btn is-block"><x-icon name="log-in" /> Log in</span>
+                        <div class="m-xs m-muted" style="text-align:center;">or</div>
+                        <span class="m-btn is-ghost is-block"><x-icon name="graduation-cap" /> Student? Browse Presentations <span class="m-pin">3</span></span>
                     </div>
                 </div>
             </div>
@@ -75,18 +77,19 @@
 
     <ol class="hc-steps">
         <li class="hc-step"><div class="hc-step-marker">1</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="user" /> Enter your username</div><p class="hc-step-text">Type it exactly as it was given to you.</p></div></li>
-        <li class="hc-step"><div class="hc-step-marker">2</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="key" /> Enter your password and press Log in</div><p class="hc-step-text">You land on your own dashboard. If you were sent to the sign-in page from a link (for example a notification), you are taken back to that link instead.</p></div></li>
+        <li class="hc-step"><div class="hc-step-marker">2</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="key" /> Enter your password and press Log in</div><p class="hc-step-text">The eye icon in the field shows what you typed. You land on your own dashboard. If you were sent to the sign-in page from a link (for example a notification), you are taken back to that link instead.</p></div></li>
+        <li class="hc-step"><div class="hc-step-marker">3</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="graduation-cap" /> Students do not sign in</div><p class="hc-step-text"><strong>Student? Browse Presentations</strong> takes a student who landed here to the presentation list.</p></div></li>
     </ol>
     <div class="hc-note hc-note-warn"><x-icon name="alert-triangle" /><p><span class="hc-note-title">Forgot your password?</span> There is no self-service reset. Ask your Administrator (panelists) or the Super Administrator (administrators) to reset it — you will receive a new temporary password.</p></div>
 </div>
 
 <div class="hc-topic" id="gs-first-login">
     <h3><x-icon name="lock" /> Your first sign-in</h3>
-    <p>New accounts and reset accounts start with a <strong>temporary password</strong>. The first time you sign in with it you are taken straight to <strong>Change Password</strong>:</p>
+    <p>New accounts and reset accounts start with a <strong>temporary password</strong>. The first time you sign in with it you are taken straight to <strong>Change Password</strong> — every role, panelists included. No other page opens until it is done:</p>
     <ol class="hc-steps">
         <li class="hc-step"><div class="hc-step-marker">1</div><div class="hc-step-body"><div class="hc-step-head">Type the temporary password as Current Password</div></div></li>
-        <li class="hc-step"><div class="hc-step-marker">2</div><div class="hc-step-body"><div class="hc-step-head">Choose a new password and type it twice</div><p class="hc-step-text">Pick something only you know. Never reuse the temporary one.</p></div></li>
-        <li class="hc-step"><div class="hc-step-marker">3</div><div class="hc-step-body"><div class="hc-step-head">Save</div><p class="hc-step-text">You continue to your dashboard. Until you do this, the rest of the system stays locked; you can choose <strong>Log out instead</strong> to come back later.</p><div class="hc-result">Account <x-icon name="arrow-right" /> <span class="hc-badge hc-badge-success">Active</span></div></div></li>
+        <li class="hc-step"><div class="hc-step-marker">2</div><div class="hc-step-body"><div class="hc-step-head">Choose a new password and type it twice</div><p class="hc-step-text">At least 8 characters, with an uppercase letter, a lowercase letter and a number — the checklist under the field ticks each rule as you type. Use the eye icon to check what you typed. Never reuse the temporary one.</p></div></li>
+        <li class="hc-step"><div class="hc-step-marker">3</div><div class="hc-step-body"><div class="hc-step-head">Update Password</div><p class="hc-step-text">You continue to your dashboard — or to the page you were opening, such as a notification link or Live Room. Until you do this, the rest of the system stays locked; you can choose <strong>Log out instead</strong> to come back later.</p><div class="hc-result">Account <x-icon name="arrow-right" /> <span class="hc-badge hc-badge-success">Active</span></div></div></li>
     </ol>
     <div class="hc-note hc-note-info"><x-icon name="shield-check" /><p>Temporary passwords are shown <strong>once</strong>, to the person who created or reset the account, and are never stored in a readable form. If it is lost before first use, it has to be reset again.</p></div>
 </div>
@@ -187,5 +190,5 @@
 <div class="hc-topic" id="gs-sign-out">
     <h3><x-icon name="log-out" /> Signing out</h3>
     <p>Open <strong>Settings</strong> and choose <strong>Log out</strong>. Always sign out on a shared or public computer. Closing the browser tab alone does not sign you out.</p>
-    <div class="hc-note hc-note-warn"><x-icon name="alert-triangle" /><p>Signing out of your <strong>personal account</strong> does not sign you out of a <strong>room device</strong>. On a room device, use the device's own Log Out button — see <a href="#pn-join">Joining a room</a>.</p></div>
+    <div class="hc-note hc-note-warn"><x-icon name="alert-triangle" /><p>Signing out does not free your <strong>seat in a room</strong>. If you joined a room, press <strong>Leave Room</strong> first so the next panelist can sit — see <a href="#pn-join">Joining a room</a>.</p></div>
 </div>
