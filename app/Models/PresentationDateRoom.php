@@ -243,6 +243,30 @@ class PresentationDateRoom extends Model
         return false;
     }
 
+    /**
+     * The room's Remaining / Completed counts (user-directed 2026-10-13: the
+     * cards read "Registered · Remaining · Completed", never overlapping).
+     * Remaining = queued groups still to present that have a time slot here;
+     * a deferred group or one still "to be scheduled" is not counted. Shared
+     * by the room session device and Event Control so they always agree.
+     *
+     * @return array{remaining: int, completed: int}
+     */
+    public function queueCounts(): array
+    {
+        $remaining = $this->attemptSchedules()
+            ->whereNotNull('planned_start_at')
+            ->whereHas('queueEntry', fn ($query) => $query->whereNull('removed_at'))
+            ->whereHas('presentationAttempt.presentationStatus', fn ($query) => $query->where('is_terminal', false))
+            ->count();
+
+        $completed = $this->attemptSchedules()
+            ->whereHas('presentationAttempt.presentationStatus', fn ($query) => $query->where('code', 'COMPLETED'))
+            ->count();
+
+        return ['remaining' => $remaining, 'completed' => $completed];
+    }
+
     public function hasClosedForDay(): bool
     {
         return $this->roomSessions()->whereNotNull('ended_at')->exists();

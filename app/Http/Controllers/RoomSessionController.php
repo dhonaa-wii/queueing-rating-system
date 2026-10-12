@@ -425,33 +425,15 @@ class RoomSessionController extends Controller
     }
 
     /**
-     * User-directed 2026-08-17: registered-in-category is the only one of
-     * the three that's deliberately category-wide rather than room/day
-     * scoped — the other two describe "this room, today." Deferred groups
-     * are excluded on purpose (flagged by the user as a future, panel-login
-     * -gated addition, not part of this count) — a reinserted group already
-     * satisfies "scheduled today" on its own merit once removed_at clears
-     * again, so no special-case is needed for it here.
+     * Registered is deliberately category-wide (user-directed 2026-08-17);
+     * Remaining and Completed describe "this room, today"
+     * (PresentationDateRoom::queueCounts(), shared with Event Control).
      */
     private function buildDayStats(PresentationDateRoom $room): array
     {
-        $category = $room->presentationDate->category;
-
-        // A group with no slot ("to be scheduled") is not on today's schedule.
-        $scheduledToday = AttemptSchedule::where('presentation_date_room_id', $room->id)
-            ->whereNotNull('planned_start_at')
-            ->whereHas('queueEntry', fn ($query) => $query->whereNull('removed_at'))
-            ->count();
-
-        $completedToday = AttemptSchedule::where('presentation_date_room_id', $room->id)
-            ->whereHas('presentationAttempt.presentationStatus', fn ($query) => $query->where('code', 'COMPLETED'))
-            ->count();
-
         return [
-            'registeredInCategory' => $category->researchGroups()->count(),
-            'scheduledToday' => $scheduledToday,
-            'completedToday' => $completedToday,
-        ];
+            'registeredInCategory' => $room->presentationDate->category->researchGroups()->count(),
+        ] + $room->queueCounts();
     }
 
     /**

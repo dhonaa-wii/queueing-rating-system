@@ -375,7 +375,8 @@ class CategoryScheduleViewService
             'endTime' => $endDateRoom?->scheduledEndAt(),
             'dayStats' => [
                 'registeredInCategory' => $registeredInCategory,
-                'scheduled' => $queueRows->count(),
+                // Still to present — never overlaps Completed (user-directed 2026-10-13).
+                'remaining' => $queueRows->reject(fn ($schedule) => $schedule->presentationAttempt->presentationStatus->is_terminal)->count(),
                 'completed' => $completedCount,
             ],
         ];

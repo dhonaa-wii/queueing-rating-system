@@ -279,16 +279,16 @@
                                     <div class="fw-semibold">{{ $category->categoryScheduleSetting?->duration_minutes ? $category->categoryScheduleSetting->duration_minutes . ' min' : '—' }}</div>
                                 </div>
                                 <div>
-                                    <div class="room-data-label">Registered in Category</div>
+                                    <div class="room-data-label">Registered</div>
                                     <div class="fw-semibold">{{ $panel->dayStats['registeredInCategory'] }}</div>
                                 </div>
                                 <div>
-                                    <div class="room-data-label">Scheduled Today</div>
-                                    <div class="fw-semibold">{{ $panel->dayStats['scheduledToday'] }}</div>
+                                    <div class="room-data-label">Remaining</div>
+                                    <div class="fw-semibold">{{ $panel->dayStats['remaining'] }}</div>
                                 </div>
                                 <div>
-                                    <div class="room-data-label">Completed Today</div>
-                                    <div class="fw-semibold">{{ $panel->dayStats['completedToday'] }}</div>
+                                    <div class="room-data-label">Completed</div>
+                                    <div class="fw-semibold">{{ $panel->dayStats['completed'] }}</div>
                                 </div>
                             </div>
 

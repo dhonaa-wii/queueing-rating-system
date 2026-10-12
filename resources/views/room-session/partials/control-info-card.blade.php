@@ -60,16 +60,16 @@
         <div class="fw-semibold">{{ $durationMinutesPerGroup ? $durationMinutesPerGroup . ' min' : '—' }}</div>
     </div>
     <div>
-        <div class="text-brand-muted" style="font-size: 0.6rem;">Registered in Category</div>
+        <div class="text-brand-muted" style="font-size: 0.6rem;">Registered</div>
         <div class="fw-semibold">{{ $dayStats['registeredInCategory'] }}</div>
     </div>
     <div>
-        <div class="text-brand-muted" style="font-size: 0.6rem;">Scheduled Today</div>
-        <div class="fw-semibold">{{ $dayStats['scheduledToday'] }}</div>
+        <div class="text-brand-muted" style="font-size: 0.6rem;">Remaining</div>
+        <div class="fw-semibold">{{ $dayStats['remaining'] }}</div>
     </div>
     <div>
-        <div class="text-brand-muted" style="font-size: 0.6rem;">Completed Today</div>
-        <div class="fw-semibold">{{ $dayStats['completedToday'] }}</div>
+        <div class="text-brand-muted" style="font-size: 0.6rem;">Completed</div>
+        <div class="fw-semibold">{{ $dayStats['completed'] }}</div>
     </div>
 </div>
 

@@ -172,15 +172,7 @@ class LiveMonitoringController extends Controller
                     // — reused here so the admin "Room Data" card (mirroring
                     // the room-session tablet's own info card) shows the
                     // same stats a panelist sees at the terminal.
-                    'dayStats' => [
-                        'registeredInCategory' => $registeredInCategory,
-                        'scheduledToday' => AttemptSchedule::where('presentation_date_room_id', $room->id)
-                            ->whereHas('queueEntry', fn ($query) => $query->whereNull('removed_at'))
-                            ->count(),
-                        'completedToday' => AttemptSchedule::where('presentation_date_room_id', $room->id)
-                            ->whereHas('presentationAttempt.presentationStatus', fn ($query) => $query->where('code', 'COMPLETED'))
-                            ->count(),
-                    ],
+                    'dayStats' => ['registeredInCategory' => $registeredInCategory] + $room->queueCounts(),
                 ];
             })->values();
         }

@@ -40,8 +40,8 @@
         <div class="sched-stat-value">{{ $live['dayStats']['registeredInCategory'] }}</div>
     </div>
     <div>
-        <div class="sched-stat-label">Scheduled</div>
-        <div class="sched-stat-value">{{ $live['dayStats']['scheduled'] }}</div>
+        <div class="sched-stat-label">Remaining</div>
+        <div class="sched-stat-value">{{ $live['dayStats']['remaining'] }}</div>
     </div>
     <div>
         <div class="sched-stat-label">Completed</div>
