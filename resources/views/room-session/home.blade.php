@@ -238,7 +238,9 @@
 
         .eval-rating-bubble[data-score-btn] { cursor: pointer; background: var(--brand-surface); }
         .eval-rating-bubble[data-score-btn]:hover { background: var(--brand-surface-alt); }
-        {{-- .is-selected itself is now styled by paper-styles.blade.php (shared with the read-only sheet views), included above. --}}
+        {{-- The two rules above outrank paper-styles' .is-selected fill, so the picked rating is filled again here. --}}
+        .eval-rating-bubble[data-score-btn].is-selected,
+        .eval-rating-bubble[data-score-btn].is-selected:hover { background: var(--brand-accent); color: var(--brand-accent-contrast); border-color: var(--brand-accent); font-weight: 700; }
 
         .eval-outcome-btn { display: block; width: 100%; text-align: left; border: none; background: transparent; padding: 0.1rem 0; cursor: pointer; color: inherit; }
         .eval-outcome-btn.is-selected { font-weight: 600; }
@@ -905,6 +907,11 @@
                         if (sessionInfoNextPanel) {
                             sessionInfoNextPanel.innerHTML = data.sessionInfoNextHtml;
                         }
+
+                        // The swapped-in badge is the server's plain status
+                        // badge; repaint it now so the timer doesn't flash
+                        // until the next 1s tick (user-directed 2026-10-13).
+                        tickTimers();
 
                         if (!viewAllOpen()) {
                             queuePanel.innerHTML = data.queueHtml;

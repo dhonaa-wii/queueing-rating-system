@@ -188,6 +188,7 @@ class RoomQueuePreviewService
 
             $schedule->expected_start_at = $start;
             $schedule->expected_end_at = $start->copy()->addMinutes($durationMinutes);
+            $schedule->markPastSessionEnd($room);
 
             $cursor = $schedule->expected_end_at->copy();
         }

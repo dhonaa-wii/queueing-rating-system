@@ -321,11 +321,14 @@
                                 @if ($roomUpcomingThree->isNotEmpty())
                                     <div class="room-data-next">
                                         @foreach ($roomUpcomingThree as $n)
-                                            <div class="room-data-next-item">
+                                            <div class="room-data-next-item {{ $n->isPastSessionEnd() ? 'past-session-row' : '' }}">
                                                 <div class="fw-semibold">{{ $n->presentationAttempt->researchGroup->group_reference }}</div>
                                                 <div class="text-brand-muted room-data-sub">{{ $n->presentationAttempt->researchGroup->leader()?->full_name ?? '—' }}</div>
                                                 @if ($n->expected_start_at)
                                                     <div class="text-brand-muted room-data-sub">Expected {{ $n->expected_start_at->format('g:i A') }}</div>
+                                                @endif
+                                                @if ($n->isPastSessionEnd())
+                                                    <div class="text-brand-danger fw-semibold room-data-sub">{{ \App\Models\AttemptSchedule::PAST_SESSION_SHORT }}</div>
                                                 @endif
                                             </div>
                                         @endforeach

@@ -30,7 +30,7 @@
     <ul class="hc-pins">
         <li><span class="m-pin">1</span><span><strong>Registration status</strong> — Opens Soon, Registration Open or Registration Closed.</span></li>
         <li><span class="m-pin">2</span><span><strong>Mode and requirements</strong> — what the form will ask for (track, technical adviser, payment).</span></li>
-        <li><span class="m-pin">3</span><span><strong>Actions</strong> — Register (only while open), view the Schedule (always), or More Details for the full description, dates, payment instructions and announcements.</span></li>
+        <li><span class="m-pin">3</span><span><strong>Actions</strong> — Register (only while open), view the Schedule (always), or More Details for the full description, dates and payment instructions. Announcements are on the Schedule page.</span></li>
     </ul>
     <h4>Presentation modes</h4>
     <div class="hc-options-or">
@@ -212,9 +212,9 @@
         <table class="hc-table">
             <thead><tr><th>Outcome</th><th>What it means for your group</th></tr></thead>
             <tbody>
-                <tr><td><span class="hc-badge hc-badge-success">Pass with No Revision</span></td><td>Done. Your grade is final.</td></tr>
-                <tr><td><span class="hc-badge hc-badge-success">Pass with Minor Revision</span></td><td>Done. Make the minor revisions the panel asked for.</td></tr>
-                <tr><td><span class="hc-badge hc-badge-success">Pass with Major Revision</span></td><td>Done. Make the major revisions the panel asked for.</td></tr>
+                <tr><td><span class="hc-badge hc-badge-success">Passed with No Revision</span></td><td>Done. Your grade is final.</td></tr>
+                <tr><td><span class="hc-badge hc-badge-success">Passed with Minor Revision</span></td><td>Done. Make the minor revisions the panel asked for.</td></tr>
+                <tr><td><span class="hc-badge hc-badge-success">Passed with Major Revision</span></td><td>Done. Make the major revisions the panel asked for.</td></tr>
                 <tr><td><span class="hc-badge hc-badge-info">Re-Defense</span></td><td>You present again. The Administrator re-inserts your group; a re-defense always goes <strong>after every other group</strong>, on the last open date, with a new panel.</td></tr>
                 <tr><td><span class="hc-badge hc-badge-danger">Failed</span></td><td>Final for this registration. To present again you must <strong>register again</strong> as a new group (the old registration does not block you).</td></tr>
             </tbody>

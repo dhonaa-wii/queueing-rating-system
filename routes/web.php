@@ -229,6 +229,7 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::get('/', [LiveMonitoringController::class, 'index'])->name('index');
         Route::get('/{category}', [LiveMonitoringController::class, 'show'])->name('show');
         Route::post('/{category}/rooms/{room}/start', [LiveMonitoringController::class, 'startRoom'])->name('rooms.start');
+        Route::get('/{category}/rooms/{room}/print', [LiveMonitoringController::class, 'printRoomSchedule'])->name('rooms.print');
         Route::post('/{category}/room-sessions/{roomSession}/end', [LiveMonitoringController::class, 'endRoom'])->name('room-sessions.end');
         Route::post('/{category}/room-sessions/{roomSession}/pause', [LiveMonitoringController::class, 'pauseRoomSession'])->name('room-sessions.pause');
         Route::post('/{category}/room-sessions/{roomSession}/resume', [LiveMonitoringController::class, 'resumeRoomSession'])->name('room-sessions.resume');

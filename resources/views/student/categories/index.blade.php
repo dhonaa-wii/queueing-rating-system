@@ -50,7 +50,6 @@
 
                         $dates = $category->presentationDates;
                         $paymentRequired = (bool) optional($category->categoryPaymentSetting)->payment_required;
-                        $announcement = $category->categoryAnnouncements->sortBy(fn ($a) => $a->isPaymentInstructions() ? 0 : 1)->first();
                         $panelId = 'category-details-' . $category->id;
                     @endphp
 
@@ -79,16 +78,6 @@
                                     {{ $statusLabel }}
                                 </span>
                             </div>
-
-                            @if ($announcement)
-                                <div class="stu-cat-announcement mb-2">
-                                    <x-icon name="{{ $announcement->isPaymentInstructions() ? 'wallet' : 'megaphone' }}" />
-                                    <div>
-                                        <strong>{{ $announcement->title }}</strong>
-                                        <div class="text-brand-muted">{{ $announcement->message }}</div>
-                                    </div>
-                                </div>
-                            @endif
 
                             @if ($category->description)
                                 <p class="small mb-2 stu-cat-description">{{ $category->description }}</p>
@@ -229,30 +218,6 @@
             height: 0.4rem;
             border-radius: 50%;
             flex-shrink: 0;
-        }
-
-        .stu-cat-announcement {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.5rem;
-            padding: 0.55rem 0.7rem;
-            border-radius: 0.6rem;
-            background-color: var(--brand-info-tint);
-            color: var(--brand-info);
-            font-size: 0.78rem;
-        }
-
-        .stu-cat-announcement svg {
-            width: 1rem;
-            height: 1rem;
-            flex-shrink: 0;
-            margin-top: 0.1rem;
-        }
-
-        .stu-cat-announcement strong {
-            display: block;
-            color: var(--brand-text);
-            font-size: 0.82rem;
         }
 
         .stu-cat-description {

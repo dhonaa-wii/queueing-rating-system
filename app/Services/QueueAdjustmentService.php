@@ -1627,7 +1627,150 @@ class QueueAdjustmentService
             $this->renumberRoom($room);
         }
 
+        // Every automatic placement ends here, so this is where FIFO and
+        // Section Based get their registration order back.
+        $this->enforceFifoOrder($category);
+
         return ['moved' => $moved, 'unmoved' => $unmoved];
+    }
+
+    /**
+     * FIFO and Section Based: groups present in registration order — within
+     * each section for Section Based, across the whole queue for FIFO
+     * (user-directed 2026-10-12/13). Whatever automatic path
+     * placed them — a late registration, a removed date, a spill or
+     * carry-over, a pull to an earlier day. Those paths only know a group's
+     * section, so on their own they can leave an older group behind a newer
+     * one. This pass takes the slots each section's groups already hold on
+     * days that have not started, in time order, and hands them back out by
+     * registration time — the set of slots never changes, only who sits in
+     * which, so no room gains or loses a group and no time window shifts.
+     *
+     * Left exactly where they are: a group an Administrator moved,
+     * transferred, deferred or reinserted (that placement was a choice), a deferred
+     * group requeued behind every section, a pending re-defense, anything
+     * on a day that has started. Swaps stay within one track, so a group is
+     * never put in a room that doesn't take it. Returns how many groups
+     * changed place.
+     */
+    public function enforceFifoOrder(PresentationCategory $category): int
+    {
+        $category->loadMissing('categoryQueueSetting.queueStrategy');
+
+        if (! in_array($category->categoryQueueSetting?->queueStrategy?->code, ['FIFO', 'SECTION_BASED'], true)) {
+            return 0;
+        }
+
+        $dates = $category->presentationDates()->chronological()->with('eventDateStatus')->get()
+            ->filter(fn (PresentationDate $date) => $date->activated_at === null && $date->isOpenForScheduling())
+            ->values();
+
+        if ($dates->isEmpty()) {
+            return 0;
+        }
+
+        $dateIndex = $dates->pluck('id')->flip();
+        $manualTypeIds = QueueAdjustmentType::whereIn('code', ['REORDER', 'TRANSFER_ROOM', 'CHANGE_DATE', 'DEFER', 'REINSERT'])->pluck('id');
+
+        $entries = QueueEntry::whereNull('removed_at')
+            ->whereHas('attemptSchedule.presentationDateRoom', fn ($q) => $q->whereIn('presentation_date_id', $dates->pluck('id')))
+            ->whereHas('attemptSchedule.presentationAttempt.presentationStatus', fn ($q) => $q
+                ->where('is_terminal', false)
+                ->whereNotIn('code', ['CALLED', 'ONGOING', 'PAUSED']))
+            ->whereDoesntHave('attemptSchedule.presentationAttempt.attemptType', fn ($q) => $q->where('code', 'RE_DEFENSE'))
+            ->whereDoesntHave('queueAdjustments', fn ($q) => $q->whereIn('adjustment_type_id', $manualTypeIds))
+            ->with('attemptSchedule.presentationDateRoom', 'attemptSchedule.presentationAttempt.researchGroup.students')
+            ->get();
+
+        if ($entries->count() < 2) {
+            return 0;
+        }
+
+        $ranks = $this->ordering->entryRanks($category, $entries->pluck('id'));
+
+        // Slot order: day, then time (a group with no slot yet last), room, place.
+        $slotKey = fn (QueueEntry $entry) => sprintf(
+            '%05d|%s|%s|%010d',
+            $dateIndex[$entry->attemptSchedule->presentationDateRoom->presentation_date_id],
+            $entry->attemptSchedule->planned_start_at?->format('Y-m-d H:i:s') ?? '9999',
+            $entry->attemptSchedule->presentationDateRoom->room_name,
+            $entry->queue_number
+        );
+        $fifoKey = fn (QueueEntry $entry) => sprintf(
+            '%s|%010d',
+            $entry->attemptSchedule->presentationAttempt->researchGroup->registered_at?->format('Y-m-d H:i:s') ?? '0000',
+            $entry->attemptSchedule->presentationAttempt->researchGroup->id
+        );
+
+        // Groups only trade slots with groups the same rooms accept (track
+        // rooms), so nobody lands in a room that won't take them.
+        $rooms = $entries->map(fn (QueueEntry $entry) => $entry->attemptSchedule->presentationDateRoom)->unique('id')->values();
+        $accepts = fn (QueueEntry $entry) => $rooms
+            ->filter(fn (PresentationDateRoom $room) => $this->tracks->accepts($room, $entry->attemptSchedule->presentationAttempt->researchGroup))
+            ->pluck('id')
+            ->implode(',');
+
+        $buckets = $entries
+            ->filter(fn (QueueEntry $entry) => ($ranks[$entry->id] ?? 0) < QueueOrdering::TAIL)
+            ->groupBy(fn (QueueEntry $entry) => $ranks[$entry->id] . '|' . $accepts($entry));
+
+        // slot entry id => entry that takes that slot
+        $takes = [];
+
+        foreach ($buckets as $bucket) {
+            if ($bucket->count() < 2) {
+                continue;
+            }
+
+            $slots = $bucket->sortBy($slotKey)->values();
+            $fifo = $bucket->sortBy($fifoKey)->values();
+
+            foreach ($slots as $i => $slot) {
+                if ($slot->id !== $fifo[$i]->id) {
+                    $takes[$slot->id] = $fifo[$i];
+                }
+            }
+        }
+
+        if ($takes === []) {
+            return 0;
+        }
+
+        DB::transaction(function () use ($takes, $entries) {
+            // Each slot's room, read before anyone moves (a slot's holder is
+            // itself moved elsewhere in the same pass).
+            $byId = $entries->keyBy('id');
+            $slotRoom = [];
+
+            foreach ($takes as $slotId => $incoming) {
+                $slotRoom[$slotId] = $byId[$slotId]->attemptSchedule->presentation_date_room_id;
+            }
+
+            $orders = [];
+            foreach (array_unique($slotRoom) as $roomId) {
+                $orders[$roomId] = $this->activeEntryIdsForRoom($roomId)
+                    ->map(fn ($id) => isset($takes[$id]) ? $takes[$id]->id : $id)
+                    ->values();
+            }
+
+            foreach ($takes as $slotId => $incoming) {
+                $targetRoomId = $slotRoom[$slotId];
+                $schedule = $incoming->attemptSchedule;
+                $this->panelistNotifier->scheduleChanged($schedule);
+
+                if ($schedule->presentation_date_room_id !== $targetRoomId) {
+                    $schedule->update(['presentation_date_room_id' => $targetRoomId]);
+                }
+            }
+
+            foreach ($orders as $roomId => $ids) {
+                $this->applyOrder(PresentationDateRoom::find($roomId), $ids);
+            }
+        });
+
+        $this->conflicts->syncNotifications($this->notifications);
+
+        return count($takes);
     }
 
     private function recalcRoomTimes(PresentationDateRoom $room): void

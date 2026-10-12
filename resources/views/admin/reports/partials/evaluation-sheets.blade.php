@@ -176,6 +176,22 @@
 
         @include('partials.evaluation-sheet-mark')
     </div>
+
+    {{-- Same pager again under the paper, so the next sheet is one click
+         away without scrolling back up (the modal's script handles both). --}}
+    @if ($submissions->count() > 1)
+        <div class="d-flex justify-content-center mt-3">
+            <div class="sheet-pager">
+                <button type="button" class="sheet-pager-btn" data-sheet-prev @disabled($loop->first) aria-label="Previous evaluation sheet">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m11 17-5-5 5-5"></path><path d="m18 17-5-5 5-5"></path></svg>
+                </button>
+                <span class="sheet-pager-count">{{ $loop->iteration }} / {{ $submissions->count() }}</span>
+                <button type="button" class="sheet-pager-btn" data-sheet-next @disabled($loop->last) aria-label="Next evaluation sheet">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m13 17 5-5-5-5"></path><path d="m6 17 5-5-5-5"></path></svg>
+                </button>
+            </div>
+        </div>
+    @endif
     </div>
 @empty
     <p class="text-brand-muted mb-0">No submitted evaluations for this group.</p>

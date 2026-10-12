@@ -62,6 +62,9 @@
                     @if ($nextUp)
                         <div class="pd-stat-value">{{ $nextUp['at']->format('g:i A') }}</div>
                         <div class="pd-stat-sub text-truncate">{{ $nextUp['at']->format('M j') }} · {{ $nextUp['room']?->room_name }} · {{ $nextUp['attempt']->researchGroup->group_reference }}</div>
+                        @if ($nextUp['sessionEnd'])
+                            <div class="pd-stat-sub text-brand-danger fw-semibold">{{ \App\Models\AttemptSchedule::PAST_SESSION_SHORT }}</div>
+                        @endif
                     @else
                         <div class="pd-stat-value text-brand-muted">—</div>
                         <div class="pd-stat-sub">Nothing scheduled</div>
@@ -100,6 +103,9 @@
                                     <div class="pd-live-slot">
                                         <span class="pd-label">Next</span>
                                         <span class="text-truncate">{{ $preview['next']?->presentationAttempt->researchGroup->group_reference ?? '—' }}</span>
+                                        @if ($preview['next']?->isPastSessionEnd())
+                                            <span class="text-brand-danger fw-semibold text-nowrap" style="font-size: 0.7rem;">{{ \App\Models\AttemptSchedule::PAST_SESSION_SHORT }}</span>
+                                        @endif
                                     </div>
                                 </div>
                             @endforeach
@@ -116,7 +122,8 @@
                     <div class="pd-panel-body">
                         @forelse ($upcoming as $row)
                             @php $group = $row['attempt']->researchGroup; @endphp
-                            <div class="pd-row">
+                            @include('panelist.partials.dashboard-past-session-line', ['row' => $row, 'previous' => $loop->first ? null : $upcoming[$loop->index - 1]])
+                            <div class="pd-row {{ $row['sessionEnd'] ? 'past-session-row' : '' }}">
                                 <div class="pd-row-main">
                                     <div class="pd-row-title">{{ $group->group_reference }}</div>
                                     <div class="pd-row-sub text-truncate">{{ $group->category?->name }} · {{ $group->current_project_title ?? $group->leader()?->full_name }}</div>
@@ -144,7 +151,8 @@
                     <div class="pd-panel-body">
                         @forelse ($adviseeRows as $row)
                             @php $group = $row['group']; @endphp
-                            <div class="pd-row">
+                            @include('panelist.partials.dashboard-past-session-line', ['row' => $row, 'previous' => $loop->first ? null : $adviseeRows[$loop->index - 1]])
+                            <div class="pd-row {{ $row['sessionEnd'] ? 'past-session-row' : '' }}">
                                 <div class="pd-row-main">
                                     <div class="pd-row-title">{{ $group->group_reference }}</div>
                                     <div class="pd-row-sub text-truncate">{{ $group->category?->name }} · {{ $group->current_project_title ?? $group->leader()?->full_name }}</div>

@@ -174,7 +174,8 @@ class GradePdfExporter
     }
 
     /** "ARPQRS · College of … · 2025-2026" — whichever parts exist. */
-    private function footerText(PresentationCategory $category): string
+    /** Also printed at the foot of Event Control's room schedule. */
+    public static function footerText(PresentationCategory $category): string
     {
         return implode(' · ', array_filter([
             'ARPQRS',

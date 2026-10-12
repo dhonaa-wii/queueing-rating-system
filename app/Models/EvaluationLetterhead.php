@@ -72,6 +72,32 @@ class EvaluationLetterhead extends Model
         ], false);
     }
 
+    /**
+     * The logo embedded in the page itself (data URI), for print pages: no
+     * second request, so it shows however the app is hosted and is already
+     * loaded the moment print() runs. Null when unset or the file is gone.
+     */
+    public function logoDataUri(string $column): ?string
+    {
+        $path = $this->{$column} ?? null;
+
+        if (! $path || ! \Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {
+            return null;
+        }
+
+        $type = [
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'svg' => 'image/svg+xml',
+            'webp' => 'image/webp',
+        ][strtolower(pathinfo($path, PATHINFO_EXTENSION))] ?? null;
+
+        return $type
+            ? 'data:' . $type . ';base64,' . base64_encode(\Illuminate\Support\Facades\Storage::disk('public')->get($path))
+            : null;
+    }
+
     /** True once there is something worth rendering on a sheet. */
     public function hasContent(): bool
     {

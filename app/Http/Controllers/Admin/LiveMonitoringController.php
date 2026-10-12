@@ -206,7 +206,7 @@ class LiveMonitoringController extends Controller
             'roomPanels' => $roomPanels,
             'otherDates' => $otherDates,
             'adjustmentReasons' => AdjustmentReason::forOtherAdjustments()->get(),
-            'presentationOutcomes' => PresentationOutcome::where('is_active', true)->orderBy('name')->get(),
+            'presentationOutcomes' => PresentationOutcome::where('is_active', true)->ordered()->get(),
             'canCompleteCategory' => $completionBlockReason === null,
             'completionBlockReason' => $completionBlockReason,
             'canDeleteCategory' => in_array($categoryStatusCode, ['COMPLETED', 'ARCHIVED'], true),
@@ -226,6 +226,28 @@ class LiveMonitoringController extends Controller
         return $category->presentationDates->first(fn (PresentationDate $date) => $date->eventDateStatus?->code === 'ACTIVE')
             ?? $category->presentationDates->first(fn (PresentationDate $date) => in_array($date->eventDateStatus?->code, ['PLANNED', 'STANDBY'], true))
             ?? $category->presentationDates->last();
+    }
+
+    /**
+     * Printable schedule for one room's day — the same list the room's View
+     * All drawer shows (user-directed 2026-10-13), on a standalone page that
+     * repeats the college letterhead and the live-estimate note on every
+     * printed page. The drawer's Print button loads it into a hidden frame.
+     */
+    public function printRoomSchedule(PresentationCategory $category, PresentationDateRoom $room, RoomQueuePreviewService $roomQueuePreviewService)
+    {
+        $this->ensureDateBelongsToCategory($room->presentationDate, $category);
+
+        $category->loadMissing(['academicYear', 'semester', 'college']);
+
+        return view('admin.live-monitoring.room-schedule-print', [
+            'category' => $category,
+            'room' => $room,
+            'date' => $room->presentationDate,
+            'schedules' => $roomQueuePreviewService->forRoom($room)['schedules'],
+            'letterhead' => \App\Models\EvaluationLetterhead::forCollege($category->college_id),
+            'footerText' => \App\Services\GradePdfExporter::footerText($category),
+        ]);
     }
 
     /**

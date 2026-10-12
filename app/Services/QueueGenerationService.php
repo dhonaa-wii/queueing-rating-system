@@ -346,7 +346,7 @@ class QueueGenerationService
         $groups = ResearchGroup::where('category_id', $category->id)
             ->whereDoesntHave('presentationAttempts')
             ->with('students')
-            ->orderBy('registered_at')
+            ->orderBy('registered_at')->orderBy('id')
             ->get();
 
         if ($groups->isEmpty()) {
@@ -606,7 +606,7 @@ class QueueGenerationService
             'RANDOM_DRAW' => $this->orderByRandomDraw($groups, $randomDrawSeed),
             'SECTION_BASED' => $this->orderBySection($groups, $sectionOrder),
             // FIFO and any unrecognized/unset strategy fall back to registration order.
-            default => $groups->sortBy('registered_at')->values(),
+            default => $groups->sortBy([['registered_at', 'asc'], ['id', 'asc']])->values(),
         };
     }
 
@@ -668,7 +668,8 @@ class QueueGenerationService
         })->values();
 
         return $orderedKeys
-            ->flatMap(fn ($key) => $grouped->get($key)->sortBy('registered_at')->values())
+            // Registration time, then id for two registered in the same second.
+            ->flatMap(fn ($key) => $grouped->get($key)->sortBy([['registered_at', 'asc'], ['id', 'asc']])->values())
             ->values();
     }
 

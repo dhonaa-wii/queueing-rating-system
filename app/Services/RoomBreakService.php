@@ -105,6 +105,13 @@ class RoomBreakService
             ? $run->started_at->copy()->addSeconds(($run->configured_duration_seconds ?? $durationMinutes * 60) + ($run->total_paused_seconds ?? 0))
             : $now->copy()->addMinutes($durationMinutes);
 
+        // User-directed 2026-10-13: while the group is presenting within its
+        // time, the terminal shows only the timer. The warning returns once it
+        // runs into overtime (and still shows while CALLED or PAUSED).
+        if ($attempt->presentationStatus?->code === 'ONGOING' && $run?->started_at && $now->lte($end)) {
+            return null;
+        }
+
         if ($end->lt($now)) {
             $end = $now->copy();
         }

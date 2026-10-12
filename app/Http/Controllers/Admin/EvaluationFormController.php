@@ -84,8 +84,8 @@ class EvaluationFormController extends Controller
             ? $this->builder->validateForPublish($editingVersion)
             : [];
 
-        $allOutcomes = PresentationOutcome::where('is_active', true)->orderBy('name')->get();
-        $allOutcomesForManagement = PresentationOutcome::orderBy('name')->get();
+        $allOutcomes = PresentationOutcome::where('is_active', true)->ordered()->get();
+        $allOutcomesForManagement = PresentationOutcome::ordered()->get();
         $allModes = PresentationMode::orderBy('name')->get();
 
         // The builder previews the letterhead of the Admin's own college —

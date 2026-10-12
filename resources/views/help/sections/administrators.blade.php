@@ -65,7 +65,7 @@
                     <div class="m-col">
                         <div class="m-card"><div class="m-between"><span class="m-label">Status</span><span class="hc-badge hc-badge-muted">Draft</span></div><div class="m-between m-small" style="margin-top:.3rem;"><span>Weight total</span><span class="hc-badge hc-badge-success">100%</span></div><span class="m-btn is-block" style="margin-top:.4rem;"><x-icon name="send" /> Publish</span><span class="m-pin">4</span></div>
                         <div class="m-card"><div class="m-label">Presentation Mode</div><div class="m-row m-small"><span class="m-radio is-on"></span> Standard</div><div class="m-row m-small"><span class="m-radio"></span> Title Proposal</div></div>
-                        <div class="m-card"><div class="m-label">Remarks</div><div class="m-row m-small"><span class="m-check is-on"></span> Pass with No Revision</div><div class="m-row m-small"><span class="m-check is-on"></span> Re-Defense</div></div>
+                        <div class="m-card"><div class="m-label">Remarks</div><div class="m-row m-small"><span class="m-check is-on"></span> Passed with No Revision</div><div class="m-row m-small"><span class="m-check is-on"></span> Re-Defense</div></div>
                     </div>
                 </div>
             </div>
@@ -232,8 +232,8 @@
     <h4>Groups registered after the queue exists</h4>
     <p>A late registration — from a student or from <strong>Add Group</strong> — is fitted into the queue as it stands. Nothing is rebuilt, so your moves, transfers, deferrals and panels stay. Where it goes follows the strategy:</p>
     <ul class="hc-list">
-        <li><strong>First In, First Out</strong> — after the last group already queued, ahead of groups deferred to the end of the queue.</li>
-        <li><strong>Section Based</strong> — at the end of its section, in the room that reaches that point first. Groups pushed past closing time move to the next day, ahead of that day's groups of the same section.</li>
+        <li><strong>First In, First Out</strong> — after the last group already queued, ahead of groups deferred to the end of the queue. Groups always present in <strong>registration order</strong>: after any automatic change (a late or re-queued group, a date added or removed, a spill to the next day), groups on days that have not started are put back in that order and only their times and dates change. Groups you moved, transferred, deferred or reinserted keep the place you gave them.</li>
+        <li><strong>Section Based</strong> — at the end of its section, in the room that reaches that point first. Groups pushed past closing time move to the next day, ahead of that day's groups of the same section. Within a section, groups always present in <strong>registration order</strong>: after any automatic change (a late or re-queued group, a date added or removed, a spill to the next day), the section's groups on days that have not started are put back in that order. Groups you moved, transferred, deferred or reinserted keep the place you gave them.</li>
         <li><strong>Random Draw</strong> — a random place among the groups still to present.</li>
         <li>It is <strong>never</strong> placed on a day that has already started: it goes to the next day that has not, or waits as <span class="hc-badge hc-badge-warn">To be scheduled</span> if there is none. You can still Transfer it onto a running day yourself.</li>
     </ul>
@@ -405,8 +405,8 @@
                 <table class="m-table" style="margin-top:.5rem;">
                     <thead><tr><th>Name</th><th>Section</th><th>Individual Avg.</th><th>Group Grade</th><th>Total</th><th>Outcome</th><th>Fee</th></tr></thead>
                     <tbody>
-                        <tr><td>Dela Cruz, Juan S.</td><td>4B</td><td>92.00</td><td>84.67</td><td>86.87</td><td><span class="hc-badge hc-badge-success">Pass with Minor Revision</span></td><td>Paid</td></tr>
-                        <tr><td>Reyes, Ana L.</td><td>4B</td><td>90.00</td><td>84.67</td><td>86.27</td><td><span class="hc-badge hc-badge-success">Pass with Minor Revision</span></td><td>Paid</td></tr>
+                        <tr><td>Dela Cruz, Juan S.</td><td>4B</td><td>92.00</td><td>84.67</td><td>86.87</td><td><span class="hc-badge hc-badge-success">Passed with Minor Revision</span></td><td>Paid</td></tr>
+                        <tr><td>Reyes, Ana L.</td><td>4B</td><td>90.00</td><td>84.67</td><td>86.27</td><td><span class="hc-badge hc-badge-success">Passed with Minor Revision</span></td><td>Paid</td></tr>
                     </tbody>
                 </table>
                 <div class="m-row" style="margin-top:.45rem;"><span class="m-btn is-soft"><x-icon name="download" /> Export to Excel</span><span class="m-btn is-soft"><x-icon name="download" /> Export to PDF</span></div>

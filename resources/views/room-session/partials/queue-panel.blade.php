@@ -47,7 +47,11 @@
                             $rowBackup = $schedule->presentationAttempt->attemptPanelAssignments->where('assignmentKind.code', 'BACKUP_PANELIST');
                             $rowTitle = $rowGroup->current_project_title ?: $rowGroup->proposedTitles->pluck('title_text')->filter()->implode('; ');
                         @endphp
-                        <tr>
+                        @if ($schedule->isPastSessionEnd() && ! ($pastSessionPrev ?? false))
+                            @include('partials.past-session-divider', ['colspan' => 7, 'sessionEnd' => $schedule->session_end_at, 'forStudents' => false])
+                        @endif
+                        @php $pastSessionPrev = $schedule->isPastSessionEnd(); @endphp
+                        <tr class="{{ $schedule->isPastSessionEnd() ? 'past-session-row' : '' }}">
                             <td>{{ $schedule->queueEntry->queue_number }}</td>
                             <td class="text-nowrap">{{ $room->presentationDate?->presentation_date?->format('M d, Y') ?? '—' }}</td>
                             <td class="view-all-time-col">

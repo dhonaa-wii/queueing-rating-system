@@ -12,8 +12,14 @@
     <div class="view-all-overlay-backdrop" data-room-view-all-close="{{ $room->id }}"></div>
     <div class="view-all-overlay-panel">
         <div class="d-flex justify-content-between align-items-center mb-3" style="position: sticky; top: -1.25rem; z-index: 2; background-color: var(--brand-surface); margin: -1.25rem -1.25rem 0.75rem; padding: 1.25rem 1.25rem 0.75rem;">
-            <h3 class="h6 mb-0">View All &mdash; {{ $room->room_name }}</h3>
-            <button type="button" class="btn-close" data-room-view-all-close="{{ $room->id }}" aria-label="Close"></button>
+            <h3 class="h6 mb-0 text-truncate">View All &mdash; {{ $room->room_name }}</h3>
+            <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                <button type="button" class="btn btn-outline-brand btn-sm" data-room-schedule-print="{{ route('admin.live-monitoring.rooms.print', [$category, $room]) }}">
+                    <x-icon name="printer" />
+                    Print
+                </button>
+                <button type="button" class="btn-close" data-room-view-all-close="{{ $room->id }}" aria-label="Close"></button>
+            </div>
         </div>
         <div class="table-responsive">
             <table class="table table-sm mb-0 align-middle view-all-table">
@@ -41,7 +47,11 @@
                             $rowBackup = $schedule->presentationAttempt->attemptPanelAssignments->where('assignmentKind.code', 'BACKUP_PANELIST');
                             $rowTitle = $rowGroup->current_project_title ?: $rowGroup->proposedTitles->pluck('title_text')->filter()->implode('; ');
                         @endphp
-                        <tr>
+                        @if ($schedule->isPastSessionEnd() && ! ($pastSessionPrev ?? false))
+                            @include('partials.past-session-divider', ['colspan' => 7, 'sessionEnd' => $schedule->session_end_at, 'forStudents' => false])
+                        @endif
+                        @php $pastSessionPrev = $schedule->isPastSessionEnd(); @endphp
+                        <tr class="{{ $schedule->isPastSessionEnd() ? 'past-session-row' : '' }}">
                             <td>{{ $schedule->queueEntry->queue_number }}</td>
                             <td class="text-nowrap">{{ $room->presentationDate?->presentation_date?->format('M d, Y') ?? '—' }}</td>
                             <td class="view-all-time-col">

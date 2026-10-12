@@ -95,7 +95,7 @@
         </div>
 
         {{-- Directly under the timer, on every terminal: this group runs into the
-             room's scheduled break. Blinks so it can't be missed from across the
+             room's scheduled break (hidden while ONGOING within time — see RoomBreakService::upcomingBreak). Blinks so it can't be missed from across the
              room. --}}
         @if ($upcomingBreak ?? null)
             <div class="break-warning mt-2" role="alert">Scheduled break at {{ $upcomingBreak->planned_start_at->format('g:i A') }}</div>

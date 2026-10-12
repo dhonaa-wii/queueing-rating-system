@@ -20,10 +20,6 @@ class CategoryController extends Controller
             'presentationDates' => fn ($query) => $query->chronological(),
             'categoryPaymentSetting',
             'categoryPaymentTypes',
-            'categoryAnnouncements' => fn ($query) => $query->where('is_active', true)
-                ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
-                ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', now()))
-                ->latest('starts_at'),
         ])
             ->whereHas('categoryStatus', fn ($query) => $query->whereNotIn('code', ['DRAFT', 'ARCHIVED']))
             ->orderByDesc('created_at')

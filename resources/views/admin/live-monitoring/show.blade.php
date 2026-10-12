@@ -622,6 +622,28 @@
                 return;
             }
 
+            // Print: load the room's printable schedule into a hidden frame
+            // and print that, so only the sheet prints, not this page.
+            var printer = event.target.closest('[data-room-schedule-print]');
+            if (printer) {
+                var oldFrame = document.getElementById('room-schedule-print-frame');
+                if (oldFrame) oldFrame.remove();
+
+                var frame = document.createElement('iframe');
+                frame.id = 'room-schedule-print-frame';
+                frame.setAttribute('aria-hidden', 'true');
+                frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:1123px;height:794px;border:0;';
+                printer.disabled = true;
+                frame.onload = function () {
+                    printer.disabled = false;
+                    frame.contentWindow.focus();
+                    frame.contentWindow.print();
+                };
+                frame.src = printer.dataset.roomSchedulePrint;
+                document.body.appendChild(frame);
+                return;
+            }
+
             var closer = event.target.closest('[data-room-view-all-close]');
             if (closer) {
                 var closePanel = document.querySelector('[data-room-view-all-panel="' + closer.dataset.roomViewAllClose + '"]');

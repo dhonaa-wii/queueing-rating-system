@@ -345,8 +345,11 @@ class EvaluationFormBuilderService
     {
         $this->assertEditable($version);
 
+        // Always the confirmed sequence, whatever order the checkboxes arrived in.
+        $orderedOutcomeIds = \App\Models\PresentationOutcome::whereIn('id', $orderedOutcomeIds)->ordered()->pluck('id')->all();
+
         $sync = [];
-        foreach (array_values($orderedOutcomeIds) as $index => $outcomeId) {
+        foreach ($orderedOutcomeIds as $index => $outcomeId) {
             $sync[$outcomeId] = ['sort_order' => $index + 1];
         }
 

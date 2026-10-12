@@ -28,7 +28,7 @@
                 <div class="card-brand rs-card">
                     <div class="rs-card-head">
                         <h2 class="rs-card-title">{{ $account->room_name }}</h2>
-                        <p class="rs-card-sub">Which terminal is this tablet?</p>
+                        <p class="rs-card-sub">Which terminal is this device?</p>
                     </div>
 
                     <form method="POST" action="{{ route('room-session.terminal.claim') }}">
@@ -51,7 +51,7 @@
                             @endforeach
                         </div>
 
-                        <button type="submit" class="btn btn-brand w-100"><x-icon name="monitor" /> Set Up This Tablet</button>
+                        <button type="submit" class="btn btn-brand w-100"><x-icon name="monitor" /> Set Up This Device</button>
                     </form>
 
                     <div class="rs-actions">

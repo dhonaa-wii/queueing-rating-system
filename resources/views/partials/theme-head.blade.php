@@ -1689,6 +1689,73 @@
         .focus-flash { box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand-danger) 30%, transparent); }
         tr.focus-flash > td { box-shadow: inset 0 0 0 100vmax var(--brand-danger-tint); }
     }
+
+    /* Groups whose live expected time runs past the room's session end
+       (user-directed 2026-10-12, AttemptSchedule::markPastSessionEnd()): a red
+       line with its message above the first affected group, then every
+       affected group tinted red. Works as a table row or as a plain block. */
+    .past-session-divider,
+    tr.past-session-divider > td {
+        position: relative;
+        padding: 0.55rem 0 0.35rem !important;
+        background: transparent !important;
+        border: 0 !important;
+    }
+
+    .past-session-divider-line {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--brand-danger);
+        font-size: 0.72rem;
+        font-weight: 600;
+        line-height: 1.3;
+        white-space: normal;
+    }
+
+    .past-session-divider-line::before,
+    .past-session-divider-line::after {
+        content: "";
+        flex: 0 0 0.75rem;
+        height: 2px;
+        background: var(--brand-danger);
+        border-radius: 1px;
+    }
+
+    .past-session-divider-line::after {
+        flex: 1 1 1.5rem;
+    }
+
+    tr.past-session-row > td,
+    .past-session-row {
+        background: var(--brand-danger-tint) !important;
+    }
+
+    tr.past-session-row > td:first-child,
+    .past-session-row:not(tr) {
+        box-shadow: inset 3px 0 0 var(--brand-danger);
+    }
+
+    .past-session-notice {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.4rem;
+        margin-top: 0.4rem;
+        padding: 0.4rem 0.55rem;
+        border-radius: 0.5rem;
+        background: var(--brand-danger-tint);
+        color: var(--brand-danger);
+        font-size: 0.78rem;
+        font-weight: 500;
+        line-height: 1.35;
+    }
+
+    .past-session-notice > svg {
+        flex: 0 0 auto;
+        width: 1rem;
+        height: 1rem;
+        margin-top: 0.05rem;
+    }
 </style>
 
 {{--

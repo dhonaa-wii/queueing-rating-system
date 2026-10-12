@@ -336,15 +336,22 @@ class PanelAssignmentController extends Controller
         // the room tablet, the panelist and the student are all seeing.
         // Keyed after flattening — flatMap collapses with array_merge, which
         // would renumber the schedule ids away.
-        $expectedTimes = $rooms
-            ->flatMap(fn (PresentationDateRoom $room) => $roomQueuePreview->forRoom($room)['schedules'])
+        $forecastSchedules = $rooms
+            ->flatMap(fn (PresentationDateRoom $room) => $roomQueuePreview->forRoom($room)['schedules']);
+        $expectedTimes = $forecastSchedules
             ->mapWithKeys(fn ($schedule) => [$schedule->id => $schedule->expected_start_at]);
+        // Rows whose live expected time runs past their room's session end,
+        // keyed to that session end (AttemptSchedule::markPastSessionEnd()).
+        $pastSessionEnd = $forecastSchedules
+            ->filter(fn ($schedule) => $schedule->isPastSessionEnd())
+            ->mapWithKeys(fn ($schedule) => [$schedule->id => $schedule->session_end_at]);
 
         return view('admin.panel-assignments.show', [
             // Section Based only: each group's section, the positions a Move
             // may use and the days a Transfer may go to (null otherwise).
             'sectionGuide' => app(QueueAdjustmentService::class)->sectionGuide($category),
             'expectedTimes' => $expectedTimes,
+            'pastSessionEnd' => $pastSessionEnd,
             'category' => $category,
             // The header's category picker, which replaced the back link — this
             // module opens straight on a category, so there is no picker page

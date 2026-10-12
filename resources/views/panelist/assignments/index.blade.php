@@ -146,8 +146,11 @@
                                     $expectedAt = $isAwaiting ? null : ($expectedTimes->get($schedule?->id)
                                         ?? $schedule?->adjusted_expected_at
                                         ?? $schedule?->planned_start_at);
+                                    // Live expected time runs past the room's session end.
+                                    $rowSessionEnd = $isAwaiting ? null : $pastSessionEnd->get($schedule?->id);
                                 @endphp
-                                <tr {!! $searchAttrs($assignment, $group, $room) !!} data-focus="assign-{{ $attempt->id }}" data-focus-glow data-focus-reveal="[data-tab-btn='scheduled']">
+                                <tr {!! $searchAttrs($assignment, $group, $room) !!} data-focus="assign-{{ $attempt->id }}" data-focus-glow data-focus-reveal="[data-tab-btn='scheduled']"
+                                    @if ($rowSessionEnd) class="past-session-row" data-past-session-line="{{ \App\Models\AttemptSchedule::pastSessionLine($rowSessionEnd, false) }}" @endif>
                                     <td class="text-nowrap">
                                         @if ($isAwaiting)
                                             <span class="text-brand-muted">{{ \App\Models\AttemptSchedule::AWAITING_SHORT }}</span>
@@ -388,6 +391,7 @@
                     'canMark' => ! $pendingRequestAttemptIds->has($assignment->presentation_attempt_id)
                         && \App\Http\Controllers\Panelist\AssignmentController::canMarkUnavailable($assignment),
                     'expectedAt' => $expectedTimes->get($assignment->presentationAttempt->attemptSchedule?->id),
+                    'pastSessionEnd' => $pastSessionEnd->get($assignment->presentationAttempt->attemptSchedule?->id),
                 ])
             @endforeach
 
@@ -459,6 +463,7 @@
     @endpush
 
     @push('scripts')
+        @include('partials.past-session-divider-script')
         <script>
             (function () {
                 var buttons = document.querySelectorAll('[data-tab-btn]');
@@ -505,6 +510,8 @@
                         if (noMatchRow) {
                             noMatchRow.classList.toggle('d-none', !(rows.length > 0 && visible === 0));
                         }
+
+                        window.placePastSessionDividers(pane);
                     });
                 }
 

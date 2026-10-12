@@ -153,7 +153,7 @@ class DashboardController extends Controller
         // stable). Completing a presentation always records the Lead's
         // verdict, so only the catalog outcomes are charted. ----
         $outcomeCounts = $completedAttempts->whereNotNull('final_outcome_id')->countBy('final_outcome_id');
-        $outcomes = PresentationOutcome::where('is_active', true)->orderBy('id')->get()
+        $outcomes = PresentationOutcome::where('is_active', true)->ordered()->get()
             ->map(fn (PresentationOutcome $o) => [
                 'code' => $o->code,
                 'label' => $o->name,

@@ -78,6 +78,11 @@ class DashboardController extends Controller
         // Keyed only after flattening: flatMap renumbers integer keys.
         $expectedTimes = $previews->flatMap(fn ($preview) => $preview['schedules'])
             ->mapWithKeys(fn ($schedule) => [$schedule->id => $schedule->expected_start_at]);
+        // Rows whose live expected time runs past their room's session end,
+        // keyed to that session end (AttemptSchedule::markPastSessionEnd()).
+        $pastSessionEnd = $previews->flatMap(fn ($preview) => $preview['schedules'])
+            ->filter(fn ($schedule) => $schedule->isPastSessionEnd())
+            ->mapWithKeys(fn ($schedule) => [$schedule->id => $schedule->session_end_at]);
 
         // ---- Seats ----
         $openSeats = $seats->reject(fn ($a) => $a->presentationAttempt->presentationStatus->is_terminal);
@@ -90,19 +95,19 @@ class DashboardController extends Controller
             ->count();
 
         $upcoming = $openSeats
-            ->map(fn (AttemptPanelAssignment $a) => $this->row($a->presentationAttempt, $expectedTimes) + ['assignment' => $a])
+            ->map(fn (AttemptPanelAssignment $a) => $this->row($a->presentationAttempt, $expectedTimes, $pastSessionEnd) + ['assignment' => $a])
             ->sortBy('sort')
             ->values();
 
         $nextUp = $upcoming->first(fn ($row) => $row['at'] !== null);
 
         // ---- Advisees — one row per group, on its latest attempt ----
-        $adviseeRows = $advisees->map(function (ResearchGroup $group) use ($expectedTimes) {
+        $adviseeRows = $advisees->map(function (ResearchGroup $group) use ($expectedTimes, $pastSessionEnd) {
             $attempt = $group->presentationAttempts->last();
 
             return $attempt
-                ? $this->row($attempt, $expectedTimes) + ['group' => $group]
-                : ['group' => $group, 'attempt' => null, 'state' => 'unqueued', 'at' => null, 'room' => null, 'sort' => '2'];
+                ? $this->row($attempt, $expectedTimes, $pastSessionEnd) + ['group' => $group]
+                : ['group' => $group, 'attempt' => null, 'state' => 'unqueued', 'at' => null, 'room' => null, 'sort' => '2', 'sessionEnd' => null];
         });
 
         $adviseePresented = $adviseeRows->where('state', 'done');
@@ -155,7 +160,7 @@ class DashboardController extends Controller
      * for a schedule, or scheduled at its live expected time (the plan until
      * its day starts — RoomQueuePreviewService decides that).
      */
-    private function row(PresentationAttempt $attempt, Collection $expectedTimes): array
+    private function row(PresentationAttempt $attempt, Collection $expectedTimes, Collection $pastSessionEnd): array
     {
         $schedule = $attempt->attemptSchedule;
         $room = $schedule?->presentationDateRoom;
@@ -178,6 +183,9 @@ class DashboardController extends Controller
             default => '2',
         };
 
-        return ['attempt' => $attempt, 'state' => $state, 'at' => $at, 'room' => $room, 'sort' => $sort];
+        // Set when its live expected time runs past its room's session end.
+        $sessionEnd = $state === 'scheduled' ? $pastSessionEnd->get($schedule->id) : null;
+
+        return ['attempt' => $attempt, 'state' => $state, 'at' => $at, 'room' => $room, 'sort' => $sort, 'sessionEnd' => $sessionEnd];
     }
 }

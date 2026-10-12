@@ -44,9 +44,9 @@
         <table class="hc-table">
             <thead><tr><th>Outcome</th><th>Successful</th><th>Another attempt</th><th>In grade reports</th></tr></thead>
             <tbody>
-                <tr><td>Pass with No Revision</td><td class="hc-check">Yes</td><td class="hc-dash">No</td><td>Yes</td></tr>
-                <tr><td>Pass with Minor Revision</td><td class="hc-check">Yes</td><td class="hc-dash">No</td><td>Yes</td></tr>
-                <tr><td>Pass with Major Revision</td><td class="hc-check">Yes</td><td class="hc-dash">No</td><td>Yes</td></tr>
+                <tr><td>Passed with No Revision</td><td class="hc-check">Yes</td><td class="hc-dash">No</td><td>Yes</td></tr>
+                <tr><td>Passed with Minor Revision</td><td class="hc-check">Yes</td><td class="hc-dash">No</td><td>Yes</td></tr>
+                <tr><td>Passed with Major Revision</td><td class="hc-check">Yes</td><td class="hc-dash">No</td><td>Yes</td></tr>
                 <tr><td>Re-Defense</td><td>Not yet</td><td class="hc-check">Yes — presents again last</td><td>No, until the final attempt</td></tr>
                 <tr><td>Failed</td><td>No</td><td class="hc-dash">No — must register again</td><td>Yes, marked red</td></tr>
             </tbody>

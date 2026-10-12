@@ -148,6 +148,10 @@
                         'room' => $group['room'],
                         'isAwaiting' => $rowAwaiting,
                         'displayTime' => $rowTime,
+                        // Live expected time runs past its room's session end
+                        // (AttemptSchedule::markPastSessionEnd()).
+                        'isPastSession' => ! $rowAwaiting && ! $attempt->presentationStatus->is_terminal && $pastSessionEnd->has($rowSchedule->id),
+                        'sessionEnd' => $pastSessionEnd->get($rowSchedule->id),
                         'dateKey' => $rowAwaiting ? '9999-99-99' : $rowDate->format('Y-m-d'),
                         'dateLabel' => $rowAwaiting ? \App\Models\AttemptSchedule::AWAITING_DATE : $rowDate->format('l, F j, Y'),
                     ]);
@@ -302,10 +306,21 @@
                                                     <td colspan="9">{{ $row['dateLabel'] }}</td>
                                                 </tr>
                                             @endif
+                                            @php $pastSessionRunKey = $row['isPastSession'] ? $rosterDateKey . '|' . $room->id : null; @endphp
+                                            @if ($pastSessionRunKey && $pastSessionRunKey !== ($currentPastSessionRun ?? null))
+                                                {{-- One line per room run; carries the room/tab
+                                                     attributes so the room filter hides it with its rows. --}}
+                                                <tr class="past-session-divider" data-room-row="{{ $room->room_name }}" data-row-status="active">
+                                                    <td colspan="9"><div class="past-session-divider-line">{{ $room->room_name }} · {{ \App\Models\AttemptSchedule::pastSessionLine($row['sessionEnd'], false) }}</div></td>
+                                                </tr>
+                                            @endif
+                                            @php $currentPastSessionRun = $pastSessionRunKey; @endphp
                                             <tr data-room-row="{{ $room->room_name }}" data-row-status="{{ $isTerminal ? 'completed' : 'active' }}"
                                                 data-focus="attempt-{{ $attempt->id }}" data-focus-reveal="[data-tab-btn='{{ $isTerminal ? 'completed' : 'active' }}']"
                                                 @if ($rowConflicts->isNotEmpty())
                                                     class="roster-row-conflict"
+                                                @elseif ($row['isPastSession'])
+                                                    class="past-session-row"
                                                     data-conflict-modal="panel-conflict-modal-{{ $attempt->id }}"
                                                     title="{{ $rowConflicts->pluck('message')->implode("\n") }}"
                                                 @endif

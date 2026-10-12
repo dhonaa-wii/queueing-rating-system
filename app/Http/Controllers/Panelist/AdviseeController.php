@@ -42,7 +42,9 @@ class AdviseeController extends Controller
             ->values();
 
         $upcomingRows = $rows->reject($isDone);
-        $expectedTimes = $this->expectedTimes($upcomingRows, $roomQueuePreview);
+        $forecast = $this->forecast($upcomingRows, $roomQueuePreview);
+        $expectedTimes = $forecast->map(fn ($schedule) => $schedule->expected_start_at);
+        $pastSessionEnd = $forecast->filter(fn ($schedule) => $schedule->isPastSessionEnd())->map(fn ($schedule) => $schedule->session_end_at);
 
         $upcoming = $upcomingRows
             ->sortBy(fn ($row) => $this->sortKey($this->expectedAt($row, $expectedTimes), '9999-12-31 23:59:59'))
@@ -54,6 +56,7 @@ class AdviseeController extends Controller
             'upcoming' => $upcoming,
             'completed' => $completed,
             'expectedTimes' => $expectedTimes,
+            'pastSessionEnd' => $pastSessionEnd,
             'hasGroups' => $groups->isNotEmpty(),
             'categoryOptions' => $categoryOptions,
             'trackOptions' => $groups->flatMap(fn ($g) => $g->students->pluck('research_track_name'))->filter()->unique()->sort()->values(),
@@ -87,11 +90,12 @@ class AdviseeController extends Controller
     }
 
     /**
-     * Expected start times keyed by attempt_schedule id — the same
+     * The forecast schedules (expected times, past-session-end flag) keyed
+     * by attempt_schedule id — the same
      * RoomQueuePreviewService forecast My Assignments, the tablet and Event
      * Control read, so a group shows the same time everywhere.
      */
-    private function expectedTimes(Collection $rows, RoomQueuePreviewService $roomQueuePreview): Collection
+    private function forecast(Collection $rows, RoomQueuePreviewService $roomQueuePreview): Collection
     {
         return $rows
             ->map(fn ($row) => $row->attempt?->attemptSchedule?->presentationDateRoom)
@@ -100,7 +104,7 @@ class AdviseeController extends Controller
             // Keyed only after flattening: flatMap collapses with array_merge,
             // which renumbers integer keys and would throw the ids away.
             ->flatMap(fn ($room) => $roomQueuePreview->forRoom($room)['schedules'])
-            ->mapWithKeys(fn ($schedule) => [$schedule->id => $schedule->expected_start_at]);
+            ->keyBy('id');
     }
 
     private function expectedAt($row, Collection $expectedTimes)

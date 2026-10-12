@@ -19,6 +19,10 @@
 --}}
 @php
     $isAwaitingVariant = $variant === 'awaiting';
+    // Past-session-end flag (AttemptSchedule::markPastSessionEnd()): students are
+    // told to confirm with the admin, the panelist page only that it may move.
+    $pastSessionForStudents = ($scheduleRouteName ?? null) === 'student.categories.schedule';
+    $pastSessionPrev = false;
     $timeHeading = match ($variant) {
         'completed' => 'Completed At',
         'deferred' => 'Deferred At',
@@ -97,8 +101,13 @@
                     // list it turns up in.
                     $isAwaitingRow = $isAwaitingVariant
                         || ($variant !== 'completed' && $variant !== 'deferred' && $schedule->isAwaitingReschedule($rowAttempt));
+                    $isPastSessionRow = $variant === 'scheduled' && ! $isAwaitingRow && $schedule->isPastSessionEnd();
                 @endphp
-                <tr id="queue-row-{{ $schedule->id }}" class="{{ $isSelectedRow ? 'table-active' : '' }}">
+                @if ($isPastSessionRow && ! $pastSessionPrev)
+                    @include('partials.past-session-divider', ['colspan' => 7, 'sessionEnd' => $schedule->session_end_at, 'forStudents' => $pastSessionForStudents])
+                @endif
+                @php $pastSessionPrev = $isPastSessionRow; @endphp
+                <tr id="queue-row-{{ $schedule->id }}" class="{{ $isSelectedRow ? 'table-active' : '' }} {{ $isPastSessionRow ? 'past-session-row' : '' }}">
                     <td>{{ $isAwaitingRow ? '—' : $schedule->queueEntry->queue_number }}</td>
                     <td class="text-nowrap">
                         @if ($isAwaitingRow)

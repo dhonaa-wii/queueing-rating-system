@@ -34,7 +34,7 @@
                                 <div class="m-stat"><div class="m-label">Advisees</div><div class="m-stat-value">2</div></div>
                             </div>
                             <div class="m-card"><div class="m-between"><span class="m-label">Live Now · Room 101 <span class="m-pin">5</span></span><span class="hc-badge hc-badge-success">Active</span></div><div class="m-small">Presenting: CFD-2026-0007 · Next: CFD-2026-0012</div></div>
-                            <div class="m-grid-2"><div class="m-card"><div class="m-label">Upcoming Assignments <span class="m-pin">6</span></div><div class="m-small">CFD-2026-0012 · Oct 20 · 9:20 AM</div></div><div class="m-card"><div class="m-label">My Advisees</div><div class="m-small">CFD-2026-0004 · Pass with Minor Revision</div></div></div>
+                            <div class="m-grid-2"><div class="m-card"><div class="m-label">Upcoming Assignments <span class="m-pin">6</span></div><div class="m-small">CFD-2026-0012 · Oct 20 · 9:20 AM</div></div><div class="m-card"><div class="m-label">My Advisees</div><div class="m-small">CFD-2026-0004 · Passed with Minor Revision</div></div></div>
                         </div>
                     </div>
                 </div>
@@ -177,7 +177,7 @@
                     <div class="m-grid-2" style="margin-top:.5rem;">
                         <div><div class="m-label">Researchers · Individual <span class="m-pin">2</span></div><div class="m-between m-small"><span>Dela Cruz, Juan</span><span class="m-input" style="width:2.6rem">92</span></div><div class="m-between m-small" style="margin-top:.2rem"><span>Reyes, Ana</span><span class="m-input" style="width:2.6rem">90</span></div><div class="m-between m-small" style="margin-top:.2rem"><span>Engr. Ramos (Adviser)</span><span class="m-faint">—</span></div></div>
                         <div><div class="m-label">Remarks <span class="m-pin">3</span></div>
-                            <div class="m-row m-small"><span class="m-check is-on"></span> Pass with Minor Revision</div>
+                            <div class="m-row m-small"><span class="m-check is-on"></span> Passed with Minor Revision</div>
                             <div class="m-row m-small"><span class="m-check"></span> Re-Defense</div>
                             <div class="m-row m-small"><span class="m-check"></span> Failed</div>
                         </div>

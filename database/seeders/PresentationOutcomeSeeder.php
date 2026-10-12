@@ -16,9 +16,9 @@ class PresentationOutcomeSeeder extends Seeder
     public function run(): void
     {
         $outcomes = [
-            ['code' => 'PASS_NO_REVISION', 'name' => 'Pass with No Revision', 'requires_new_attempt' => false, 'allows_project_title_change' => false, 'is_successful' => true, 'is_active' => true],
-            ['code' => 'PASS_MINOR_REVISION', 'name' => 'Pass with Minor Revision', 'requires_new_attempt' => false, 'allows_project_title_change' => false, 'is_successful' => true, 'is_active' => true],
-            ['code' => 'PASS_MAJOR_REVISION', 'name' => 'Pass with Major Revision', 'requires_new_attempt' => false, 'allows_project_title_change' => false, 'is_successful' => true, 'is_active' => true],
+            ['code' => 'PASS_NO_REVISION', 'name' => 'Passed with No Revision', 'requires_new_attempt' => false, 'allows_project_title_change' => false, 'is_successful' => true, 'is_active' => true],
+            ['code' => 'PASS_MINOR_REVISION', 'name' => 'Passed with Minor Revision', 'requires_new_attempt' => false, 'allows_project_title_change' => false, 'is_successful' => true, 'is_active' => true],
+            ['code' => 'PASS_MAJOR_REVISION', 'name' => 'Passed with Major Revision', 'requires_new_attempt' => false, 'allows_project_title_change' => false, 'is_successful' => true, 'is_active' => true],
             ['code' => 'RE_DEFENSE', 'name' => 'Re-Defense', 'requires_new_attempt' => true, 'allows_project_title_change' => false, 'is_successful' => null, 'is_active' => true],
             ['code' => 'FAILED', 'name' => 'Failed', 'requires_new_attempt' => false, 'allows_project_title_change' => false, 'is_successful' => false, 'is_active' => true],
         ];

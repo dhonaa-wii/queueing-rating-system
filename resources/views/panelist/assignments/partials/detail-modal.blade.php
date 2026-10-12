@@ -1,7 +1,8 @@
 {{--
     Group-data view for one assignment, shared by the Scheduled and Deferred
     tabs. Expects: $assignment, $isPending, $canMark, $expectedAt (the
-    running day's forecast for this row, or null).
+    running day's forecast for this row, or null), optional $pastSessionEnd (the
+    room's session end when that forecast runs past it).
 
     Completed rows deliberately do not render this — their View button opens
     the evaluation sheet instead (admin.partials.evaluation-sheet-modal).
@@ -97,7 +98,12 @@
                         the Scheduled Time below. --}}
                         @if ($expectedAt && ! $expectedAt->equalTo($schedule?->planned_start_at))
                             <dt>Expected Time</dt>
-                            <dd>{{ $expectedAt->format('g:i A') }}</dd>
+                            <dd>
+                                {{ $expectedAt->format('g:i A') }}
+                                @if ($pastSessionEnd ?? null)
+                                    @include('partials.past-session-notice', ['sessionEnd' => $pastSessionEnd, 'forStudents' => false])
+                                @endif
+                            </dd>
                         @endif
 
                         <dt>Scheduled Time</dt>

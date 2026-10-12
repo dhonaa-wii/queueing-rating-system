@@ -383,6 +383,15 @@
                             @endif
                         </div>
 
+                        @if (! $isCompleted && ! $isDeferred && ! $isAwaitingSchedule && $selectedSchedule?->isPastSessionEnd())
+                            <div class="mt-n2 mb-3">
+                                @include('partials.past-session-notice', [
+                                    'sessionEnd' => $selectedSchedule->session_end_at,
+                                    'forStudents' => $scheduleRouteName === 'student.categories.schedule',
+                                ])
+                            </div>
+                        @endif
+
                         @if ($isDeferred)
                             <div class="mb-3 p-2 rounded-3" style="background-color: var(--brand-danger-tint, var(--brand-surface-alt)); font-size: 0.78rem;">
                                 <div class="text-brand-muted mb-1" style="{{ $groupStatusLabelStyle }}">What to do</div>

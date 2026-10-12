@@ -33,6 +33,21 @@ class AttemptSchedule extends Model
      */
     public const AWAITING_PANEL = 'To be assigned';
 
+    /**
+     * A running day that falls behind pushes the live forecast past the
+     * room's session end (user-directed 2026-10-12). A group whose expected
+     * end is within this many minutes of the session end is still expected
+     * to present that day; every group after it is flagged as possibly moving
+     * to the next day. Fixed, not configurable.
+     */
+    public const PAST_SESSION_GRACE_MINUTES = 15;
+
+    /** Staff wording (Admin, panelist, room tablet) on a flagged row. */
+    public const PAST_SESSION_SHORT = 'May move to next day';
+
+    /** Student wording on a flagged row too small for the full notice. */
+    public const PAST_SESSION_SHORT_STUDENT = 'May move to next day. Confirm with the admin.';
+
     public $timestamps = false;
 
     protected $fillable = [
@@ -161,5 +176,51 @@ class AttemptSchedule extends Model
         }
 
         return $this->queueEntry?->removed_at === null;
+    }
+
+    /**
+     * Flags this row when its live expected end runs more than
+     * PAST_SESSION_GRACE_MINUTES past its room's session end. Only the two
+     * forecast services call this, for rows they actually forecast on a
+     * running day — a planned slot never passes the session end, and a group
+     * already on stage or called is presenting today regardless. Runtime
+     * attributes only, like expected_start_at; never saved.
+     */
+    public function markPastSessionEnd(?PresentationDateRoom $room): void
+    {
+        $sessionEnd = $room?->scheduledEndAt();
+
+        $this->session_end_at = $sessionEnd;
+        $this->past_session_end = $sessionEnd !== null
+            && $this->expected_end_at !== null
+            && $this->expected_end_at->gt($sessionEnd->copy()->addMinutes(self::PAST_SESSION_GRACE_MINUTES));
+    }
+
+    public function isPastSessionEnd(): bool
+    {
+        return (bool) $this->getAttribute('past_session_end');
+    }
+
+    /**
+     * The divider shown above a run of flagged rows. Students are told to
+     * confirm with the admin; staff only need to know the group may move.
+     */
+    public static function pastSessionLine($sessionEnd, bool $forStudents): string
+    {
+        $end = $sessionEnd ? ' '.$sessionEnd->format('g:i A') : '';
+
+        return $forStudents
+            ? "Past today's{$end} session end. Highlighted groups may be moved to the next presentation day. Please confirm with the admin."
+            : "Past today's{$end} session end. Highlighted groups may move to the next day.";
+    }
+
+    /** The same notice for one group on its own (Group Status, detail modals). */
+    public static function pastSessionNotice($sessionEnd, bool $forStudents): string
+    {
+        $end = $sessionEnd ? ' '.$sessionEnd->format('g:i A') : '';
+
+        return $forStudents
+            ? "Expected after today's{$end} session end. Your group may be moved to the next presentation day. Please confirm with the admin."
+            : "Expected after today's{$end} session end. This group may move to the next day.";
     }
 }

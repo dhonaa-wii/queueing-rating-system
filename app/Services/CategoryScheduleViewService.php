@@ -258,6 +258,8 @@ class CategoryScheduleViewService
                 // has no time to show in the first place.
                 $selectedAttempt->attemptSchedule->expected_start_at = $matchingSchedule?->expected_start_at;
                 $selectedAttempt->attemptSchedule->expected_end_at = $matchingSchedule?->expected_end_at;
+                $selectedAttempt->attemptSchedule->past_session_end = (bool) $matchingSchedule?->isPastSessionEnd();
+                $selectedAttempt->attemptSchedule->session_end_at = $matchingSchedule?->session_end_at;
             }
         }
 
@@ -478,6 +480,7 @@ class CategoryScheduleViewService
 
             $schedule->expected_start_at = $start;
             $schedule->expected_end_at = $start->copy()->addMinutes($durationMinutes);
+            $schedule->markPastSessionEnd($schedule->presentationDateRoom);
 
             $cursor = $schedule->expected_end_at->copy();
         }

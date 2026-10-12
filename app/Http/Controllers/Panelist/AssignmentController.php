@@ -125,7 +125,9 @@ class AssignmentController extends Controller
             ->values();
 
         $stillToPresent = $remaining->reject(fn ($a) => $a->presentationAttempt->presentationStatus->is_terminal);
-        $expectedTimes = $this->expectedTimes($stillToPresent, $roomQueuePreview);
+        $forecast = $this->forecast($stillToPresent, $roomQueuePreview);
+        $expectedTimes = $forecast->map(fn ($schedule) => $schedule->expected_start_at);
+        $pastSessionEnd = $forecast->filter(fn ($schedule) => $schedule->isPastSessionEnd())->map(fn ($schedule) => $schedule->session_end_at);
 
         // Nearest first — on whatever time the row actually displays, so the
         // order and the Time column can never disagree.
@@ -138,6 +140,7 @@ class AssignmentController extends Controller
             'deferred' => $deferred,
             'completed' => $completed,
             'expectedTimes' => $expectedTimes,
+            'pastSessionEnd' => $pastSessionEnd,
             'pendingRequestAttemptIds' => $pendingRequestAttemptIds,
             'categoryOptions' => $categoryOptions,
             'selectedCategoryId' => $selectedCategoryId,
@@ -212,7 +215,8 @@ class AssignmentController extends Controller
     }
 
     /**
-     * Expected start times, keyed by attempt_schedule id, for every room
+     * The forecast schedules (expected times, past-session-end flag), keyed
+     * by attempt_schedule id, for every room
      * these assignments sit in.
      *
      * RoomQueuePreviewService is the one place that decides what time a
@@ -222,7 +226,7 @@ class AssignmentController extends Controller
      * read it too, so a group shows the same time here as it does there.
      * The rule itself deliberately is not re-implemented here.
      */
-    private function expectedTimes(Collection $assignments, RoomQueuePreviewService $roomQueuePreview): Collection
+    private function forecast(Collection $assignments, RoomQueuePreviewService $roomQueuePreview): Collection
     {
         return $assignments
             ->map(fn (AttemptPanelAssignment $a) => $a->presentationAttempt->attemptSchedule?->presentationDateRoom)
@@ -231,7 +235,7 @@ class AssignmentController extends Controller
             // Keyed only after flattening: flatMap collapses with array_merge,
             // which renumbers integer keys and would throw the ids away.
             ->flatMap(fn ($room) => $roomQueuePreview->forRoom($room)['schedules'])
-            ->mapWithKeys(fn ($schedule) => [$schedule->id => $schedule->expected_start_at]);
+            ->keyBy('id');
     }
 
     /**

@@ -20,12 +20,17 @@
     @if ($nextThree->isNotEmpty())
         <div class="d-flex gap-2 flex-wrap">
             @foreach ($nextThree as $n)
-                <div class="small p-2 rounded-3" style="background-color: var(--brand-surface); flex: 1 1 140px; min-width: 140px;">
+                <div class="small p-2 rounded-3 {{ $n->isPastSessionEnd() ? 'past-session-row' : '' }}" style="background-color: var(--brand-surface); flex: 1 1 140px; min-width: 140px;">
                     <div class="fw-semibold">{{ $n->presentationAttempt->researchGroup->group_reference }}</div>
                     <div class="text-brand-muted" style="font-size: 0.72rem;">{{ $n->presentationAttempt->researchGroup->leader()?->full_name ?? '—' }}</div>
                     @php $expected = $n->expected_start_at ?? $n->planned_start_at; @endphp
                     @if ($expected)
                         <div class="text-brand-muted" style="font-size: 0.76rem;">Expected {{ $expected->format('g:i A') }}</div>
+                    @endif
+                    @if ($n->isPastSessionEnd())
+                        <div class="text-brand-danger fw-semibold mt-1" style="font-size: 0.7rem;">
+                            {{ ($scheduleRouteName ?? null) === 'student.categories.schedule' ? \App\Models\AttemptSchedule::PAST_SESSION_SHORT_STUDENT : \App\Models\AttemptSchedule::PAST_SESSION_SHORT }}
+                        </div>
                     @endif
                 </div>
             @endforeach
