@@ -21,10 +21,10 @@ use Illuminate\Support\Carbon;
  * assigned to those days — a day that already happened, or passed without
  * starting, can't absorb any more groups, so neither it nor its rooms
  * contribute to remaining capacity.
- * Correspondingly, "remaining" is measured against groups still awaiting a
- * slot (no terminal presentation attempt yet), not every registered group —
- * a group that already presented on a concluded day shouldn't count against
- * the days that are still open.
+ * Correspondingly, open slots are measured against the groups still to
+ * present (groupsToPresent()), not every registered group — a group that
+ * already presented on a concluded day shouldn't count against the days
+ * that are still open.
  */
 class CapacityAnalysisService
 {
@@ -92,17 +92,21 @@ class CapacityAnalysisService
 
         $registeredGroups = $category->researchGroups()->count();
 
-        // A group whose presentation attempt already reached a terminal outcome
-        // (COMPLETED/ABSENT/CANCELLED) no longer needs a future slot — only
-        // still-registered groups without one count against remaining capacity.
-        $groupsAwaitingSlot = $category->researchGroups()
-            ->whereDoesntHave('presentationAttempts', fn ($query) => $query->whereHas(
-                'presentationStatus',
-                fn ($statusQuery) => $statusQuery->where('is_terminal', true)
-            ))
-            ->count();
+        // User-directed 2026-10-13. Capacity is measured against the groups
+        // still to present (To Present); To Be Scheduled is the part of them
+        // that has no time right now — the same "to be scheduled" rule every
+        // other screen uses (AttemptSchedule::isAwaitingReschedule()).
+        ['toPresent' => $toPresent, 'toBeScheduled' => $toBeScheduled] = $this->groupsToPresent($category);
 
-        $remaining = $totalCapacity - $groupsAwaitingSlot;
+        $openSlots = $totalCapacity - $toPresent;
+
+        $message = $openSlots >= 0
+            ? sprintf('Enough capacity — %d open %s left.', $openSlots, $openSlots === 1 ? 'slot' : 'slots')
+            : sprintf('Short by %d %s — add a room or another presentation date.', -$openSlots, -$openSlots === 1 ? 'slot' : 'slots');
+
+        if ($toBeScheduled > 0) {
+            $message .= sprintf(' %d %s to be scheduled — add a date or room.', $toBeScheduled, $toBeScheduled === 1 ? 'group' : 'groups');
+        }
 
         return [
             'configured' => true,
@@ -115,13 +119,64 @@ class CapacityAnalysisService
             'slots_per_room_per_day' => $slotsPerRoomPerDay,
             'total_capacity' => $totalCapacity,
             'registered_groups' => $registeredGroups,
-            'groups_awaiting_slot' => $groupsAwaitingSlot,
-            'remaining' => $remaining,
-            'status' => $remaining >= 0 ? 'enough' : 'not_enough',
-            'message' => $remaining >= 0
-                ? "Enough capacity with {$remaining} slot(s) remaining."
-                : sprintf('Short by %d slot(s) — add a room or another presentation date.', -$remaining),
+            'groups_to_present' => $toPresent,
+            'groups_to_be_scheduled' => $toBeScheduled,
+            'remaining' => $openSlots,
+            'status' => $openSlots >= 0 ? 'enough' : 'not_enough',
+            'message' => $message,
         ];
+    }
+
+    /**
+     * Read off each group's latest attempt. To present: no attempt yet, a
+     * latest attempt that hasn't finished, or a finished one whose outcome
+     * needs another attempt (a re-defense not reinserted yet). To be
+     * scheduled: to present with no time — never queued, or queued with no
+     * slot, or parked on a day that can no longer run. A pending re-defense
+     * is not "to be scheduled": it waits on the Admin's Reinsert, not on a
+     * date or room.
+     *
+     * @return array{toPresent: int, toBeScheduled: int}
+     */
+    private function groupsToPresent(PresentationCategory $category): array
+    {
+        $groups = $category->researchGroups()->with([
+            'presentationAttempts.presentationStatus',
+            'presentationAttempts.finalOutcome',
+            'presentationAttempts.attemptSchedule.queueEntry',
+            'presentationAttempts.attemptSchedule.presentationDateRoom.presentationDate.eventDateStatus',
+        ])->get();
+
+        $toPresent = 0;
+        $toBeScheduled = 0;
+
+        foreach ($groups as $group) {
+            $latest = $group->presentationAttempts->sortBy('attempt_number')->last();
+
+            if ($latest === null) {
+                $toPresent++;
+                $toBeScheduled++;
+
+                continue;
+            }
+
+            if (! $latest->presentationStatus?->is_terminal) {
+                $toPresent++;
+
+                $schedule = $latest->attemptSchedule;
+                if ($schedule === null || $schedule->isAwaitingReschedule($latest)) {
+                    $toBeScheduled++;
+                }
+
+                continue;
+            }
+
+            if ($latest->presentationStatus->code === 'COMPLETED' && $latest->finalOutcome?->requires_new_attempt) {
+                $toPresent++;
+            }
+        }
+
+        return ['toPresent' => $toPresent, 'toBeScheduled' => $toBeScheduled];
     }
 
     /**
