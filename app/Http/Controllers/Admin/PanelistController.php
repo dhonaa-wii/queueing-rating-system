@@ -16,6 +16,7 @@ use App\Models\UserProfile;
 use App\Models\UserRole;
 use App\Services\PanelistCredentialGenerator;
 use App\Services\PanelistConflictService;
+use App\Services\RoomQueuePreviewService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -411,7 +412,9 @@ class PanelistController extends Controller
         $assignedGroups = $assignments->filter(fn (AttemptPanelAssignment $a) => $a->presentationAttempt->presentationStatus?->code !== 'COMPLETED')->count();
         $evaluatedGroups = $assignments->filter(fn (AttemptPanelAssignment $a) => $a->presentationAttempt->presentationStatus?->code === 'COMPLETED')->count();
 
-        $rows = $assignments->map(function (AttemptPanelAssignment $assignment) use ($panelist) {
+        $forecast = $this->forecastSchedules($assignments);
+
+        $rows = $assignments->map(function (AttemptPanelAssignment $assignment) use ($panelist, $forecast) {
             $attempt = $assignment->presentationAttempt;
             $group = $attempt->researchGroup;
             $category = $group->category;
@@ -434,10 +437,16 @@ class PanelistController extends Controller
                 $dateTimeDisplay = AttemptSchedule::AWAITING_SHORT;
                 $sortAt = null;
             } else {
-                $dateTimeDisplay = $schedule?->planned_start_at
-                    ? $schedule->planned_start_at->format('M j, Y g:i A') . '–' . $schedule->planned_end_at?->format('g:i A')
+                // Live expected time on a running day, the plan on one not
+                // started yet — decided by RoomQueuePreviewService, the same
+                // forecast My Assignments and the room tablet show.
+                $expected = $schedule ? $forecast->get($schedule->id) : null;
+                $startAt = $expected?->expected_start_at ?? $schedule?->planned_start_at;
+                $endAt = $expected?->expected_end_at ?? $schedule?->planned_end_at;
+                $dateTimeDisplay = $startAt
+                    ? $startAt->format('M j, Y g:i A') . '–' . $endAt?->format('g:i A')
                     : '—';
-                $sortAt = $schedule?->planned_start_at;
+                $sortAt = $startAt;
             }
 
             $isTitleProposal = $category?->presentationMode?->code === 'TITLE_PROPOSAL';
@@ -494,5 +503,23 @@ class PanelistController extends Controller
     private function ensureIsPanelist(User $user): void
     {
         abort_unless($user->hasRole('PANELIST'), 404);
+    }
+
+    /**
+     * Forecast schedules keyed by attempt_schedule id for every room the
+     * still-to-present assignments sit in. Keyed after flattening: flatMap
+     * merges with array_merge, which renumbers integer keys.
+     */
+    private function forecastSchedules($assignments)
+    {
+        $preview = app(RoomQueuePreviewService::class);
+
+        return $assignments
+            ->reject(fn (AttemptPanelAssignment $a) => $a->presentationAttempt->presentationStatus?->is_terminal)
+            ->map(fn (AttemptPanelAssignment $a) => $a->presentationAttempt->attemptSchedule?->presentationDateRoom)
+            ->filter()
+            ->unique('id')
+            ->flatMap(fn ($room) => $preview->forRoom($room)['schedules'])
+            ->keyBy('id');
     }
 }
