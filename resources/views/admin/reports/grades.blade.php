@@ -175,7 +175,7 @@
 
         <div class="card-brand p-0">
             <div class="table-responsive">
-                <table class="table table-sm align-middle mb-0">
+                <table class="table table-sm align-middle mb-0 rp-grades-table">
                     <thead>
                         <tr>
                             <th>Name</th>
@@ -304,6 +304,11 @@
 
         .rp-card-title {
             font-size: 0.92rem;
+            font-weight: 600;
+        }
+
+        .rp-grades-table > thead th {
+            font-size: 0.72rem;
             font-weight: 600;
         }
 
