@@ -36,52 +36,280 @@
         No presentation dates or rooms have been configured for this category yet. Check back once the schedule is published.
     </div>
 @else
-    @php
-        // With every day finished there are no room tabs and nothing for the
-        // room-status column to describe, so the queue list takes the full
-        // width unless a searched group still has a card to show there.
-        $showStatusColumn = $rooms->isNotEmpty() || (bool) $selectedGroup;
-    @endphp
-    <div class="row g-4 mb-4 align-items-start">
-        {{-- LEFT: search + room tabs + queue list --}}
-        <div class="{{ $showStatusColumn ? 'col-md-6' : 'col-12' }}">
+    {{-- Layout (user-directed 2026-10-13): the room status sits on top at the
+    queue list's full width — times, counts, panelists and the current group
+    on the left, the next three groups in three columns on the right — then
+    the search bar and a searched group's status, then the queue list. --}}
+    <div class="mb-4">
+        @if ($rooms->isNotEmpty())
             <div class="card-brand p-3 mb-3">
+            @foreach ($rooms as $room)
+                @php $roomStarted = $room->live['started'] ?? false; @endphp
+                <div class="{{ $room->name === $activeRoomName ? '' : 'd-none' }}" data-room-status-pane="{{ $room->name }}">
+                    <div class="row g-3">
+                        <div class="{{ $roomStarted ? 'col-lg-6' : 'col-12' }}">
+                            @include('partials.schedule.status-card', ['room' => $room])
+                            @if ($roomStarted)
+                                @include('partials.schedule.current-group-card', ['room' => $room])
+                            @endif
+                        </div>
+                        @if ($roomStarted)
+                            <div class="col-lg-6 d-flex flex-column">
+                                @include('partials.schedule.next-preview-card', ['room' => $room])
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            @endforeach
+            </div>
+        @endif
+
+        <div class="sched-narrow">
+            <div class="sched-finder mb-3">
                 <form method="GET" action="{{ route($scheduleRouteName, $category) }}" role="search">
                     <label class="visually-hidden" for="schedule-search">Search by leader name, project title or group code</label>
-                    <div class="sched-search">
+                    <div class="sched-search {{ $search !== '' && $matches->count() > 1 && ! $selectedGroup ? 'has-results' : '' }}">
                         <span class="sched-search-icon"><x-icon name="search" /></span>
                         <input type="search" id="schedule-search" name="q" value="{{ $search }}" class="sched-search-input" placeholder="Search leader, title or group code" autocomplete="off">
                         @if ($search !== '')
                             <a href="{{ route($scheduleRouteName, $category) }}" class="sched-search-clear" title="Clear search" aria-label="Clear search"><x-icon name="x" /></a>
                         @endif
-                        <button type="submit" class="btn btn-brand sched-search-btn">Search</button>
+                        <button type="submit" class="sched-search-btn" aria-label="Search">
+                            <x-icon name="search" /><span class="sched-search-btn-label">Search</span>
+                        </button>
                     </div>
                 </form>
 
                 @if ($search !== '' && $matches->isEmpty())
-                    <div class="alert alert-danger py-2 px-3 small mt-3 mb-0" style="background-color: var(--brand-danger-tint); border-color: var(--brand-danger); color: var(--brand-danger);">
-                        No groups matched &ldquo;{{ $search }}&rdquo; in this category.
+                    <div class="sched-search-empty">
+                        <x-icon name="alert-triangle" />
+                        <span>No groups matched &ldquo;{{ $search }}&rdquo; in this category.</span>
                     </div>
                 @elseif ($search !== '' && $matches->count() > 1 && ! $selectedGroup)
-                    <p class="small text-brand-muted mt-3 mb-2">Multiple groups matched &mdash; select one:</p>
-                    <div class="d-flex flex-column gap-2">
+                    <div class="sched-search-results">
+                        <div class="sched-search-results-head">{{ $matches->count() }} groups matched</div>
                         @foreach ($matches as $match)
                             <a href="{{ route($scheduleRouteName, ['category' => $category, 'q' => $search, 'group' => $match->group_reference]) }}"
-                               class="card-brand p-2 small text-decoration-none text-reset">
-                                <strong>{{ $match->group_reference }}</strong> &mdash; {{ $leader($match)->full_name ?? 'No leader recorded' }}
-                                @if ($match->current_project_title)
-                                    <br><span class="text-brand-muted">{{ $match->current_project_title }}</span>
-                                @endif
+                               class="sched-search-result">
+                                <span class="sched-search-result-code">{{ $match->group_reference }}</span>
+                                <span class="sched-search-result-body">
+                                    <span class="sched-search-result-name">{{ $leader($match)->full_name ?? 'No leader recorded' }}</span>
+                                    @if ($match->current_project_title)
+                                        <span class="sched-search-result-title">{{ $match->current_project_title }}</span>
+                                    @endif
+                                </span>
+                                <span class="sched-search-result-arrow" aria-hidden="true">&rsaquo;</span>
                             </a>
                         @endforeach
                     </div>
-                @elseif ($selectedGroup)
-                    <div class="alert alert-info py-2 px-3 small mt-3 mb-0" style="background-color: var(--brand-info-tint); border-color: var(--brand-info); color: var(--brand-info);">
-                        Showing <strong>{{ $selectedGroup->group_reference }}</strong> &mdash; {{ $leader($selectedGroup)->full_name ?? 'N/A' }}.
-                        <a href="{{ route($scheduleRouteName, $category) }}" class="alert-link">Clear selection</a>
-                    </div>
                 @endif
             </div>
+
+            @if ($selectedGroup)
+                <div class="card-brand p-3 mb-3">
+                    @php
+                        $groupStatusLabelStyle = 'font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 600;';
+                        $leaderName = $leader($selectedGroup)->full_name ?? 'N/A';
+                        $leaderInitials = strtoupper(collect(preg_split('/\s+/', trim($leaderName)))
+                            ->filter()
+                            ->map(fn ($part) => mb_substr($part, 0, 1))
+                            ->take(2)
+                            ->implode(''));
+
+                        $selectedSchedule = $selectedAttempt?->attemptSchedule;
+                        // On a day that has not started, expected_start_at
+                        // simply mirrors planned_start_at (see
+                        // CategoryScheduleViewService::applyExpectedTimes()),
+                        // so this shows the plain planned schedule under a
+                        // "Planned" label. Once the day is running, every
+                        // remaining schedule gets a live-cascaded time —
+                        // shown here as the ONLY time (no secondary
+                        // "originally planned" line) under a
+                        // relabeled "Expected" heading, so there's
+                        // always exactly one date/time on screen, not
+                        // two competing ones (user-directed 2026-08-22).
+                        $hasAdjustedTime = $selectedSchedule?->expected_start_at
+                            && $selectedSchedule->planned_start_at
+                            && ! $selectedSchedule->expected_start_at->equalTo($selectedSchedule->planned_start_at);
+                        $scheduleDisplayTime = $hasAdjustedTime ? $selectedSchedule->expected_start_at : $selectedSchedule?->planned_start_at;
+
+                        // Once a group is resolved (completed/deferred), the
+                        // planned/expected slot is no longer relevant — show
+                        // when it actually happened instead, and drop
+                        // "Assigned" from the room label since the room is
+                        // no longer a forward-looking assignment either
+                        // (user-directed 2026-08-22).
+                        $isCompleted = $selectedAttempt?->presentationStatus?->code === 'COMPLETED';
+                        // A defer only stamps queue_entries.removed_at — the
+                        // attempt keeps its SCHEDULED/QUEUED status unless it
+                        // had been called — so the removed entry is the real
+                        // marker, the same one the roster and My Assignments
+                        // use. Without it a deferred group searched here read
+                        // "Scheduled" (user-reported 2026-10-12).
+                        $isDeferred = ! ($selectedAttempt?->presentationStatus?->is_terminal)
+                            && ($selectedAttempt?->presentationStatus?->code === 'DEFERRED'
+                                || $selectedAttempt?->attemptSchedule?->queueEntry?->removed_at !== null);
+                        $latestDeferAdjustment = $isDeferred
+                            ? $selectedAttempt?->attemptSchedule?->queueEntry?->queueAdjustments?->first()
+                            : null;
+
+                        // Still to present, but the day it was placed on can
+                        // no longer run (user-directed 2026-09-16) — the slot
+                        // and the room it still carries both belong to a day
+                        // that is over, so neither is shown: the card says
+                        // what is actually true, that a new date has to be
+                        // set before this group has a schedule again.
+                        $isAwaitingSchedule = (bool) $selectedSchedule?->isAwaitingReschedule($selectedAttempt);
+
+                        $scheduleTimeLabel = $isCompleted ? 'Completed Date & Time'
+                            : ($isDeferred ? 'Deferred Date & Time'
+                            : ($isAwaitingSchedule ? 'Presentation Date & Time'
+                            : ($hasAdjustedTime ? 'Expected Date & Time' : 'Scheduled Date & Time')));
+                        $scheduleTimeValue = $isCompleted ? $selectedAttempt->completed_at
+                            : ($isDeferred ? $latestDeferAdjustment?->adjusted_at : ($isAwaitingSchedule ? null : $scheduleDisplayTime));
+                        $roomLabel = ($isCompleted || $isDeferred) ? 'Room' : 'Assigned Room';
+                    @endphp
+                    {{-- Redesigned 2026-08-22 (user-directed: "not too plain")
+                    to match the visual language the neighboring
+                    status-card/current-group-card/next-preview-card
+                    partials already use — rounded brand-surface-alt chip
+                    boxes, badge chips, the same avatar-circle treatment
+                    admin/dashboard.blade.php's feature cards use
+                    (badge-brand-tint + rounded-circle) — instead of a bare
+                    dl.detail-list stack of label/value pairs. --}}
+                    <div class="sched-group-body">
+                        <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-3">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="badge-brand-tint rounded-circle d-flex align-items-center justify-content-center fw-semibold flex-shrink-0" style="width: 2.25rem; height: 2.25rem; font-size: 0.8rem;">
+                                    {{ $leaderInitials ?: '?' }}
+                                </div>
+                                <div>
+                                    <div class="text-brand-muted" style="{{ $groupStatusLabelStyle }}">Group Status</div>
+                                    <div class="fw-semibold" style="font-size: 0.95rem;">{{ $selectedGroup->group_reference }}</div>
+                                </div>
+                            </div>
+                            <span class="badge {{ $isDeferred ? 'badge-danger-tint' : ($selectedAttempt ? 'badge-info-tint' : 'badge-muted-tint') }}">
+                                {{ $isDeferred ? 'Deferred' : ($selectedAttempt?->presentationStatus->name ?? 'Not yet queued') }}
+                            </span>
+                        </div>
+
+                        <div class="mb-3 p-2 rounded-3" style="background-color: var(--brand-surface-alt);">
+                            <div class="text-brand-muted mb-1" style="{{ $groupStatusLabelStyle }}">
+                                {{ $isTitleProposal ? 'Proposed Titles' : 'Project Title' }}
+                            </div>
+                            @if ($isTitleProposal)
+                                @forelse ($selectedGroup->proposedTitles as $title)
+                                    <div class="small mb-1">
+                                        {{ $loop->iteration }}. {{ $title->title_text }}
+                                        @if ($title->is_approved)<span class="badge badge-success-tint ms-1">Approved</span>@endif
+                                    </div>
+                                @empty
+                                    <div class="small text-brand-muted">None recorded</div>
+                                @endforelse
+                            @else
+                                <div class="small fw-semibold">{{ $selectedGroup->current_project_title ?: '—' }}</div>
+                            @endif
+                        </div>
+
+                        <div class="mb-3 p-2 rounded-3 d-flex flex-wrap gap-3" style="background-color: var(--brand-surface-alt); font-size: 0.7rem;">
+                            <div>
+                                <div class="text-brand-muted" style="font-size: 0.7rem;">{{ $scheduleTimeLabel }}</div>
+                                <div class="fw-semibold">
+                                    @if ($isAwaitingSchedule)
+                                        {{ \App\Models\AttemptSchedule::AWAITING_DATE }}
+                                    @else
+                                        {{ $scheduleTimeValue ? $scheduleTimeValue->format('D, M j, g:i A') : 'Not yet scheduled' }}
+                                    @endif
+                                </div>
+                            </div>
+                            <div>
+                                <div class="text-brand-muted" style="font-size: 0.7rem;">{{ $roomLabel }}</div>
+                                <div class="fw-semibold">
+                                    @if ($isAwaitingSchedule)
+                                        {{ \App\Models\AttemptSchedule::AWAITING_ROOM }}
+                                    @else
+                                        {{ $selectedAttempt?->attemptSchedule?->presentationDateRoom?->room_name ?? 'Not yet assigned' }}
+                                    @endif
+                                </div>
+                            </div>
+                            @if ($isDeferred)
+                                <div>
+                                    <div class="text-brand-muted" style="font-size: 0.7rem;">Defer Reason</div>
+                                    <div class="fw-semibold">
+                                        {{ $latestDeferAdjustment?->reason?->name ?? 'N/A' }}
+                                        @if ($latestDeferAdjustment?->remarks)
+                                            <span class="text-brand-muted fw-normal">— {{ $latestDeferAdjustment->remarks }}</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endif
+                        </div>
+
+                        @if (! $isCompleted && ! $isDeferred && ! $isAwaitingSchedule && $selectedSchedule?->isPastSessionEnd())
+                            <div class="mt-n2 mb-3">
+                                @include('partials.past-session-notice', [
+                                    'sessionEnd' => $selectedSchedule->session_end_at,
+                                    'forStudents' => $scheduleRouteName === 'student.categories.schedule',
+                                ])
+                            </div>
+                        @endif
+
+                        @if ($isDeferred)
+                            <div class="mb-3 p-2 rounded-3" style="background-color: var(--brand-danger-tint, var(--brand-surface-alt)); font-size: 0.78rem;">
+                                <div class="text-brand-muted mb-1" style="{{ $groupStatusLabelStyle }}">What to do</div>
+                                <div class="mb-2">{{ \App\Support\DeferGuidance::howToResolve($latestDeferAdjustment?->reason?->code) }}</div>
+                                <div class="text-brand-muted mb-1" style="{{ $groupStatusLabelStyle }}">If not resolved</div>
+                                <div>{{ \App\Support\DeferGuidance::ifUnresolved($selectedAttempt?->attemptSchedule) }}</div>
+                            </div>
+                        @endif
+
+                        <div>
+                            {{-- Select Panel (user-directed 2026-10-11): a group that
+                               registered before the category let groups choose its
+                               panel, and has no panel yet, picks it once here. No
+                               edit afterwards — the Admin changes it with Edit Panel.
+                               Public student page only. --}}
+                            @if ($scheduleRouteName === 'student.categories.schedule')
+                                @if (session('panel_status'))
+                                    <div class="alert alert-success small py-2 px-3 mt-2 mb-0">{{ session('panel_status') }}</div>
+                                @elseif (session('panel_error'))
+                                    <div class="alert alert-danger small py-2 px-3 mt-2 mb-0">{{ session('panel_error') }}</div>
+                                @endif
+
+                                @if (app(\App\Services\ResearchGroupRegistrationService::class)->canChoosePanelLater($selectedGroup, $selectedAttempt))
+                                    <button type="button" class="btn btn-brand btn-sm mt-2" data-panel-pick-toggle>
+                                        <x-icon name="user-plus" /> Select Panel
+                                    </button>
+
+                                    <form method="POST" action="{{ route('student.categories.choose-panel', [$category, $selectedGroup->group_reference]) }}"
+                                          class="panel-pick-form mt-2 d-none" data-panel-pick-form>
+                                        @csrf
+                                        @for ($i = 0; $i < (int) $category->panelist_count; $i++)
+                                            <div class="mb-2">
+                                                <label for="panel_pick_{{ $i }}" class="form-label small mb-1">{{ $i === 0 ? 'Chair' : 'Member '.$i }} <span class="text-brand-accent">*</span></label>
+                                                <select name="panelist_choices[{{ $i }}]" id="panel_pick_{{ $i }}" class="form-select form-select-sm" required>
+                                                    <option value="">Select a panelist&hellip;</option>
+                                                    @foreach ($category->choosablePanelists() as $panelist)
+                                                        @php $panelistName = \App\Models\PresentationCategory::panelistName($panelist); @endphp
+                                                        {{-- The group's own adviser can't sit on its panel. --}}
+                                                        <option value="{{ $panelist->id }}" @disabled($panelistName === $selectedGroup->technical_adviser_name)>{{ $panelistName }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        @endfor
+                                        <div class="small text-danger mb-2 d-none" data-panel-pick-error></div>
+                                        <div class="d-flex gap-2 justify-content-end flex-wrap">
+                                            <button type="button" class="btn btn-outline-brand btn-sm" data-panel-pick-toggle>Cancel</button>
+                                            <button type="submit" class="btn btn-brand btn-sm"><x-icon name="save" /> Save Panel</button>
+                                        </div>
+                                    </form>
+                                @endif
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            @endif
+        </div>
 
             @php
                 // Scheduled and Awaiting Schedule share one card as two views
@@ -169,10 +397,7 @@
                                     </div>
                                 </div>
 
-                                {{-- The queue list is the page's scroller (user-directed
-                                2026-09-13): it is the only part that grows without bound,
-                                so it takes its own scrollbar and the search box, room tabs
-                                and filter above it stay put while a long queue is browsed. --}}
+                                {{-- Scrolls inside the card so the sticky header stays in view. --}}
                                 <div class="queue-scroll" data-queue-scroll>
                                     <div data-queue-section="scheduled">
                                         @include('partials.schedule.queue-group-table', ['rows' => $room->scheduledRows, 'variant' => 'scheduled', 'emptyText' => 'No groups currently scheduled in this room.'])
@@ -211,276 +436,6 @@
                     </div>
                 </div>
             @endif
-        </div>
-
-        {{-- RIGHT: dynamic room status card — same "Presentation Control"
-        layout as the room-session tablet's Terminal 2/3 right card
-        (status-card.blade.php + current-group-card.blade.php +
-        next-preview-card.blade.php, all student-schedule-only forks), in
-        place of the old plain "Room Status" panel. --}}
-        @if ($showStatusColumn)
-        <div class="col-md-6">
-            <div class="card-brand p-3">
-                @if ($selectedGroup)
-                    @php
-                        $groupStatusLabelStyle = 'font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 600;';
-                        $leaderName = $leader($selectedGroup)->full_name ?? 'N/A';
-                        $leaderInitials = strtoupper(collect(preg_split('/\s+/', trim($leaderName)))
-                            ->filter()
-                            ->map(fn ($part) => mb_substr($part, 0, 1))
-                            ->take(2)
-                            ->implode(''));
-
-                        $selectedSchedule = $selectedAttempt?->attemptSchedule;
-                        // On a day that has not started, expected_start_at
-                        // simply mirrors planned_start_at (see
-                        // CategoryScheduleViewService::applyExpectedTimes()),
-                        // so this shows the plain planned schedule under a
-                        // "Planned" label. Once the day is running, every
-                        // remaining schedule gets a live-cascaded time —
-                        // shown here as the ONLY time (no secondary
-                        // "originally planned" line) under a
-                        // relabeled "Expected" heading, so there's
-                        // always exactly one date/time on screen, not
-                        // two competing ones (user-directed 2026-08-22).
-                        $hasAdjustedTime = $selectedSchedule?->expected_start_at
-                            && $selectedSchedule->planned_start_at
-                            && ! $selectedSchedule->expected_start_at->equalTo($selectedSchedule->planned_start_at);
-                        $scheduleDisplayTime = $hasAdjustedTime ? $selectedSchedule->expected_start_at : $selectedSchedule?->planned_start_at;
-
-                        // Once a group is resolved (completed/deferred), the
-                        // planned/expected slot is no longer relevant — show
-                        // when it actually happened instead, and drop
-                        // "Assigned" from the room label since the room is
-                        // no longer a forward-looking assignment either
-                        // (user-directed 2026-08-22).
-                        $isCompleted = $selectedAttempt?->presentationStatus?->code === 'COMPLETED';
-                        // A defer only stamps queue_entries.removed_at — the
-                        // attempt keeps its SCHEDULED/QUEUED status unless it
-                        // had been called — so the removed entry is the real
-                        // marker, the same one the roster and My Assignments
-                        // use. Without it a deferred group searched here read
-                        // "Scheduled" (user-reported 2026-10-12).
-                        $isDeferred = ! ($selectedAttempt?->presentationStatus?->is_terminal)
-                            && ($selectedAttempt?->presentationStatus?->code === 'DEFERRED'
-                                || $selectedAttempt?->attemptSchedule?->queueEntry?->removed_at !== null);
-                        $latestDeferAdjustment = $isDeferred
-                            ? $selectedAttempt?->attemptSchedule?->queueEntry?->queueAdjustments?->first()
-                            : null;
-
-                        // Still to present, but the day it was placed on can
-                        // no longer run (user-directed 2026-09-16) — the slot
-                        // and the room it still carries both belong to a day
-                        // that is over, so neither is shown: the card says
-                        // what is actually true, that a new date has to be
-                        // set before this group has a schedule again.
-                        $isAwaitingSchedule = (bool) $selectedSchedule?->isAwaitingReschedule($selectedAttempt);
-
-                        $scheduleTimeLabel = $isCompleted ? 'Completed Date & Time'
-                            : ($isDeferred ? 'Deferred Date & Time'
-                            : ($isAwaitingSchedule ? 'Presentation Date & Time'
-                            : ($hasAdjustedTime ? 'Expected Date & Time' : 'Scheduled Date & Time')));
-                        $scheduleTimeValue = $isCompleted ? $selectedAttempt->completed_at
-                            : ($isDeferred ? $latestDeferAdjustment?->adjusted_at : ($isAwaitingSchedule ? null : $scheduleDisplayTime));
-                        $roomLabel = ($isCompleted || $isDeferred) ? 'Room' : 'Assigned Room';
-
-                        $activeAssignments = ($selectedAttempt?->attemptPanelAssignments ?? collect())
-                            ->whereNotIn('assignmentStatus.code', ['REPLACED', 'WITHDRAWN']);
-                    @endphp
-                    {{-- Redesigned 2026-08-22 (user-directed: "not too plain")
-                    to match the visual language the neighboring
-                    status-card/current-group-card/next-preview-card
-                    partials already use — rounded brand-surface-alt chip
-                    boxes, badge chips, the same avatar-circle treatment
-                    admin/dashboard.blade.php's feature cards use
-                    (badge-brand-tint + rounded-circle) — instead of a bare
-                    dl.detail-list stack of label/value pairs. --}}
-                    <div class="mb-3 pb-3 border-bottom-brand">
-                        <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-3">
-                            <div class="d-flex align-items-center gap-2">
-                                <div class="badge-brand-tint rounded-circle d-flex align-items-center justify-content-center fw-semibold flex-shrink-0" style="width: 2.25rem; height: 2.25rem; font-size: 0.8rem;">
-                                    {{ $leaderInitials ?: '?' }}
-                                </div>
-                                <div>
-                                    <div class="text-brand-muted" style="{{ $groupStatusLabelStyle }}">Group Status</div>
-                                    <div class="fw-semibold" style="font-size: 0.95rem;">{{ $selectedGroup->group_reference }}</div>
-                                </div>
-                            </div>
-                            <span class="badge {{ $isDeferred ? 'badge-danger-tint' : ($selectedAttempt ? 'badge-info-tint' : 'badge-muted-tint') }}">
-                                {{ $isDeferred ? 'Deferred' : ($selectedAttempt?->presentationStatus->name ?? 'Not yet queued') }}
-                            </span>
-                        </div>
-
-                        <div class="mb-3 p-2 rounded-3" style="background-color: var(--brand-surface-alt);">
-                            <div class="text-brand-muted mb-1" style="{{ $groupStatusLabelStyle }}">
-                                {{ $isTitleProposal ? 'Proposed Titles' : 'Project Title' }}
-                            </div>
-                            @if ($isTitleProposal)
-                                @forelse ($selectedGroup->proposedTitles as $title)
-                                    <div class="small mb-1">
-                                        {{ $loop->iteration }}. {{ $title->title_text }}
-                                        @if ($title->is_approved)<span class="badge badge-success-tint ms-1">Approved</span>@endif
-                                    </div>
-                                @empty
-                                    <div class="small text-brand-muted">None recorded</div>
-                                @endforelse
-                            @else
-                                <div class="small fw-semibold">{{ $selectedGroup->current_project_title ?: '—' }}</div>
-                            @endif
-                        </div>
-
-                        <div class="mb-3">
-                            <div class="text-brand-muted mb-1" style="{{ $groupStatusLabelStyle }}">Leader</div>
-                            <span class="badge badge-brand-tint mb-2 d-inline-block">{{ $leaderName }}</span>
-
-                            <div class="text-brand-muted mb-1" style="{{ $groupStatusLabelStyle }}">Members</div>
-                            <div class="d-flex flex-wrap gap-1 mb-2">
-                                @php $members = $selectedGroup->students->where('is_leader', false); @endphp
-                                @forelse ($members as $member)
-                                    <span class="badge badge-muted-tint">{{ $member->full_name }}{{ $member->section_name ? ' · ' . $member->section_name : '' }}</span>
-                                @empty
-                                    <span class="small text-brand-muted">No additional members recorded</span>
-                                @endforelse
-                            </div>
-
-                            @if ($selectedGroup->technical_adviser_name)
-                                <div class="text-brand-muted mb-1" style="{{ $groupStatusLabelStyle }}">Technical Adviser</div>
-                                <span class="badge badge-muted-tint">{{ $selectedGroup->technical_adviser_name }}</span>
-                            @endif
-                        </div>
-
-                        <div class="mb-3 p-2 rounded-3 d-flex flex-wrap gap-3" style="background-color: var(--brand-surface-alt); font-size: 0.7rem;">
-                            <div>
-                                <div class="text-brand-muted" style="font-size: 0.7rem;">{{ $scheduleTimeLabel }}</div>
-                                <div class="fw-semibold">
-                                    @if ($isAwaitingSchedule)
-                                        {{ \App\Models\AttemptSchedule::AWAITING_DATE }}
-                                    @else
-                                        {{ $scheduleTimeValue ? $scheduleTimeValue->format('D, M j, g:i A') : 'Not yet scheduled' }}
-                                    @endif
-                                </div>
-                            </div>
-                            <div>
-                                <div class="text-brand-muted" style="font-size: 0.7rem;">{{ $roomLabel }}</div>
-                                <div class="fw-semibold">
-                                    @if ($isAwaitingSchedule)
-                                        {{ \App\Models\AttemptSchedule::AWAITING_ROOM }}
-                                    @else
-                                        {{ $selectedAttempt?->attemptSchedule?->presentationDateRoom?->room_name ?? 'Not yet assigned' }}
-                                    @endif
-                                </div>
-                            </div>
-                            @if ($isDeferred)
-                                <div>
-                                    <div class="text-brand-muted" style="font-size: 0.7rem;">Defer Reason</div>
-                                    <div class="fw-semibold">
-                                        {{ $latestDeferAdjustment?->reason?->name ?? 'N/A' }}
-                                        @if ($latestDeferAdjustment?->remarks)
-                                            <span class="text-brand-muted fw-normal">— {{ $latestDeferAdjustment->remarks }}</span>
-                                        @endif
-                                    </div>
-                                </div>
-                            @endif
-                        </div>
-
-                        @if (! $isCompleted && ! $isDeferred && ! $isAwaitingSchedule && $selectedSchedule?->isPastSessionEnd())
-                            <div class="mt-n2 mb-3">
-                                @include('partials.past-session-notice', [
-                                    'sessionEnd' => $selectedSchedule->session_end_at,
-                                    'forStudents' => $scheduleRouteName === 'student.categories.schedule',
-                                ])
-                            </div>
-                        @endif
-
-                        @if ($isDeferred)
-                            <div class="mb-3 p-2 rounded-3" style="background-color: var(--brand-danger-tint, var(--brand-surface-alt)); font-size: 0.78rem;">
-                                <div class="text-brand-muted mb-1" style="{{ $groupStatusLabelStyle }}">What to do</div>
-                                <div class="mb-2">{{ \App\Support\DeferGuidance::howToResolve($latestDeferAdjustment?->reason?->code) }}</div>
-                                <div class="text-brand-muted mb-1" style="{{ $groupStatusLabelStyle }}">If not resolved</div>
-                                <div>{{ \App\Support\DeferGuidance::ifUnresolved($selectedAttempt?->attemptSchedule) }}</div>
-                            </div>
-                        @endif
-
-                        <div>
-                            <div class="text-brand-muted mb-1" style="{{ $groupStatusLabelStyle }}">Assigned Panelists</div>
-                            <div class="d-flex flex-wrap gap-1">
-                                @php $activeMemberNumbers = \App\Models\AttemptPanelAssignment::memberNumbers($activeAssignments); @endphp
-                                @forelse ($activeAssignments as $assignment)
-                                    @php
-                                        $panelistName = trim(($assignment->panelist->profile->first_name ?? '') . ' ' . ($assignment->panelist->profile->last_name ?? '')) ?: 'N/A';
-                                        $isBackup = $assignment->assignmentKind?->code === 'BACKUP_PANELIST';
-                                        $seatPrefix = $isBackup
-                                            ? 'Alternate Panel: '
-                                            : ($assignment->is_lead ? 'Chair: ' : 'Member ' . ($activeMemberNumbers[$assignment->id] ?? '') . ': ');
-                                    @endphp
-                                    <span class="badge {{ $isBackup ? 'badge-brand-tint' : 'badge-muted-tint' }}">{{ $seatPrefix . $panelistName }}</span>
-                                @empty
-                                    @php $chosenPanel = $selectedGroup->panelistChoices()->with('panelist.profile')->get(); @endphp
-                                    @forelse ($chosenPanel as $choice)
-                                        <span class="badge badge-muted-tint">{{ ($loop->first ? 'Chair: ' : 'Member '.($loop->index).': ') . ($choice->panelist ? \App\Models\PresentationCategory::panelistName($choice->panelist) : 'N/A') }}</span>
-                                    @empty
-                                        <span class="small text-brand-muted">Not yet assigned</span>
-                                    @endforelse
-                                @endforelse
-                            </div>
-
-                            {{-- Select Panel (user-directed 2026-10-11): a group that
-                               registered before the category let groups choose its
-                               panel, and has no panel yet, picks it once here. No
-                               edit afterwards — the Admin changes it with Edit Panel.
-                               Public student page only. --}}
-                            @if ($scheduleRouteName === 'student.categories.schedule')
-                                @if (session('panel_status'))
-                                    <div class="alert alert-success small py-2 px-3 mt-2 mb-0">{{ session('panel_status') }}</div>
-                                @elseif (session('panel_error'))
-                                    <div class="alert alert-danger small py-2 px-3 mt-2 mb-0">{{ session('panel_error') }}</div>
-                                @endif
-
-                                @if (app(\App\Services\ResearchGroupRegistrationService::class)->canChoosePanelLater($selectedGroup, $selectedAttempt))
-                                    <button type="button" class="btn btn-brand btn-sm mt-2" data-panel-pick-toggle>
-                                        <x-icon name="user-plus" /> Select Panel
-                                    </button>
-
-                                    <form method="POST" action="{{ route('student.categories.choose-panel', [$category, $selectedGroup->group_reference]) }}"
-                                          class="panel-pick-form mt-2 d-none" data-panel-pick-form>
-                                        @csrf
-                                        @for ($i = 0; $i < (int) $category->panelist_count; $i++)
-                                            <div class="mb-2">
-                                                <label for="panel_pick_{{ $i }}" class="form-label small mb-1">{{ $i === 0 ? 'Chair' : 'Member '.$i }} <span class="text-brand-accent">*</span></label>
-                                                <select name="panelist_choices[{{ $i }}]" id="panel_pick_{{ $i }}" class="form-select form-select-sm" required>
-                                                    <option value="">Select a panelist&hellip;</option>
-                                                    @foreach ($category->choosablePanelists() as $panelist)
-                                                        @php $panelistName = \App\Models\PresentationCategory::panelistName($panelist); @endphp
-                                                        {{-- The group's own adviser can't sit on its panel. --}}
-                                                        <option value="{{ $panelist->id }}" @disabled($panelistName === $selectedGroup->technical_adviser_name)>{{ $panelistName }}</option>
-                                                    @endforeach
-                                                </select>
-                                            </div>
-                                        @endfor
-                                        <div class="small text-danger mb-2 d-none" data-panel-pick-error></div>
-                                        <div class="d-flex gap-2 justify-content-end flex-wrap">
-                                            <button type="button" class="btn btn-outline-brand btn-sm" data-panel-pick-toggle>Cancel</button>
-                                            <button type="submit" class="btn btn-brand btn-sm"><x-icon name="save" /> Save Panel</button>
-                                        </div>
-                                    </form>
-                                @endif
-                            @endif
-                        </div>
-                    </div>
-                @endif
-
-                @foreach ($rooms as $room)
-                    <div class="{{ $room->name === $activeRoomName ? '' : 'd-none' }}" data-room-status-pane="{{ $room->name }}">
-                        @include('partials.schedule.status-card', ['room' => $room])
-                        @if ($room->live['started'] ?? false)
-                            @include('partials.schedule.current-group-card', ['room' => $room])
-                            @include('partials.schedule.next-preview-card', ['room' => $room])
-                        @endif
-                    </div>
-                @endforeach
-            </div>
-        </div>
-        @endif
     </div>
 @endif
 
@@ -507,32 +462,45 @@
             border-bottom: 1px solid var(--brand-border);
         }
 
-        /* Pill search bar — icon, field, clear and submit in one rounded
-           control. */
+        /* Search bar — a standalone raised pill (no card around it): icon,
+           field, clear and a round accent submit. Multiple matches hang
+           off its bottom edge as one attached panel. */
         .sched-search {
             display: flex;
             align-items: center;
-            gap: 0.25rem;
-            padding: 0.3rem 0.3rem 0.3rem 0.95rem;
+            gap: 0.35rem;
+            min-height: 3.1rem;
+            padding: 0.3rem 0.3rem 0.3rem 1.1rem;
             border-radius: 999px;
-            border: 1px solid var(--brand-border);
-            background-color: var(--brand-surface-alt);
-            transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+            border: 1px solid color-mix(in srgb, var(--brand-border) 70%, transparent);
+            background-color: var(--brand-surface);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 6px 20px -8px rgba(0, 0, 0, 0.18);
+            transition: border-color 0.15s ease, box-shadow 0.2s ease;
         }
+
+        .sched-search:hover { border-color: var(--brand-border); }
 
         .sched-search:focus-within {
             border-color: var(--brand-accent);
-            background-color: var(--brand-surface);
-            box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--brand-accent) 18%, transparent);
+            box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--brand-accent) 16%, transparent),
+                        0 8px 24px -10px color-mix(in srgb, var(--brand-accent) 45%, transparent);
+        }
+
+        .sched-search.has-results {
+            border-radius: 1.55rem 1.55rem 0 0;
+            border-color: var(--brand-accent);
         }
 
         .sched-search-icon {
             display: inline-flex;
             color: var(--brand-muted);
             flex-shrink: 0;
+            transition: color 0.15s ease;
         }
 
-        .sched-search-icon svg { width: 1.05rem; height: 1.05rem; }
+        .sched-search:focus-within .sched-search-icon { color: var(--brand-accent); }
+
+        .sched-search-icon svg { width: 1.15rem; height: 1.15rem; }
 
         .sched-search-input {
             flex: 1 1 auto;
@@ -541,11 +509,12 @@
             outline: 0;
             background: transparent;
             color: var(--brand-text);
-            font-size: clamp(0.85rem, 0.82rem + 0.15vw, 0.95rem);
-            padding: 0.4rem 0.35rem;
+            font-size: clamp(0.88rem, 0.84rem + 0.18vw, 1rem);
+            font-weight: 500;
+            padding: 0.4rem 0.25rem;
         }
 
-        .sched-search-input::placeholder { color: var(--brand-muted); opacity: 0.85; }
+        .sched-search-input::placeholder { color: var(--brand-muted); opacity: 0.8; font-weight: 400; }
 
         /* The x is ours; hide the browser's own clear button on type=search. */
         .sched-search-input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
@@ -554,12 +523,14 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 1.9rem;
-            height: 1.9rem;
+            width: 2rem;
+            height: 2rem;
             border-radius: 50%;
             flex-shrink: 0;
             color: var(--brand-muted);
+            background-color: var(--brand-surface-alt);
             text-decoration: none;
+            transition: background-color 0.15s ease, color 0.15s ease;
         }
 
         .sched-search-clear:hover {
@@ -567,12 +538,146 @@
             color: var(--brand-accent);
         }
 
-        .sched-search-clear svg { width: 0.95rem; height: 0.95rem; }
+        .sched-search-clear svg { width: 0.9rem; height: 0.9rem; }
 
         .sched-search-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            height: 2.5rem;
+            padding: 0 1.25rem 0 1rem;
+            border: 0;
             border-radius: 999px;
-            padding: 0.45rem 1.15rem;
             flex-shrink: 0;
+            background-color: var(--brand-accent);
+            color: #fff;
+            font-weight: 600;
+            font-size: clamp(0.82rem, 0.8rem + 0.12vw, 0.9rem);
+            transition: background-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .sched-search-btn:hover {
+            background-color: color-mix(in srgb, var(--brand-accent) 86%, #000);
+            box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--brand-accent) 60%, transparent);
+        }
+
+        .sched-search-btn:active { transform: scale(0.97); }
+
+        .sched-search-btn:focus-visible {
+            outline: 0;
+            box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--brand-accent) 35%, transparent);
+        }
+
+        .sched-search-btn svg { width: 1rem; height: 1rem; }
+
+        @media (max-width: 575.98px) {
+            .sched-search { padding-left: 0.9rem; }
+            .sched-search-btn { width: 2.5rem; padding: 0; }
+            .sched-search-btn-label { display: none; }
+        }
+
+        /* The Select Panel wrapper is always the card's last child and is
+           usually empty, so the block before it must not leave a gap. */
+        .sched-group-body > :nth-last-child(2) { margin-bottom: 0 !important; }
+
+        .sched-search-empty {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.6rem;
+            padding: 0.55rem 0.9rem;
+            border-radius: 0.75rem;
+            background-color: var(--brand-danger-tint);
+            color: var(--brand-danger);
+            font-size: clamp(0.78rem, 0.76rem + 0.1vw, 0.85rem);
+        }
+
+        .sched-search-empty svg { width: 1rem; height: 1rem; flex-shrink: 0; }
+
+        .sched-search-results {
+            border: 1px solid var(--brand-accent);
+            border-top: 0;
+            border-radius: 0 0 1.25rem 1.25rem;
+            background-color: var(--brand-surface);
+            box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+        }
+
+        .sched-search-results-head {
+            padding: 0.55rem 1.1rem 0.35rem;
+            border-top: 1px solid var(--brand-border);
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--brand-muted);
+        }
+
+        .sched-search-result {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            padding: 0.6rem 1.1rem;
+            color: var(--brand-text);
+            text-decoration: none;
+            border-top: 1px solid color-mix(in srgb, var(--brand-border) 60%, transparent);
+            transition: background-color 0.12s ease;
+        }
+
+        .sched-search-result:hover,
+        .sched-search-result:focus-visible {
+            background-color: var(--brand-accent-tint);
+            color: var(--brand-text);
+            outline: 0;
+        }
+
+        .sched-search-result-code {
+            flex-shrink: 0;
+            padding: 0.2rem 0.55rem;
+            border-radius: 999px;
+            background-color: var(--brand-surface-alt);
+            font-size: 0.72rem;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
+        .sched-search-result-body {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+
+        .sched-search-result-name,
+        .sched-search-result-title {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .sched-search-result-name {
+            font-size: clamp(0.82rem, 0.8rem + 0.1vw, 0.9rem);
+            font-weight: 600;
+        }
+
+        .sched-search-result-title {
+            font-size: 0.76rem;
+            color: var(--brand-muted);
+        }
+
+        .sched-search-result-arrow {
+            flex-shrink: 0;
+            font-size: 1.3rem;
+            line-height: 1;
+            color: var(--brand-muted);
+            transition: transform 0.15s ease, color 0.15s ease;
+        }
+
+        .sched-search-result:hover .sched-search-result-arrow {
+            transform: translateX(3px);
+            color: var(--brand-accent);
         }
 
         /* Room tabs as rounded pills instead of Bootstrap's boxed tabs. */
@@ -628,25 +733,52 @@
             --bs-table-accent-bg: var(--brand-accent-tint);
         }
 
-        /* The queue list is the only thing on this page that grows without
-           bound, so it is the only thing that scrolls — everything else
-           (search, room tabs, the room-status column) stays in place.
-           Viewport-relative rather than a fixed pixel height because the
-           two layouts this body renders under put a different amount of
-           chrome above it: layouts/app scrolls the document, while
-           layouts/panelist scrolls .admin-content. `contain` stops a
-           finished scroll from continuing into whichever of those it is. */
-        .queue-scroll {
-            max-height: calc(100vh - 22rem);
-            overflow-y: auto;
-            overscroll-behavior: contain;
+        /* Next three groups: one row each beside the room info. */
+        .sched-next-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 0.5rem;
         }
 
-        /* Stacked single column — the room-status cards sit below the list
-           rather than beside it, so the list can afford less of the screen. */
+        .sched-next-grid > div {
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .sched-next-people {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            gap: 0.1rem 0.6rem;
+            font-size: 0.74rem;
+        }
+
+        .sched-next-people dt {
+            font-weight: 500;
+            color: var(--brand-muted);
+        }
+
+        .sched-next-people dd {
+            margin: 0;
+        }
+
+        /* Search and a searched group sit in one centered column between
+           the full-width room status and the full-width queue list. */
+        .sched-narrow {
+            max-width: 46rem;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* The queue list scrolls inside its card so its sticky header stays
+           in view on a long queue; the page scrolls down to reach it. */
+        .queue-scroll {
+            max-height: 75vh;
+            overflow-y: auto;
+        }
+
         @media (max-width: 767.98px) {
             .queue-scroll {
-                max-height: 60vh;
+                max-height: 65vh;
             }
         }
 
@@ -783,38 +915,6 @@
             });
         })();
 
-        // Sizes the queue list so its bottom edge lands just above the
-        // viewport bottom, making it the page's only scroller. The CSS
-        // max-height is a fallback: the real distance from the top of the
-        // screen to the top of the list depends on how tall the search card
-        // and tab strip wrapped, and on which layout this body is rendered
-        // under (Student's document scroll vs. the Panelist shell's
-        // .admin-content), none of which CSS can measure. Same JS-sized
-        // column approach already used by Group & Panel Assignment's
-        // Assign Panel card.
-        function sizeQueueLists() {
-            // Below md the two columns stack, so filling the viewport here
-            // would push the room-status cards off the bottom entirely —
-            // the CSS 60vh cap is the right answer on a narrow screen.
-            var stacked = window.matchMedia('(max-width: 767.98px)').matches;
-
-            document.querySelectorAll('[data-queue-scroll]').forEach(function (el) {
-                // offsetParent is null for the hidden room panes — measuring
-                // those would give a meaningless 0.
-                if (! el.offsetParent) return;
-
-                el.style.maxHeight = '';
-
-                if (stacked) return;
-
-                var top = el.getBoundingClientRect().top;
-                el.style.maxHeight = Math.max(220, window.innerHeight - top - 24) + 'px';
-            });
-        }
-
-        sizeQueueLists();
-        window.addEventListener('resize', sizeQueueLists);
-
         document.querySelectorAll('[data-room-tab]').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 var roomId = btn.dataset.roomTab;
@@ -828,9 +928,6 @@
                 document.querySelectorAll('[data-room-status-pane]').forEach(function (pane) {
                     pane.classList.toggle('d-none', pane.dataset.roomStatusPane !== roomId);
                 });
-
-                // The newly-revealed pane was unmeasurable while hidden.
-                sizeQueueLists();
             });
         });
 
@@ -846,8 +943,6 @@
                 document.querySelectorAll('[data-sched-view-pane]').forEach(function (pane) {
                     pane.classList.toggle('d-none', pane.dataset.schedViewPane !== view);
                 });
-
-                sizeQueueLists();
             });
         });
 
