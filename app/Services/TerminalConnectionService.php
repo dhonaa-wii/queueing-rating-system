@@ -133,15 +133,36 @@ class TerminalConnectionService
      * current/called/next attempt — a panel is normally assigned
      * identically across a whole room's queue for the day
      * (PanelAssignmentService::assign()'s multi-select "same panel for
-     * every selected group" case), so this reads as "is this panelist the
-     * room's Lead" rather than "the Lead for this exact group."
+     * every selected group" case).
+     *
+     * Corrected 2026-10-13 (user-reported): the room-wide test gave a
+     * panelist the controls while they sat as a Member for the group on
+     * stage, just because they were Chair of some other group ever placed in
+     * that room. Panels differ per group (Edit Panel, groups choosing their
+     * own panel), so control now belongs only to the Chair of the room's
+     * target group — current ?? called ?? next, the same group
+     * classifyForRoom() reads. After a Complete that is the next group, so
+     * its Chair is the one who calls it.
      */
     public function isLead(RoomSession $roomSession, User $panelist): bool
     {
-        return AttemptPanelAssignment::whereHas(
-            'presentationAttempt.attemptSchedule',
-            fn ($query) => $query->where('presentation_date_room_id', $roomSession->presentation_date_room_id)
-        )
+        $roomSession->loadMissing('presentationDateRoom');
+        $queue = $this->roomQueuePreviewService->forRoom($roomSession->presentationDateRoom);
+        $targetSchedule = $queue['current'] ?? $queue['called'] ?? $queue['next'] ?? null;
+
+        if (! $targetSchedule) {
+            return false;
+        }
+
+        return $this->isLeadFor($targetSchedule->presentation_attempt_id, $panelist);
+    }
+
+    /**
+     * Whether the panelist holds a live Chair seat on this exact attempt.
+     */
+    public function isLeadFor(int $attemptId, User $panelist): bool
+    {
+        return AttemptPanelAssignment::where('presentation_attempt_id', $attemptId)
             ->where('panelist_user_id', $panelist->id)
             ->where('is_lead', true)
             ->whereHas('assignmentStatus', fn ($query) => $query->whereNotIn('code', ['REPLACED', 'WITHDRAWN']))

@@ -508,7 +508,7 @@ class PresentationControlService
                 continue;
             }
 
-            $terminalTypeId = $connectionService->isLead($session, $connection->panelist)
+            $terminalTypeId = $connectionService->isLeadFor($attempt->id, $connection->panelist)
                 ? $leadTypeId
                 : $evaluationTypeId;
 
