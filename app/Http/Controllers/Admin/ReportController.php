@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\EvaluationLetterhead;
+use App\Models\EvaluationSubmission;
 use App\Models\PresentationAttempt;
 use App\Models\PresentationCategory;
 use App\Models\PresentationDate;
+use App\Services\EvaluationSubmissionService;
 use App\Services\GradePdfExporter;
 use App\Services\GradeReportService;
 use App\Services\GradeSpreadsheetExporter;
@@ -353,7 +355,58 @@ class ReportController extends Controller
             // panelist's superseded row must not still claim the seat.
             'leadPanelistIds' => $this->leadPanelistIds($attempt),
             'pdfUrl' => route('admin.reports.evaluation-sheet.export-pdf', [$category, $attempt]),
+            'editUrl' => fn ($submission) => route('admin.reports.evaluation-sheet.edit', [$category, $attempt, $submission]),
         ]);
+    }
+
+    /**
+     * The Edit form for one submitted sheet, swapped into the same modal
+     * page it was opened from (user-directed 2026-10-13: Admins can correct
+     * a submitted evaluation from where they view it).
+     */
+    public function editEvaluationSubmission(PresentationCategory $category, PresentationAttempt $attempt, EvaluationSubmission $submission)
+    {
+        $this->loadSheetAttempt($category, $attempt);
+
+        $submission = $attempt->evaluationSubmissions->firstWhere('id', $submission->id)
+            ?? throw new NotFoundHttpException();
+
+        return view('admin.reports.partials.evaluation-sheet-edit', [
+            'attempt' => $attempt,
+            'submission' => $submission,
+            'updateUrl' => route('admin.reports.evaluation-sheet.update', [$category, $attempt, $submission]),
+        ]);
+    }
+
+    public function updateEvaluationSubmission(Request $request, PresentationCategory $category, PresentationAttempt $attempt, EvaluationSubmission $submission, EvaluationSubmissionService $service)
+    {
+        $this->loadSheetAttempt($category, $attempt);
+
+        if ($submission->presentation_attempt_id !== $attempt->id) {
+            throw new NotFoundHttpException();
+        }
+
+        $validated = $request->validate([
+            'scores' => ['array'],
+            'student_scores' => ['array'],
+            'presentation_outcome_id' => ['nullable', 'integer'],
+            'remarks' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        $result = $service->adminEdit(
+            $submission,
+            $validated['scores'] ?? [],
+            $validated['student_scores'] ?? [],
+            isset($validated['presentation_outcome_id']) ? (int) $validated['presentation_outcome_id'] : null,
+            $validated['remarks'] ?? null,
+            $request->user()->id,
+        );
+
+        if (! $result['ok']) {
+            return response()->json(['message' => $result['error']], 422);
+        }
+
+        return response()->json(['message' => 'Evaluation updated.']);
     }
 
     /** PDF of the same sheets, one per page. */

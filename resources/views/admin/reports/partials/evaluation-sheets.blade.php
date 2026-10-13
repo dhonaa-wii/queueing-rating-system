@@ -5,7 +5,9 @@
     evaluationFormVersion.{evaluationForm,scaleLabels,presentationOutcomes,
     applicablePresentationModes,evaluationCriteria.childCriteria}),
     $letterhead, $leadPanelistIds, $pdfUrl (optional — the Export to PDF link;
-    the PDF holds every sheet for the attempt, not just the one on screen).
+    the PDF holds every sheet for the attempt, not just the one on screen),
+    $editUrl (optional, Admin only — closure submission => edit-form URL;
+    when set each sheet gets an Edit button, see evaluation-sheet-edit).
     admin/reports/evaluation-sheets-pdf.blade.php is the Dompdf twin of this
     markup — change one, check the other.
 
@@ -59,9 +61,14 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m13 17 5-5-5-5"></path><path d="m6 17 5-5-5-5"></path></svg>
             </button>
         </div>
-        @isset($pdfUrl)
-            <a href="{{ $pdfUrl }}" class="btn btn-sm btn-outline-brand"><x-icon name="file-text" /> Export to PDF</a>
-        @endisset
+        <div class="d-flex flex-wrap gap-2">
+            @isset($editUrl)
+                <button type="button" class="btn btn-sm btn-brand" data-sheet-edit data-url="{{ $editUrl($submission) }}"><x-icon name="edit" /> Edit</button>
+            @endisset
+            @isset($pdfUrl)
+                <a href="{{ $pdfUrl }}" class="btn btn-sm btn-outline-brand"><x-icon name="file-text" /> Export to PDF</a>
+            @endisset
+        </div>
     </div>
 
     <div class="eval-paper">

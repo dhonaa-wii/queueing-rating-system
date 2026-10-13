@@ -114,6 +114,8 @@ class RecordAdminAudit
         'panel-substitutions.reject' => 'SUBSTITUTION_REJECTED',
         'panel-substitutions.assign-replacement' => 'REPLACEMENT_ASSIGNED',
 
+        'reports.evaluation-sheet.update' => 'EVALUATION_EDITED',
+
         'panelists.store' => 'PANELIST_REGISTERED',
         'panelists.update' => 'PANELIST_UPDATED',
         'panelists.destroy' => 'PANELIST_DELETED',

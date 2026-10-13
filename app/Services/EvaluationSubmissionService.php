@@ -15,6 +15,7 @@ use App\Models\ProposedTitle;
 use App\Models\RoomSession;
 use App\Models\Student;
 use App\Models\SubmissionStatus;
+use Illuminate\Support\Facades\DB;
 
 /**
  * First writer for evaluation_submissions/evaluation_scores (confirmed
@@ -318,6 +319,149 @@ class EvaluationSubmissionService
             ->whereIn('panelist_user_id', $leadIds)
             ->firstWhere('presentation_outcome_id', '!=', null)
             ?->presentation_outcome_id;
+    }
+
+    /**
+     * An Admin's correction of a sheet a panelist already submitted
+     * (user-directed 2026-10-13) — the one path allowed past
+     * blockedByStatus(). Replaces every rating, the individual raw scores,
+     * the remark and the comments in one go, under the same completeness
+     * rules as submit(), then recomputes the totals. The sheet stays
+     * SUBMITTED with its original submitted_at.
+     *
+     * $scores is keyed "criterionId:proposedTitleId" ("…:0" in Standard
+     * mode), $studentScores by student id (null/blank clears one).
+     *
+     * When the sheet is the Chair's and the attempt is complete, its remark
+     * is the attempt's official outcome (leadOutcomeFor()), so a changed
+     * remark is carried onto presentation_attempts.final_outcome_id. That is
+     * refused once a follow-up attempt exists: the re-defense it created
+     * would no longer match the verdict.
+     */
+    public function adminEdit(EvaluationSubmission $submission, array $scores, array $studentScores, ?int $outcomeId, ?string $remarks, int $adminUserId): array
+    {
+        $submission->loadMissing(
+            'submissionStatus',
+            'evaluationFormVersion.evaluationCriteria',
+            'evaluationFormVersion.presentationOutcomes',
+            'evaluationFormVersion.applicablePresentationModes',
+            'presentationAttempt.researchGroup.students',
+            'presentationAttempt.researchGroup.proposedTitles',
+            'presentationAttempt.presentationStatus',
+        );
+
+        if (! in_array($submission->submissionStatus?->code, ['SUBMITTED', 'FINALIZED'], true)) {
+            return $this->failure('Only a submitted evaluation can be edited here.');
+        }
+
+        $version = $submission->evaluationFormVersion;
+        $attempt = $submission->presentationAttempt;
+        $group = $attempt->researchGroup;
+        $isTitleProposal = $version->applicablePresentationModes->first()?->code === 'TITLE_PROPOSAL';
+
+        $leafIds = $version->evaluationCriteria->whereNotNull('parent_criterion_id')->pluck('id');
+        $titleIds = $isTitleProposal ? $group->proposedTitles->pluck('id') : collect([null]);
+
+        $rows = [];
+
+        foreach ($titleIds as $titleId) {
+            foreach ($leafIds as $criterionId) {
+                $value = $scores[$criterionId . ':' . ($titleId ?? 0)] ?? null;
+
+                if ($value === null || $value === '') {
+                    return $this->failure('Every item needs a rating.');
+                }
+
+                if (! is_numeric($value) || $value < $version->scale_min || $value > $version->scale_max) {
+                    return $this->failure("Rating must be between {$version->scale_min} and {$version->scale_max}.");
+                }
+
+                $rows[] = [$criterionId, $titleId, (float) $value];
+            }
+        }
+
+        $outcomes = $version->presentationOutcomes;
+
+        if ($outcomes->isNotEmpty() && ! $outcomes->contains('id', $outcomeId)) {
+            return $this->failure('Select a remark.');
+        }
+
+        if ($outcomes->isEmpty()) {
+            $outcomeId = null;
+        }
+
+        $individual = [];
+
+        if (! $isTitleProposal) {
+            foreach ($group->students as $student) {
+                $value = $studentScores[$student->id] ?? null;
+
+                if ($value === null || $value === '') {
+                    $individual[$student->id] = null;
+
+                    continue;
+                }
+
+                if (! is_numeric($value) || $value < 0 || $value > 100) {
+                    return $this->failure('Individual raw score must be between 0 and 100.');
+                }
+
+                $individual[$student->id] = (float) $value;
+            }
+        }
+
+        // Does this sheet decide the attempt's official outcome?
+        $carriesOutcome = false;
+
+        if ($attempt->presentationStatus?->code === 'COMPLETED') {
+            $attempt->loadMissing('attemptPanelAssignments.assignmentStatus');
+            $carriesOutcome = $attempt->attemptPanelAssignments
+                ->reject(fn ($a) => in_array($a->assignmentStatus?->code, ['REPLACED', 'WITHDRAWN'], true))
+                ->where('is_lead', true)
+                ->contains('panelist_user_id', $submission->panelist_user_id);
+        }
+
+        if ($carriesOutcome
+            && (int) $outcomeId !== (int) $attempt->final_outcome_id
+            && $attempt->nextAttempts()->exists()) {
+            return $this->failure("{$group->group_reference} already has a follow-up attempt, so the Chair's remark can no longer change.");
+        }
+
+        DB::transaction(function () use ($submission, $rows, $individual, $outcomeId, $remarks, $carriesOutcome, $attempt, $adminUserId) {
+            EvaluationScore::where('evaluation_submission_id', $submission->id)->delete();
+
+            foreach ($rows as [$criterionId, $titleId, $value]) {
+                EvaluationScore::create([
+                    'evaluation_submission_id' => $submission->id,
+                    'evaluation_criterion_id' => $criterionId,
+                    'proposed_title_id' => $titleId,
+                    'score' => $value,
+                ]);
+            }
+
+            foreach ($individual as $studentId => $value) {
+                EvaluationSubmissionStudentScore::updateOrCreate(
+                    ['evaluation_submission_id' => $submission->id, 'student_id' => $studentId],
+                    ['score' => $value]
+                );
+            }
+
+            $submission->update([
+                'presentation_outcome_id' => $outcomeId,
+                'remarks' => $remarks !== null && trim($remarks) !== '' ? $remarks : null,
+                'reopened_by' => $adminUserId,
+                'reopened_at' => now(),
+            ]);
+
+            $submission->unsetRelation('evaluationScores');
+            $this->recomputeTotals($submission);
+
+            if ($carriesOutcome) {
+                $attempt->update(['final_outcome_id' => $outcomeId]);
+            }
+        });
+
+        return ['ok' => true];
     }
 
     public function allSubmitted(PresentationAttempt $attempt): bool

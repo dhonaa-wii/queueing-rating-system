@@ -289,6 +289,8 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::get('/{category}/panelist-sheet/export-pdf', [ReportController::class, 'exportPanelistSheetPdf'])->name('panelist-sheet.export-pdf');
         Route::get('/{category}/attempts/{attempt}/evaluation-sheet', [ReportController::class, 'evaluationSheet'])->name('evaluation-sheet');
         Route::get('/{category}/attempts/{attempt}/evaluation-sheet/export-pdf', [ReportController::class, 'exportEvaluationSheetPdf'])->name('evaluation-sheet.export-pdf');
+        Route::get('/{category}/attempts/{attempt}/evaluations/{submission}/edit', [ReportController::class, 'editEvaluationSubmission'])->name('evaluation-sheet.edit');
+        Route::put('/{category}/attempts/{attempt}/evaluations/{submission}', [ReportController::class, 'updateEvaluationSubmission'])->name('evaluation-sheet.update');
     });
 
     Route::get('/panelist/dashboard', [PanelistDashboardController::class, 'index'])

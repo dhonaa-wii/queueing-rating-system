@@ -9,6 +9,7 @@ use App\Models\CategoryRoom;
 use App\Models\EvaluationCriterion;
 use App\Models\EvaluationForm;
 use App\Models\EvaluationFormVersion;
+use App\Models\EvaluationSubmission;
 use App\Models\PanelSubstitutionRequest;
 use App\Models\PresentationAttempt;
 use App\Models\PresentationCategory;
@@ -70,6 +71,7 @@ class AdminCollege
             $model instanceof AttemptSchedule => $model->presentationAttempt?->researchGroup?->category?->college_id,
             $model instanceof QueueEntry => $model->attemptSchedule?->presentationAttempt?->researchGroup?->category?->college_id,
             $model instanceof PanelSubstitutionRequest => $model->presentationAttempt?->researchGroup?->category?->college_id,
+            $model instanceof EvaluationSubmission => $model->presentationAttempt?->researchGroup?->category?->college_id,
 
             default => false,
         };
