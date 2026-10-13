@@ -386,13 +386,13 @@ class PresentationControlService
             $attempt->update([
                 'presentation_status_id' => PresentationStatus::where('code', 'COMPLETED')->firstOrFail()->id,
                 'completed_at' => $now,
-                // The Lead/Chair's own submitted verdict becomes the
-                // attempt's official outcome (user-directed 2026-09-13) —
-                // see EvaluationSubmissionService::leadOutcomeFor(). Until
+                // The official outcome: the Group Grade through the grading
+                // rubric (Standard, 2026-10-13) or the Chair's pick (Title Proposal)
+                // — EvaluationSubmissionService::officialOutcomeFor(). Until
                 // now nothing on this path ever set final_outcome_id, so a
                 // group completed through the tablet carried no outcome at
                 // all and could not be classified as passed/re-defense/failed.
-                'final_outcome_id' => $this->evaluationSubmissionService->leadOutcomeFor($attempt),
+                'final_outcome_id' => $this->evaluationSubmissionService->officialOutcomeFor($attempt),
             ]);
 
             $session->update([

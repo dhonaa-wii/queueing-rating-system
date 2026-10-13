@@ -40,8 +40,8 @@
         ? 'Chair'
         : ($panelOwnSeat && isset($panelMemberNumbers[$panelOwnSeat->id]) ? 'Member ' . $panelMemberNumbers[$panelOwnSeat->id] : 'Member');
 
-    // Same rule submit() enforces (ratings, every individual grade, remark),
-    // so the button is disabled before the panelist can hit the server block.
+    // Same rule submit() enforces (ratings, every individual grade, and a
+    // remark in Title Proposal), so the button is disabled before the server block.
     $submitBlock = $readOnly ? null : app(\App\Services\EvaluationSubmissionService::class)->submitBlockReason($evaluationSubmission);
 @endphp
 
@@ -103,7 +103,8 @@
                         @if ($loop->first)
                             <td class="eval-remarks-cell" rowspan="{{ max($students->count(), 1) + ($adviserName !== '' ? 1 : 0) }}">
                                 @forelse ($version->presentationOutcomes as $outcome)
-                                    @if ($readOnly)
+                                    {{-- Standard: the remark follows the score and is marked on submit. --}}
+                                    @if ($readOnly || ! $isTitleProposal)
                                         <div class="eval-remark-option">
                                             <span class="eval-checkbox-glyph">{!! $evaluationSubmission->presentation_outcome_id == $outcome->id ? '&#9745;' : '&#9633;' !!}</span> {{ $outcome->name }}
                                         </div>

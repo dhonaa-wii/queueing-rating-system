@@ -207,7 +207,7 @@
 
 <div class="hc-topic" id="st-outcomes">
     <h3><x-icon name="trophy" /> Outcomes and what comes next</h3>
-    <p>Each presentation ends with one official outcome — the Lead Panelist's remark:</p>
+    <p>Each presentation ends with one official outcome, set from your Group Grade (91–100% No Revision, 81–90% Minor, 71–80% Major, 61–70% Re-Defense, below 61% Failed):</p>
     <div class="hc-table-wrap">
         <table class="hc-table">
             <thead><tr><th>Outcome</th><th>What it means for your group</th></tr></thead>

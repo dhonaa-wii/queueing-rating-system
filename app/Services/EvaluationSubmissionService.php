@@ -11,6 +11,7 @@ use App\Models\EvaluationSubmission;
 use App\Models\EvaluationSubmissionStudentScore;
 use App\Models\PresentationAttempt;
 use App\Models\PresentationCategory;
+use App\Models\PresentationOutcome;
 use App\Models\ProposedTitle;
 use App\Models\RoomSession;
 use App\Models\Student;
@@ -183,6 +184,10 @@ class EvaluationSubmissionService
             return $this->failure($blocked);
         }
 
+        if ($this->isAutoScored($submission)) {
+            return $this->failure('The remark is set automatically from the score when the evaluation is submitted.');
+        }
+
         $submission->update(['presentation_outcome_id' => $outcomeId]);
 
         return ['ok' => true];
@@ -209,12 +214,35 @@ class EvaluationSubmissionService
             return $this->failure($reason);
         }
 
-        $submission->update([
+        $update = [
             'submission_status_id' => SubmissionStatus::where('code', 'SUBMITTED')->firstOrFail()->id,
             'submitted_at' => now(),
-        ]);
+        ];
+
+        // Standard mode: the remark follows the sheet's own score (the
+        // grading rubric, PresentationOutcome::GRADE_BANDS), marked the moment
+        // the sheet is submitted — the panel never picks it.
+        if ($this->isAutoScored($submission)) {
+            $submission->unsetRelation('evaluationScores');
+            $totals = $this->recomputeTotals($submission);
+            $update['presentation_outcome_id'] = PresentationOutcome::idForGrade($totals['weighted']);
+        }
+
+        $submission->update($update);
 
         return ['ok' => true];
+    }
+
+    /**
+     * Whether the sheet's remark is computed from its score instead of picked
+     * — every Standard-mode sheet (user-directed 2026-10-13). Title Proposal
+     * sheets have no single total to grade, so their remark is still picked.
+     */
+    public function isAutoScored(EvaluationSubmission $submission): bool
+    {
+        $submission->loadMissing('evaluationFormVersion.applicablePresentationModes');
+
+        return $submission->evaluationFormVersion->applicablePresentationModes->first()?->code !== 'TITLE_PROPOSAL';
     }
 
     /**
@@ -276,6 +304,10 @@ class EvaluationSubmissionService
      */
     public function outcomeMissing(EvaluationSubmission $submission): bool
     {
+        if ($this->isAutoScored($submission)) {
+            return false;
+        }
+
         $submission->loadMissing('evaluationFormVersion.presentationOutcomes');
 
         return $submission->evaluationFormVersion->presentationOutcomes->isNotEmpty()
@@ -327,6 +359,35 @@ class EvaluationSubmissionService
      * one, but an attempt with nothing to submit is not "all submitted").
      */
     /**
+     * The attempt's official outcome. Standard mode (user-directed
+     * 2026-10-13): the Group Grade — the average weighted total of every
+     * submitted sheet, the same figure Reports shows — run through the
+     * grading rubric. Title Proposal keeps the Chair's own pick
+     * (leadOutcomeFor()). Null when nothing has been submitted.
+     */
+    public function officialOutcomeFor(PresentationAttempt $attempt): ?int
+    {
+        $submitted = EvaluationSubmission::where('presentation_attempt_id', $attempt->id)
+            ->whereHas('submissionStatus', fn ($query) => $query->whereIn('code', ['SUBMITTED', 'FINALIZED']))
+            ->with('evaluationFormVersion.applicablePresentationModes')
+            ->get();
+
+        if ($submitted->isEmpty()) {
+            return null;
+        }
+
+        if (! $this->isAutoScored($submitted->first())) {
+            return $this->leadOutcomeFor($attempt);
+        }
+
+        $grades = $submitted->pluck('weighted_total_score')->filter(fn ($value) => $value !== null);
+
+        return $grades->isEmpty() ? null : PresentationOutcome::idForGrade(round($grades->avg(), 2));
+    }
+
+    /**
+     * Title Proposal only now — see officialOutcomeFor().
+     *
      * The attempt's official outcome, taken from the Lead/Chair panelist's
      * own submitted verdict — user-directed 2026-09-13, chosen over a
      * majority vote or an admin-recorded consolidation. Every panelist must
@@ -422,13 +483,15 @@ class EvaluationSubmissionService
             }
         }
 
+        $autoScored = ! $isTitleProposal;
         $outcomes = $version->presentationOutcomes;
 
-        if ($outcomes->isNotEmpty() && ! $outcomes->contains('id', $outcomeId)) {
+        // Standard mode: the remark is recomputed from the new score below.
+        if (! $autoScored && $outcomes->isNotEmpty() && ! $outcomes->contains('id', $outcomeId)) {
             return $this->failure('Select a remark.');
         }
 
-        if ($outcomes->isEmpty()) {
+        if (! $autoScored && $outcomes->isEmpty()) {
             $outcomeId = null;
         }
 
@@ -450,10 +513,12 @@ class EvaluationSubmissionService
             }
         }
 
-        // Does this sheet decide the attempt's official outcome?
+        // Does this sheet decide the attempt's official outcome? In Standard
+        // mode every sheet does (it moves the Group Grade); that case is
+        // settled inside the transaction, once the new total exists.
         $carriesOutcome = false;
 
-        if ($attempt->presentationStatus?->code === 'COMPLETED') {
+        if (! $autoScored && $attempt->presentationStatus?->code === 'COMPLETED') {
             $attempt->loadMissing('attemptPanelAssignments.assignmentStatus');
             $carriesOutcome = $attempt->attemptPanelAssignments
                 ->reject(fn ($a) => in_array($a->assignmentStatus?->code, ['REPLACED', 'WITHDRAWN'], true))
@@ -467,39 +532,57 @@ class EvaluationSubmissionService
             return $this->failure("{$group->group_reference} already has a follow-up attempt, so the Chair's remark can no longer change.");
         }
 
-        DB::transaction(function () use ($submission, $rows, $individual, $outcomeId, $remarks, $carriesOutcome, $attempt, $adminUserId) {
-            EvaluationScore::where('evaluation_submission_id', $submission->id)->delete();
+        try {
+            DB::transaction(function () use ($submission, $rows, $individual, $outcomeId, $remarks, $carriesOutcome, $autoScored, $attempt, $group, $adminUserId) {
+                EvaluationScore::where('evaluation_submission_id', $submission->id)->delete();
 
-            foreach ($rows as [$criterionId, $titleId, $value]) {
-                EvaluationScore::create([
-                    'evaluation_submission_id' => $submission->id,
-                    'evaluation_criterion_id' => $criterionId,
-                    'proposed_title_id' => $titleId,
-                    'score' => $value,
+                foreach ($rows as [$criterionId, $titleId, $value]) {
+                    EvaluationScore::create([
+                        'evaluation_submission_id' => $submission->id,
+                        'evaluation_criterion_id' => $criterionId,
+                        'proposed_title_id' => $titleId,
+                        'score' => $value,
+                    ]);
+                }
+
+                foreach ($individual as $studentId => $value) {
+                    EvaluationSubmissionStudentScore::updateOrCreate(
+                        ['evaluation_submission_id' => $submission->id, 'student_id' => $studentId],
+                        ['score' => $value]
+                    );
+                }
+
+                $submission->update([
+                    'presentation_outcome_id' => $outcomeId,
+                    'remarks' => $remarks !== null && trim($remarks) !== '' ? $remarks : null,
+                    'reopened_by' => $adminUserId,
+                    'reopened_at' => now(),
                 ]);
-            }
 
-            foreach ($individual as $studentId => $value) {
-                EvaluationSubmissionStudentScore::updateOrCreate(
-                    ['evaluation_submission_id' => $submission->id, 'student_id' => $studentId],
-                    ['score' => $value]
-                );
-            }
+                $submission->unsetRelation('evaluationScores');
+                $totals = $this->recomputeTotals($submission);
 
-            $submission->update([
-                'presentation_outcome_id' => $outcomeId,
-                'remarks' => $remarks !== null && trim($remarks) !== '' ? $remarks : null,
-                'reopened_by' => $adminUserId,
-                'reopened_at' => now(),
-            ]);
+                if ($carriesOutcome) {
+                    $attempt->update(['final_outcome_id' => $outcomeId]);
+                }
 
-            $submission->unsetRelation('evaluationScores');
-            $this->recomputeTotals($submission);
+                if ($autoScored) {
+                    $submission->update(['presentation_outcome_id' => PresentationOutcome::idForGrade($totals['weighted'])]);
 
-            if ($carriesOutcome) {
-                $attempt->update(['final_outcome_id' => $outcomeId]);
-            }
-        });
+                    if ($attempt->presentationStatus?->code === 'COMPLETED') {
+                        $official = $this->officialOutcomeFor($attempt);
+
+                        if ((int) $official !== (int) $attempt->final_outcome_id && $attempt->nextAttempts()->exists()) {
+                            throw new \RuntimeException("{$group->group_reference} already has a follow-up attempt, so this change can't alter its outcome.");
+                        }
+
+                        $attempt->update(['final_outcome_id' => $official]);
+                    }
+                }
+            });
+        } catch (\RuntimeException $e) {
+            return $this->failure($e->getMessage());
+        }
 
         return ['ok' => true];
     }

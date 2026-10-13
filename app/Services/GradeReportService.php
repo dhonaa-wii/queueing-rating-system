@@ -211,8 +211,8 @@ class GradeReportService
                     'project_title' => $group->current_project_title,
                     'attempt_id' => $gradedAttempt->id,
                     'submission_count' => $submissions->count(),
-                    // The attempt's official outcome (the Lead/Chair's
-                    // verdict — EvaluationSubmissionService::leadOutcomeFor()).
+                    // The attempt's official outcome (Group Grade through
+                    // the rubric — EvaluationSubmissionService::officialOutcomeFor()).
                     // A FAILED group still belongs in this report with its
                     // computed grades, just marked as failed and barred from
                     // another attempt — user-directed 2026-09-13.

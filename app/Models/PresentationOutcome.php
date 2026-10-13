@@ -17,6 +17,39 @@ class PresentationOutcome extends Model
      */
     public const ORDER = ['PASS_NO_REVISION', 'PASS_MINOR_REVISION', 'PASS_MAJOR_REVISION', 'RE_DEFENSE', 'FAILED'];
 
+    /**
+     * The grading rubric (user-directed 2026-10-13): a Standard-mode remark is
+     * no longer picked by the panel, it follows the score. Lower bound of each
+     * band => outcome; anything under the last one is FAILED. Bands are whole
+     * percentages, so 90.5 is still Minor Revision and 60.5 is Failed.
+     */
+    public const GRADE_BANDS = [
+        91 => 'PASS_NO_REVISION',
+        81 => 'PASS_MINOR_REVISION',
+        71 => 'PASS_MAJOR_REVISION',
+        61 => 'RE_DEFENSE',
+    ];
+
+    public static function codeForGrade(float $grade): string
+    {
+        foreach (self::GRADE_BANDS as $floor => $code) {
+            if ($grade >= $floor) {
+                return $code;
+            }
+        }
+
+        return 'FAILED';
+    }
+
+    public static function idForGrade(?float $grade): ?int
+    {
+        if ($grade === null) {
+            return null;
+        }
+
+        return self::where('code', self::codeForGrade($grade))->value('id');
+    }
+
     public function scopeOrdered(Builder $query): Builder
     {
         $cases = collect(self::ORDER)->map(fn ($code, $i) => "WHEN '{$code}' THEN {$i}")->implode(' ');

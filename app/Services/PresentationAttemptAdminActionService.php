@@ -72,11 +72,11 @@ class PresentationAttemptAdminActionService
                 'presentation_status_id' => PresentationStatus::where('code', 'COMPLETED')->firstOrFail()->id,
                 'completed_at' => $now,
                 // An explicit pick from the Admin's own Mark Complete
-                // dropdown wins; with none, fall back to the Lead/Chair's
-                // submitted verdict so this path classifies an attempt the
+                // dropdown wins; with none, fall back to the computed outcome
+                // (officialOutcomeFor()) so this path classifies an attempt the
                 // same way PresentationControlService::complete() does
                 // (user-directed 2026-09-13).
-                'final_outcome_id' => $outcomeId ?? $this->evaluationSubmissionService->leadOutcomeFor($attempt),
+                'final_outcome_id' => $outcomeId ?? $this->evaluationSubmissionService->officialOutcomeFor($attempt),
             ]);
 
             RoomSession::where('current_attempt_id', $attempt->id)->update([

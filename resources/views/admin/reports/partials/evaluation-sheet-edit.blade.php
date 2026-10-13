@@ -78,6 +78,13 @@
                         @if ($loop->first)
                             <td class="eval-remarks-cell" rowspan="{{ max($students->count(), 1) + ($adviserName !== '' ? 1 : 0) }}">
                                 @forelse ($version->presentationOutcomes as $outcome)
+                                    @unless ($isTitleProposal)
+                                        {{-- Standard: recomputed from the score on save. --}}
+                                        <div class="eval-remark-option">
+                                            <span class="eval-checkbox-glyph">{!! $submission->presentation_outcome_id == $outcome->id ? '&#9745;' : '&#9633;' !!}</span> {{ $outcome->name }}
+                                        </div>
+                                        @continue
+                                    @endunless
                                     <label class="eval-remark-option d-flex align-items-center gap-1">
                                         <input type="radio" class="form-check-input mt-0" name="presentation_outcome_id" value="{{ $outcome->id }}"
                                                @checked($submission->presentation_outcome_id == $outcome->id)>

@@ -103,7 +103,7 @@
 <div class="hc-topic" id="pn-roles">
     <h3><x-icon name="crown" /> Lead Panelist, Member and Backup</h3>
     <div class="hc-options">
-        <div class="hc-option"><div class="hc-option-icon"><x-icon name="crown" /></div><div><div class="hc-option-title">Lead Panelist (Chair)</div><p>Evaluates, and runs the room: Call Next, payment verification, Start, Pause, Complete, Defer and breaks. The Lead's remark becomes the group's official outcome. One per group.</p></div></div>
+        <div class="hc-option"><div class="hc-option-icon"><x-icon name="crown" /></div><div><div class="hc-option-title">Lead Panelist (Chair)</div><p>Evaluates, and runs the room: Call Next, payment verification, Start, Pause, Complete, Defer and breaks. One per group.</p></div></div>
         <div class="hc-option"><div class="hc-option-icon is-info"><x-icon name="user-check" /></div><div><div class="hc-option-title">Member</div><p>Evaluates every group on the panel from their own device.</p></div></div>
         <div class="hc-option"><div class="hc-option-icon is-success"><x-icon name="user-plus" /></div><div><div class="hc-option-title">Backup Panelist</div><p>On standby. Can take an assigned panelist's seat at the room device when they cannot attend.</p></div></div>
     </div>
@@ -191,7 +191,7 @@
     <ul class="hc-pins">
         <li><span class="m-pin">1</span><span><strong>Rate every criterion</strong> from 1 (Very Insufficient) to 5 (Very Sufficient). Each tap is saved immediately.</span></li>
         <li><span class="m-pin">2</span><span><strong>Individual score</strong> for each researcher, 0–100 (Standard mode). The group's technical adviser is listed under the researchers but is not scored.</span></li>
-        <li><span class="m-pin">3</span><span><strong>Remarks</strong> — choose one outcome, and add comments if needed.</span></li>
+        <li><span class="m-pin">3</span><span><strong>Remarks</strong> — marked automatically from the score when you submit (Title Proposal: choose one). Add comments if needed.</span></li>
         <li><span class="m-pin">4</span><span><strong>Submit Evaluation</strong> — available once every required part is filled.</span></li>
     </ul>
     <div class="hc-note hc-note-danger"><x-icon name="lock" /><p><span class="hc-note-title">Submitting is final.</span> A submitted evaluation cannot be edited. Review your ratings before you submit.</p></div>
@@ -235,7 +235,7 @@
         <li class="hc-step"><div class="hc-step-marker">2</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="wallet" /> Verify payment (if required)</div><p class="hc-step-text">Type each receipt's reference number and press <strong>Verify</strong>, one row per payment type. A number already used anywhere in the system is refused and the screen says which group holds it.</p></div></li>
         <li class="hc-step"><div class="hc-step-marker">3</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="play" /> Start</div><p class="hc-step-text">Starts the presentation timer. Locked until every payment type is verified.</p><div class="hc-result">Group <x-icon name="arrow-right" /> <span class="hc-badge hc-badge-success">Ongoing</span></div></div></li>
         <li class="hc-step"><div class="hc-step-marker">4</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="pause" /> Pause / Resume</div><p class="hc-step-text">Stops the clock for an interruption; paused time does not count against the group. Going over the time limit is allowed — the timer turns red and shows the extra time.</p></div></li>
-        <li class="hc-step"><div class="hc-step-marker">5</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="check" /> Complete</div><p class="hc-step-text">Ends the presentation. Locked until <strong>every panelist has submitted</strong> an evaluation. Your remark becomes the official outcome.</p><div class="hc-result">Group <x-icon name="arrow-right" /> <span class="hc-badge hc-badge-success">Completed</span></div></div></li>
+        <li class="hc-step"><div class="hc-step-marker">5</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="check" /> Complete</div><p class="hc-step-text">Ends the presentation. Locked until <strong>every panelist has submitted</strong> an evaluation. The official outcome is set from the Group Grade.</p><div class="hc-result">Group <x-icon name="arrow-right" /> <span class="hc-badge hc-badge-success">Completed</span></div></div></li>
     </ol>
     <h4>Deferring a group</h4>
     <p>Use <strong>Defer This Group</strong> when the called or presenting group cannot go on. Pick a reason (Not Present When Called, Incomplete Group, Not Ready to Present, System / Prototype Not Working, Incomplete Requirements, Payment Not Verified) and press <strong>Confirm Defer</strong>. The group leaves the active queue, the Administrators are notified, and you can call the next group.</p>

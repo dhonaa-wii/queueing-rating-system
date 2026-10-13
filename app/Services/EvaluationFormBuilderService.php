@@ -392,6 +392,21 @@ class EvaluationFormBuilderService
             $errors[] = 'Select at least one presentation outcome for the remarks/verdict section.';
         }
 
+        // A Standard sheet's remark is computed from its score
+        // (PresentationOutcome::GRADE_BANDS), so it has to offer every one
+        // the rubric can produce, or a computed remark would have no box.
+        if ($version->applicablePresentationModes()->where('code', 'STANDARD')->exists()) {
+            $rubric = [...array_values(\App\Models\PresentationOutcome::GRADE_BANDS), 'FAILED'];
+            $missing = \App\Models\PresentationOutcome::whereIn('code', $rubric)
+                ->whereNotIn('id', $version->presentationOutcomes()->pluck('presentation_outcomes.id'))
+                ->ordered()
+                ->pluck('name');
+
+            if ($missing->isNotEmpty()) {
+                $errors[] = 'Standard forms grade the remark automatically, so every outcome is needed — add: ' . $missing->implode(', ') . '.';
+            }
+        }
+
         return $errors;
     }
 

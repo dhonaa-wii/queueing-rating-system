@@ -39,7 +39,7 @@
 
 <div class="hc-topic" id="rf-outcomes">
     <h3><x-icon name="trophy" /> Presentation outcomes</h3>
-    <p>Each panelist picks one remark on their sheet. The <strong>Lead Panelist's</strong> remark becomes the group's official outcome. If the Lead filed no sheet, the presentation still completes but without an outcome.</p>
+    <p>Remarks are not picked by the panel. When a panelist submits, their sheet's remark is marked from its Total Score; the group's official outcome comes from its <strong>Group Grade</strong> (the average Total Score of all submitted sheets): 91–100% Passed with No Revision, 81–90% Passed with Minor Revision, 71–80% Passed with Major Revision, 61–70% Re-Defense, below 61% Failed. Title Proposal sheets still have the remark picked, and the Lead Panelist's pick is the official outcome.</p>
     <div class="hc-table-wrap">
         <table class="hc-table">
             <thead><tr><th>Outcome</th><th>Successful</th><th>Another attempt</th><th>In grade reports</th></tr></thead>
@@ -104,7 +104,7 @@
         <div class="hc-legend-row"><strong>Attempt</strong><span>One presentation by a group. A re-defense is the group's second (or later) attempt.</span></div>
         <div class="hc-legend-row"><strong>Backup / Alternate Panel</strong><span>The standby panelist who can take an assigned seat.</span></div>
         <div class="hc-legend-row"><strong>Category</strong><span>One presentation event, e.g. "Capstone Final Defense", with its own registration, dates, rooms and form.</span></div>
-        <div class="hc-legend-row"><strong>Chair / Lead Panelist</strong><span>The panelist who runs the room and whose remark is the official outcome.</span></div>
+        <div class="hc-legend-row"><strong>Chair / Lead Panelist</strong><span>The panelist who runs the room (in Title Proposal, also picks the official outcome).</span></div>
         <div class="hc-legend-row"><strong>College</strong><span>The unit an Administrator manages; categories, panelists and forms belong to it.</span></div>
         <div class="hc-legend-row"><strong>Defer</strong><span>Take a group out of the active queue for now, with a reason.</span></div>
         <div class="hc-legend-row"><strong>Evaluation form</strong><span>The rating sheet: weighted sections of criteria rated 1–5, plus remarks.</span></div>
