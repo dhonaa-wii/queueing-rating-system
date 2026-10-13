@@ -685,6 +685,10 @@
                     body: body,
                 }).then(function (response) {
                     return response.json().catch(function () { return {}; }).then(function (data) {
+                        if (data.released) {
+                            window.location.href = data.redirect;
+                        }
+
                         return { ok: response.ok, data: data };
                     });
                 });
@@ -910,6 +914,11 @@
                 fetch(statusUrl, { headers: { 'Accept': 'application/json' }, cache: 'no-store' })
                     .then(function (response) { return response.json(); })
                     .then(function (data) {
+                        if (data.released) {
+                            window.location.href = data.redirect;
+                            return;
+                        }
+
                         if (data.connected !== wasConnected || data.classification !== wasClassification) {
                             window.location.reload();
                             return;

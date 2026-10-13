@@ -143,10 +143,12 @@ class RoomSessionController extends Controller
             return back()->with('error', "Terminal {$terminal->terminal_number} is already set up on another device — ask an Administrator to release it first.");
         }
 
-        $terminal->update(['device_identifier' => (string) Str::uuid()]);
+        $deviceIdentifier = (string) Str::uuid();
+        $terminal->update(['device_identifier' => $deviceIdentifier]);
 
         $request->session()->forget('room_login.account_id');
         $request->session()->put('room_login.room_terminal_id', $terminal->id);
+        $request->session()->put('room_login.device_identifier', $deviceIdentifier);
 
         return redirect()->route('room-session.home');
     }
@@ -1010,12 +1012,18 @@ class RoomSessionController extends Controller
     public function release(Request $request)
     {
         $terminalId = $request->session()->get('room_login.room_terminal_id');
+        $deviceIdentifier = $request->session()->get('room_login.device_identifier');
 
-        if ($terminalId) {
-            RoomTerminal::where('id', $terminalId)->update(['device_identifier' => null]);
+        // Only clear the claim if it is still this device's — after an Admin
+        // release another tablet may already hold this terminal, and a stale
+        // tablet pressing Release must not knock that one off.
+        if ($terminalId && $deviceIdentifier) {
+            RoomTerminal::where('id', $terminalId)
+                ->where('device_identifier', $deviceIdentifier)
+                ->update(['device_identifier' => null]);
         }
 
-        $request->session()->forget(['room_login.room_terminal_id', 'room_login.account_id']);
+        $request->session()->forget(['room_login.room_terminal_id', 'room_login.account_id', 'room_login.device_identifier']);
 
         return redirect()->route('room-session.entry');
     }
@@ -1052,6 +1060,36 @@ class RoomSessionController extends Controller
         if (! $terminal) {
             $request->session()->forget('room_login.room_terminal_id');
             abort(403);
+        }
+
+        $deviceIdentifier = $request->session()->get('room_login.device_identifier');
+
+        // A tablet claimed before the session carried its device id adopts
+        // the terminal's current claim once, so deploying this doesn't kick
+        // live tablets out.
+        if ($deviceIdentifier === null && $terminal->device_identifier !== null) {
+            $deviceIdentifier = $terminal->device_identifier;
+            $request->session()->put('room_login.device_identifier', $deviceIdentifier);
+        }
+
+        // The terminal row outlives the device: once an Admin releases it and
+        // another tablet claims it, this session no longer owns it and must
+        // not keep showing (or acting as) whoever signs in on the new tablet.
+        if ($terminal->device_identifier === null || ! hash_equals($terminal->device_identifier, (string) $deviceIdentifier)) {
+            $request->session()->forget(['room_login.room_terminal_id', 'room_login.account_id', 'room_login.device_identifier', 'room_login.qr_token']);
+
+            // Flashed either way: a JSON caller (the 5s poll) navigates to the
+            // entry page itself, which then shows it in its error box.
+            $request->session()->flash('errors', (new \Illuminate\Support\ViewErrorBag)->put(
+                'default',
+                new \Illuminate\Support\MessageBag(['device' => 'This device was released by an Administrator.'])
+            ));
+
+            throw new \Illuminate\Http\Exceptions\HttpResponseException(
+                $request->expectsJson()
+                    ? response()->json(['released' => true, 'redirect' => route('room-session.entry')], 409)
+                    : redirect()->route('room-session.entry')
+            );
         }
 
         return $terminal;
