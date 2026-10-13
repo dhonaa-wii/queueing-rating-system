@@ -40,12 +40,9 @@
         ? 'Chair'
         : ($panelOwnSeat && isset($panelMemberNumbers[$panelOwnSeat->id]) ? 'Member ' . $panelMemberNumbers[$panelOwnSeat->id] : 'Member');
 
-    $leafCriteriaCount = $sections->sum(fn ($section) => $section->childCriteria->count());
-    $titleMultiplier = $isTitleProposal ? max(1, $proposedTitles->count()) : 1;
-    $missingCount = max(0, ($leafCriteriaCount * $titleMultiplier) - $evaluationSubmission->evaluationScores->count());
-    // Mirrors EvaluationSubmissionService::submit()'s own outcome check so
-    // the button disables before the panelist can hit the server block.
-    $outcomeMissing = $version->presentationOutcomes->isNotEmpty() && $evaluationSubmission->presentation_outcome_id === null;
+    // Same rule submit() enforces (ratings, every individual grade, remark),
+    // so the button is disabled before the panelist can hit the server block.
+    $submitBlock = $readOnly ? null : app(\App\Services\EvaluationSubmissionService::class)->submitBlockReason($evaluationSubmission);
 @endphp
 
 <div class="card-brand p-2">
@@ -200,9 +197,9 @@
         <form method="POST" action="{{ route('room-session.evaluation.submit') }}" class="mt-2" id="evaluation-submit-form">
             @csrf
         </form>
-        <button type="button" class="btn btn-success-brand w-100 mt-2" @disabled($missingCount > 0 || $outcomeMissing)
+        <button type="button" class="btn btn-success-brand w-100 mt-2" @disabled($submitBlock !== null)
                 data-bs-toggle="modal" data-bs-target="#submit-evaluation-modal"
-                title="{{ $missingCount > 0 ? $missingCount . ' rating(s) still missing' : ($outcomeMissing ? 'Select a remark before submitting' : '') }}">
+                title="{{ $submitBlock ?? '' }}">
             Submit Evaluation
         </button>
 

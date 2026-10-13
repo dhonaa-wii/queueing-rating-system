@@ -824,7 +824,7 @@ class RoomSessionController extends Controller
         $criterion = EvaluationCriterion::findOrFail($validated['evaluation_criterion_id']);
         $proposedTitle = ! empty($validated['proposed_title_id']) ? ProposedTitle::find($validated['proposed_title_id']) : null;
 
-        $result = $service->saveScore($submission, $criterion, (float) $validated['score'], $proposedTitle);
+        $result = $this->withSubmitState($service, $submission, $service->saveScore($submission, $criterion, (float) $validated['score'], $proposedTitle));
 
         return $this->respondEvaluationAction($request, $result, 'Rating saved.');
     }
@@ -840,7 +840,7 @@ class RoomSessionController extends Controller
 
         $student = Student::findOrFail($validated['student_id']);
 
-        $result = $service->saveStudentScore($submission, $student, isset($validated['score']) ? (float) $validated['score'] : null);
+        $result = $this->withSubmitState($service, $submission, $service->saveStudentScore($submission, $student, isset($validated['score']) ? (float) $validated['score'] : null));
 
         return $this->respondEvaluationAction($request, $result, 'Individual score saved.');
     }
@@ -853,16 +853,7 @@ class RoomSessionController extends Controller
             'presentation_outcome_id' => ['nullable', 'integer', 'exists:presentation_outcomes,id'],
         ]);
 
-        $result = $service->saveOutcome($submission, $validated['presentation_outcome_id'] ?? null);
-
-        // Lets the tablet enable/disable Submit the moment a remark is
-        // picked, instead of waiting for the next 5s poll to re-render the
-        // panel — the outcome is normally the last thing filled in, so the
-        // wait would land exactly when the panelist wants to submit.
-        if ($result['ok']) {
-            $result['canSubmit'] = $service->countMissingScores($submission->fresh()) === 0
-                && ! $service->outcomeMissing($submission->fresh());
-        }
+        $result = $this->withSubmitState($service, $submission, $service->saveOutcome($submission, $validated['presentation_outcome_id'] ?? null));
 
         return $this->respondEvaluationAction($request, $result, 'Outcome saved.');
     }
@@ -910,6 +901,21 @@ class RoomSessionController extends Controller
             : redirect()->route('room-session.home')->with('error', $result['error']);
     }
 
+    /**
+     * Lets the tablet enable/disable Submit right after any rating,
+     * individual grade or remark is saved, instead of waiting for the next
+     * 5s poll — whichever field is filled last, the button follows at once.
+     */
+    private function withSubmitState(EvaluationSubmissionService $service, $submission, array $result): array
+    {
+        if ($result['ok']) {
+            $result['submitBlock'] = $service->submitBlockReason($submission->fresh());
+            $result['canSubmit'] = $result['submitBlock'] === null;
+        }
+
+        return $result;
+    }
+
     private function respondEvaluationAction(Request $request, array $result, string $successMessage)
     {
         if ($result['ok']) {
@@ -921,6 +927,7 @@ class RoomSessionController extends Controller
 
             if (isset($result['canSubmit'])) {
                 $payload['canSubmit'] = $result['canSubmit'];
+                $payload['submitBlock'] = $result['submitBlock'];
             }
 
             return $request->wantsJson()

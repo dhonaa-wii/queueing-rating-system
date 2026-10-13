@@ -710,7 +710,26 @@
                 return !!document.querySelector('.modal.show[data-relocated-from="evaluation-panel"]');
             }
 
+            // Submit follows the server's answer after every rating, individual
+            // grade and remark save (EvaluationSubmissionService::
+            // submitBlockReason()), so it can't be pressed while incomplete.
+            function applySubmitState(data) {
+                var submitBtn = evaluationPanel.querySelector('[data-bs-target="#submit-evaluation-modal"]');
+                if (!submitBtn || !data || typeof data.canSubmit !== 'boolean') return;
+                submitBtn.disabled = !data.canSubmit;
+                submitBtn.title = data.submitBlock || '';
+            }
+
             if (evaluationPanel) {
+                // A cleared individual grade disables Submit at once; the save
+                // on blur then confirms the real state.
+                evaluationPanel.addEventListener('input', function (event) {
+                    var scoreInput = event.target.closest('[data-student-score-input]');
+                    if (!scoreInput || scoreInput.value.trim() !== '') return;
+                    var submitBtn = evaluationPanel.querySelector('[data-bs-target="#submit-evaluation-modal"]');
+                    if (submitBtn) submitBtn.disabled = true;
+                });
+
                 evaluationPanel.addEventListener('click', function (event) {
                     var scoreBtn = event.target.closest('[data-score-btn]');
                     if (scoreBtn) {
@@ -738,6 +757,8 @@
                                         : '___';
                                 }
                             }
+
+                            applySubmitState(result.data);
                         });
                         return;
                     }
@@ -756,15 +777,7 @@
                                 if (glyph) glyph.innerHTML = isSelected ? '&#9745;' : '&#9633;';
                             });
 
-                            // A remark is required to submit, and it's normally
-                            // the last thing picked — reflect it immediately
-                            // rather than at the next poll. The server decides;
-                            // this only applies its answer.
-                            var submitBtn = evaluationPanel.querySelector('[data-bs-target="#submit-evaluation-modal"]');
-                            if (submitBtn && typeof result.data.canSubmit === 'boolean') {
-                                submitBtn.disabled = !result.data.canSubmit;
-                                if (result.data.canSubmit) submitBtn.title = '';
-                            }
+                            applySubmitState(result.data);
                         });
                     }
                 });
@@ -783,6 +796,8 @@
                         postEvaluation(@json(route('room-session.evaluation.student-score')), {
                             student_id: scoreInput.dataset.studentId,
                             score: scoreInput.value === '' ? null : scoreInput.value,
+                        }).then(function (result) {
+                            if (result.ok) applySubmitState(result.data);
                         });
                     }
                 }, true);

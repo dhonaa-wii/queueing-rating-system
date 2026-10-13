@@ -205,14 +205,8 @@ class EvaluationSubmissionService
             return $this->failure($blocked);
         }
 
-        $missing = $this->countMissingScores($submission);
-
-        if ($missing > 0) {
-            return $this->failure("{$missing} rating(s) still missing — score every item before submitting.");
-        }
-
-        if ($this->outcomeMissing($submission)) {
-            return $this->failure('Select a remark before submitting.');
+        if ($reason = $this->submitBlockReason($submission)) {
+            return $this->failure($reason);
         }
 
         $submission->update([
@@ -221,6 +215,54 @@ class EvaluationSubmissionService
         ]);
 
         return ['ok' => true];
+    }
+
+    /**
+     * Why the sheet can't be submitted yet, or null when it can. The one
+     * completeness rule, shared by submit() and the tablet's Submit button
+     * (which is disabled with this as its title): every item rated, every
+     * researcher's Individual (Raw Score) filled in (Standard mode —
+     * user-directed 2026-10-13, a blank one used to go through), and a remark
+     * picked when the form has outcomes.
+     */
+    public function submitBlockReason(EvaluationSubmission $submission): ?string
+    {
+        $missing = $this->countMissingScores($submission);
+
+        if ($missing > 0) {
+            return "{$missing} rating(s) still missing — score every item before submitting.";
+        }
+
+        $missingIndividual = $this->countMissingStudentScores($submission);
+
+        if ($missingIndividual > 0) {
+            return "{$missingIndividual} individual grade(s) still blank — enter every researcher's raw score before submitting.";
+        }
+
+        if ($this->outcomeMissing($submission)) {
+            return 'Select a remark before submitting.';
+        }
+
+        return null;
+    }
+
+    /**
+     * Researchers with no Individual (Raw Score) yet. Title Proposal sheets
+     * have no such column, so they never count.
+     */
+    public function countMissingStudentScores(EvaluationSubmission $submission): int
+    {
+        $submission->loadMissing('studentScores', 'evaluationFormVersion.applicablePresentationModes', 'presentationAttempt.researchGroup.students');
+
+        if ($submission->evaluationFormVersion->applicablePresentationModes->first()?->code === 'TITLE_PROPOSAL') {
+            return 0;
+        }
+
+        $scored = $submission->studentScores->whereNotNull('score')->pluck('student_id');
+
+        return $submission->presentationAttempt->researchGroup->students
+            ->reject(fn ($student) => $scored->contains($student->id))
+            ->count();
     }
 
     /**
@@ -330,7 +372,7 @@ class EvaluationSubmissionService
      * SUBMITTED with its original submitted_at.
      *
      * $scores is keyed "criterionId:proposedTitleId" ("…:0" in Standard
-     * mode), $studentScores by student id (null/blank clears one).
+     * mode), $studentScores by student id (every researcher needs one).
      *
      * When the sheet is the Chair's and the attempt is complete, its remark
      * is the attempt's official outcome (leadOutcomeFor()), so a changed
@@ -397,9 +439,7 @@ class EvaluationSubmissionService
                 $value = $studentScores[$student->id] ?? null;
 
                 if ($value === null || $value === '') {
-                    $individual[$student->id] = null;
-
-                    continue;
+                    return $this->failure('Every researcher needs an individual grade.');
                 }
 
                 if (! is_numeric($value) || $value < 0 || $value > 100) {
