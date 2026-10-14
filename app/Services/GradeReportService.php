@@ -47,6 +47,30 @@ class GradeReportService
         return $this->paymentVerificationService->typesFor($category);
     }
 
+    /**
+     * The export columns the admin may leave out (user-directed 2026-10-14),
+     * key => label, in print order. Name, Section and Track are always
+     * exported and are not listed here. Each payment type is its own
+     * `pay_{id}` column, labelled with the type's name.
+     */
+    public static function optionalExportColumns(Collection $paymentTypes): array
+    {
+        $columns = [
+            'group' => 'Group',
+            'individual_avg' => 'Individual Grade Avg.',
+            'group_grade' => 'Group Grade',
+            'total' => 'Total',
+            'remarks' => 'Remarks',
+            'attempt' => 'Attempt',
+        ];
+
+        foreach ($paymentTypes as $type) {
+            $columns['pay_' . $type->id] = $type->name;
+        }
+
+        return $columns;
+    }
+
     public function sectionsFor(PresentationCategory $category): Collection
     {
         return $category->researchGroups()

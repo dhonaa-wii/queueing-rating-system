@@ -28,9 +28,10 @@ class GradePdfExporter
     ];
 
     /**
-     * $paymentTypes become trailing columns named after each type, like the
-     * page and the spreadsheet. Wide tables (more than two payment types) go
-     * landscape so the columns don't get squeezed.
+     * $columns are the optional columns picked in the export modal
+     * (GradeReportService::optionalExportColumns() keys, null = all); each
+     * payment type is its own `pay_{id}` column. Name, Section and Track are
+     * always printed. Wide tables go landscape so columns don't get squeezed.
      */
     public function render(
         PresentationCategory $category,
@@ -38,10 +39,15 @@ class GradePdfExporter
         ?string $filterLabel,
         Collection $paymentTypes,
         ?EvaluationLetterhead $letterhead,
+        ?array $columns = null,
     ): string {
         $showLetterhead = $letterhead && $letterhead->hasContent();
+        $optional = GradeReportService::optionalExportColumns($paymentTypes);
+        $columns ??= array_keys($optional);
 
         $html = view('admin.reports.grades-pdf', [
+            'columns' => $columns,
+            'columnLabels' => $optional,
             'category' => $category,
             'rows' => $rows,
             'filterLabel' => $filterLabel,
@@ -53,7 +59,8 @@ class GradePdfExporter
             'generatedAt' => now()->format('M j, Y g:i A'),
         ])->render();
 
-        return $this->toPdf($html, $paymentTypes->count() > 2 ? 'landscape' : 'portrait');
+        // Name, Section and Track plus the picked columns; past eight it goes landscape.
+        return $this->toPdf($html, 3 + count($columns) > 8 ? 'landscape' : 'portrait');
     }
 
     /**

@@ -21,18 +21,44 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
  */
 class GradeSpreadsheetExporter
 {
-    private const HEADERS = ['Name', 'Section', 'Group', 'Individual Grade Avg.', 'Group Grade', 'Total', 'Remarks', 'Attempt'];
-
     /**
      * $paymentTypes (category_payment_types, empty when the category doesn't
-     * require payment) — each becomes its own trailing column, labelled with
-     * the type's own name rather than a generic "Payment" header, e.g.
-     * "Defense Fee" / "Documentation Fee".
+     * require payment) — each is its own column, labelled with the type's
+     * own name. $columns are the optional columns the admin picked in the
+     * export modal (GradeReportService::optionalExportColumns() keys); null
+     * means all of them. Name, Section and Track are always exported.
      */
-    public function build(PresentationCategory $category, Collection $rows, ?string $filterLabel = null, ?Collection $paymentTypes = null): Spreadsheet
+    public function build(PresentationCategory $category, Collection $rows, ?string $filterLabel = null, ?Collection $paymentTypes = null, ?array $columns = null): Spreadsheet
     {
         $paymentTypes ??= collect();
-        $headers = array_merge(self::HEADERS, $paymentTypes->pluck('name')->all());
+        $optional = GradeReportService::optionalExportColumns($paymentTypes);
+        $columns ??= array_keys($optional);
+
+        // [header, value(row), horizontal alignment, two-decimal number]
+        $definitions = [
+            ['Name', fn ($r) => $r['name'], null, false],
+            ['Section', fn ($r) => $r['section'] ?? '', null, false],
+            ['Track', fn ($r) => $r['track_name'] ?? '', null, false],
+        ];
+
+        foreach ($columns as $key) {
+            $definitions[] = match (true) {
+                $key === 'group' => ['Group', fn ($r) => $r['group_reference'], null, false],
+                $key === 'individual_avg' => ['Individual Grade Avg.', fn ($r) => $r['individual_avg'], Alignment::HORIZONTAL_RIGHT, true],
+                $key === 'group_grade' => ['Group Grade', fn ($r) => $r['group_grade'], Alignment::HORIZONTAL_RIGHT, true],
+                $key === 'total' => ['Total', fn ($r) => $r['total'], Alignment::HORIZONTAL_RIGHT, true],
+                $key === 'remarks' => ['Remarks', fn ($r) => $r['outcome'] ?? '', null, false],
+                $key === 'attempt' => ['Attempt', fn ($r) => $r['attempt_number'], Alignment::HORIZONTAL_CENTER, false],
+                default => [
+                    $optional[$key],
+                    fn ($r) => ($r['payment'][(int) substr($key, 4)] ?? false) ? 'Paid' : 'Unpaid',
+                    Alignment::HORIZONTAL_CENTER,
+                    false,
+                ],
+            };
+        }
+
+        $headers = array_column($definitions, 0);
 
         $spreadsheet = new Spreadsheet();
         $spreadsheet->getProperties()->setTitle("{$category->name} — Generated Grades");
@@ -64,25 +90,24 @@ class GradeSpreadsheetExporter
         $row = $headerRow;
         foreach ($rows as $data) {
             $row++;
-            $paymentCells = $paymentTypes->map(fn ($type) => ($data['payment'][$type->id] ?? false) ? 'Paid' : 'Unpaid')->all();
-
-            $sheet->fromArray(array_merge([
-                $data['name'],
-                $data['section'] ?? '',
-                $data['group_reference'],
-                $data['individual_avg'],
-                $data['group_grade'],
-                $data['total'],
-                $data['outcome'] ?? '',
-                $data['attempt_number'],
-            ], $paymentCells), null, "A{$row}", true);
+            $sheet->fromArray(array_map(fn ($definition) => $definition[1]($data), $definitions), null, "A{$row}", true);
         }
 
         if ($row > $headerRow) {
             $firstData = $headerRow + 1;
-            $sheet->getStyle("D{$firstData}:F{$row}")->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_00);
-            $sheet->getStyle("D{$firstData}:F{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-            $sheet->getStyle("H{$firstData}:H{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+            foreach ($definitions as $index => [, , $alignment, $numeric]) {
+                $letter = Coordinate::stringFromColumnIndex($index + 1);
+                $range = "{$letter}{$firstData}:{$letter}{$row}";
+
+                if ($numeric) {
+                    $sheet->getStyle($range)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_00);
+                }
+                if ($alignment) {
+                    $sheet->getStyle($range)->getAlignment()->setHorizontal($alignment);
+                }
+            }
+
             $sheet->getStyle("A{$headerRow}:{$lastColumn}{$row}")->getBorders()->getAllBorders()
                 ->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('E8E1D9');
         }

@@ -19,6 +19,7 @@ use App\Services\PaymentVerificationService;
 use App\Services\RecommendationSummaryService;
 use App\Support\DefaultCategoryPicker;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -178,7 +179,14 @@ class ReportController extends Controller
         $filters = $this->filters($request);
         [$filterLabel, $filename] = $this->exportLabels($filters, $category);
 
-        $spreadsheet = $exporter->build($category, $gradeReportService->generate($category, $filters), $filterLabel, $gradeReportService->paymentTypesFor($category));
+        $paymentTypes = $gradeReportService->paymentTypesFor($category);
+        $spreadsheet = $exporter->build(
+            $category,
+            $gradeReportService->generate($category, $filters),
+            $filterLabel,
+            $paymentTypes,
+            $this->selectedExportColumns($request, $paymentTypes),
+        );
 
         return response()->streamDownload(
             fn () => $exporter->writer($spreadsheet)->save('php://output'),
@@ -199,12 +207,14 @@ class ReportController extends Controller
         $filters = $this->filters($request);
         [$filterLabel, $filename] = $this->exportLabels($filters, $category);
 
+        $paymentTypes = $gradeReportService->paymentTypesFor($category);
         $pdf = $exporter->render(
             $category,
             $gradeReportService->generate($category, $filters),
             $filterLabel,
-            $gradeReportService->paymentTypesFor($category),
+            $paymentTypes,
             EvaluationLetterhead::forCollege($category->college_id),
+            $this->selectedExportColumns($request, $paymentTypes),
         );
 
         return response($pdf, 200, [
@@ -280,6 +290,24 @@ class ReportController extends Controller
      *
      * @return array{0: string, 1: string}
      */
+    /**
+     * The optional columns picked in the export modal, in print order. A link
+     * without `cols_sent` (an old bookmark) exports every column; with it, an
+     * empty pick exports only Name / Section / Track.
+     */
+    private function selectedExportColumns(Request $request, Collection $paymentTypes): array
+    {
+        $available = array_keys(GradeReportService::optionalExportColumns($paymentTypes));
+
+        if (! $request->has('cols_sent')) {
+            return $available;
+        }
+
+        $picked = array_map('strval', (array) $request->query('cols', []));
+
+        return array_values(array_intersect($available, $picked));
+    }
+
     private function exportLabels(array $filters, PresentationCategory $category): array
     {
         $sectionLabel = match ($filters['section']) {

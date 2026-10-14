@@ -62,7 +62,7 @@
             ['Can I edit a published evaluation form?', 'Yes — open it and press Edit Form. Criteria with recorded scores cannot be deleted, and changing weights does not re-score past evaluations.'],
             ['I cannot see another college\'s categories or panelists.', 'By design: an Administrator only sees their own college.'],
             ['End Category is disabled.', 'Some group still has to present, or a re-defense is pending.'],
-            ['How do I get grades into a spreadsheet?', 'Reports → Generated Grades → <strong>Export to Excel</strong> (or PDF). The export follows the filters you set.'],
+            ['How do I get grades into a spreadsheet?', 'Reports → Generated Grades → <strong>Export to Excel</strong> (or PDF), then tick the columns to include. Name, Section and Track are always included. The export follows the filters you set.'],
         ]],
         'fq-technical' => ['icon' => 'monitor', 'title' => 'Technical problems', 'items' => [
             ['A page looks broken or out of date.', 'Reload it. If that does not help, clear the browser cache or try another up-to-date browser.'],

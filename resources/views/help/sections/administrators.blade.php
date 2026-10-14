@@ -416,6 +416,7 @@
     </figure>
     <ul class="hc-list">
         <li><strong>Filters</strong> — name or group code (a code shows every member of that group), section, presentation date, and sort (section then name, or last name). Exports follow the filters.</li>
+        <li><strong>Export to Excel / PDF</strong> — opens a list of columns to tick. Name, Section and Track are always included; everything else (group, grades, remarks, attempt, each payment) is ticked by default and can be left out.</li>
         <li><strong>Evaluation</strong> — view the evaluation sheets the panel submitted for a group.</li>
         <li><strong>Best Group</strong> (Group Grade × 70% + the members' average Individual Grade × 30%) and <strong>Best Presenter</strong> (Group Grade × 30% + their own Individual Grade × 70%) — the category's leaders; <strong>View</strong> shows the top five, exportable to PDF.</li>
         <li><strong>Panelist Sign-off Sheet</strong> — every panelist and how many groups they evaluated, with signature lines. View, print or export to PDF at any time.</li>

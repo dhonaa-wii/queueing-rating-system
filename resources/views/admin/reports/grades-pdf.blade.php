@@ -100,12 +100,9 @@
             <tr>
                 <th>Name</th>
                 <th>Section</th>
-                <th class="num">Individual Grade Avg.</th>
-                <th class="num">Group Grade</th>
-                <th class="num">Total</th>
-                <th>Remarks</th>
-                @foreach ($paymentTypes as $type)
-                    <th class="center">{{ $type->name }}</th>
+                <th>Track</th>
+                @foreach ($columns as $key)
+                    <th class="{{ in_array($key, ['individual_avg', 'group_grade', 'total'], true) ? 'num' : (in_array($key, ['group', 'remarks'], true) ? '' : 'center') }}">{{ $columnLabels[$key] }}</th>
                 @endforeach
             </tr>
         </thead>
@@ -114,32 +111,43 @@
                 <tr>
                     <td>{{ $row['name'] }}</td>
                     <td>{{ $row['section'] ?? '—' }}</td>
-                    <td class="num">{{ $row['individual_avg'] !== null ? number_format($row['individual_avg'], 2) : '—' }}</td>
-                    <td class="num">{{ $row['group_grade'] !== null ? number_format($row['group_grade'], 2) : '—' }}</td>
-                    <td class="num">{{ $row['total'] !== null ? number_format($row['total'], 2) : '—' }}</td>
-                    <td>
-                        @if ($row['outcome'])
-                            <span class="{{ $row['outcome_failed'] ? 'fail' : 'pass' }}">{{ $row['outcome'] }}</span>
-                            @if ($row['attempt_number'] > 1)
-                                <span class="attempt">Attempt {{ $row['attempt_number'] }}</span>
-                            @endif
-                        @else
-                            <span class="muted">—</span>
-                        @endif
-                    </td>
-                    @foreach ($paymentTypes as $type)
-                        <td class="center">
-                            @if ($row['payment'][$type->id] ?? false)
-                                <span class="paid">Paid</span>
-                            @else
-                                <span class="muted">Unpaid</span>
-                            @endif
-                        </td>
+                    <td>{{ $row['track_name'] ?? '—' }}</td>
+                    @foreach ($columns as $key)
+                        @switch($key)
+                            @case('group')
+                                <td>{{ $row['group_reference'] }}</td>
+                                @break
+                            @case('individual_avg')
+                            @case('group_grade')
+                            @case('total')
+                                <td class="num">{{ $row[$key] !== null ? number_format($row[$key], 2) : '—' }}</td>
+                                @break
+                            @case('remarks')
+                                <td>
+                                    @if ($row['outcome'])
+                                        <span class="{{ $row['outcome_failed'] ? 'fail' : 'pass' }}">{{ $row['outcome'] }}</span>
+                                    @else
+                                        <span class="muted">—</span>
+                                    @endif
+                                </td>
+                                @break
+                            @case('attempt')
+                                <td class="center">{{ $row['attempt_number'] }}</td>
+                                @break
+                            @default
+                                <td class="center">
+                                    @if ($row['payment'][(int) substr($key, 4)] ?? false)
+                                        <span class="paid">Paid</span>
+                                    @else
+                                        <span class="muted">Unpaid</span>
+                                    @endif
+                                </td>
+                        @endswitch
                     @endforeach
                 </tr>
             @empty
                 <tr>
-                    <td colspan="{{ 6 + $paymentTypes->count() }}" class="empty">No completed groups match this filter.</td>
+                    <td colspan="{{ 3 + count($columns) }}" class="empty">No completed groups match this filter.</td>
                 </tr>
             @endforelse
         </tbody>

@@ -178,12 +178,63 @@
                 ]);
             @endphp
             <div class="d-flex align-items-center gap-2">
-                <a href="{{ route('admin.reports.grades.export-pdf', $exportQuery) }}" class="btn btn-sm btn-outline-brand">
+                <button type="button" class="btn btn-sm btn-outline-brand"
+                        data-export-open
+                        data-url="{{ route('admin.reports.grades.export-pdf', $category) }}"
+                        data-title="Export to PDF">
                     <x-icon name="file-text" /> Export to PDF
-                </a>
-                <a href="{{ route('admin.reports.grades.export', $exportQuery) }}" class="btn btn-sm btn-outline-brand">
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-brand"
+                        data-export-open
+                        data-url="{{ route('admin.reports.grades.export', $category) }}"
+                        data-title="Export to Excel">
                     <x-icon name="file-text" /> Export to Excel
-                </a>
+                </button>
+            </div>
+        </div>
+
+        {{-- Column picker for both exports (user-directed 2026-10-14). Name,
+             Section and Track always go out; the rest are ticked by default.
+             The form is a plain GET carrying the page's filters, so the file
+             still matches the table. --}}
+        <div class="modal fade" id="export-columns-modal" tabindex="-1" aria-labelledby="export-columns-modal-label" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <form class="modal-content" method="GET" data-export-form>
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="export-columns-modal-label" data-export-title>Export</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        @foreach (\Illuminate\Support\Arr::except($exportQuery, [0]) as $name => $value)
+                            <input type="hidden" name="{{ $name }}" value="{{ $value }}">
+                        @endforeach
+                        <input type="hidden" name="cols_sent" value="1">
+
+                        <div class="rp-export-label">Always included</div>
+                        <div class="rp-export-fixed">
+                            @foreach (['Name', 'Section', 'Track'] as $fixed)
+                                <span class="rp-export-chip"><x-icon name="lock" /> {{ $fixed }}</span>
+                            @endforeach
+                        </div>
+
+                        <div class="d-flex align-items-center justify-content-between mt-3">
+                            <div class="rp-export-label mb-0">Columns</div>
+                            <button type="button" class="rp-export-toggle" data-export-toggle>Clear all</button>
+                        </div>
+                        <div class="rp-export-options">
+                            @foreach (\App\Services\GradeReportService::optionalExportColumns($paymentTypes) as $key => $label)
+                                <label class="rp-export-option">
+                                    <input type="checkbox" class="form-check-input" name="cols[]" value="{{ $key }}" checked data-export-col>
+                                    <span>{{ $label }}</span>
+                                </label>
+                            @endforeach
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-brand" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-brand"><x-icon name="download" /> <span data-export-submit>Export</span></button>
+                    </div>
+                </form>
             </div>
         </div>
 
@@ -727,6 +778,99 @@
             color: var(--brand-accent);
         }
 
+        /* Export column picker */
+        .rp-export-label {
+            margin-bottom: 0.4rem;
+            font-size: 0.68rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--brand-muted);
+        }
+
+        .rp-export-fixed {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+        }
+
+        .rp-export-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.25rem 0.65rem;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--brand-accent);
+            background-color: var(--brand-accent-tint);
+        }
+
+        .rp-export-chip svg {
+            width: 0.8rem;
+            height: 0.8rem;
+        }
+
+        .rp-export-toggle {
+            padding: 0;
+            border: 0;
+            background: none;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--brand-accent);
+        }
+
+        .rp-export-toggle:hover {
+            text-decoration: underline;
+        }
+
+        .rp-export-options {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.4rem;
+            margin-top: 0.5rem;
+        }
+
+        .rp-export-option {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0;
+            padding: 0.45rem 0.65rem;
+            border-radius: 0.6rem;
+            font-size: 0.85rem;
+            background-color: var(--brand-surface);
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+        }
+
+        .rp-export-option:hover {
+            background-color: var(--brand-accent-tint);
+        }
+
+        .rp-export-option .form-check-input {
+            flex-shrink: 0;
+            margin: 0;
+        }
+
+        .rp-export-option .form-check-input:checked {
+            background-color: var(--brand-accent);
+            border-color: var(--brand-accent);
+        }
+
+        .rp-export-option span {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        @media (max-width: 575.98px) {
+            .rp-export-options {
+                grid-template-columns: 1fr;
+            }
+        }
+
         .rp-pay-list {
             border: 1px solid var(--brand-border);
             border-radius: 0.6rem;
@@ -795,6 +939,47 @@
                     control.closest('form').submit();
                 });
             });
+        })();
+
+        (function () {
+            // Export column picker: both export buttons open the same modal,
+            // which then submits to whichever export was clicked.
+            var modalEl = document.getElementById('export-columns-modal');
+            if (! modalEl) return;
+
+            var form = modalEl.querySelector('[data-export-form]');
+            var toggle = modalEl.querySelector('[data-export-toggle]');
+            var boxes = modalEl.querySelectorAll('[data-export-col]');
+
+            function syncToggle() {
+                var allOn = Array.prototype.every.call(boxes, function (box) { return box.checked; });
+                toggle.textContent = allOn ? 'Clear all' : 'Select all';
+                toggle.hidden = boxes.length === 0;
+            }
+
+            document.querySelectorAll('[data-export-open]').forEach(function (button) {
+                button.addEventListener('click', function () {
+                    form.action = button.dataset.url;
+                    modalEl.querySelector('[data-export-title]').textContent = button.dataset.title;
+                    modalEl.querySelector('[data-export-submit]').textContent = button.dataset.title;
+                    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+                });
+            });
+
+            toggle.addEventListener('click', function () {
+                var allOn = Array.prototype.every.call(boxes, function (box) { return box.checked; });
+                boxes.forEach(function (box) { box.checked = ! allOn; });
+                syncToggle();
+            });
+
+            boxes.forEach(function (box) { box.addEventListener('change', syncToggle); });
+
+            // The download doesn't leave the page, so close the modal once it starts.
+            form.addEventListener('submit', function () {
+                setTimeout(function () { bootstrap.Modal.getOrCreateInstance(modalEl).hide(); }, 150);
+            });
+
+            syncToggle();
         })();
 
         (function () {
