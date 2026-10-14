@@ -79,7 +79,7 @@ class PanelAssignmentController extends Controller
 
         $rooms = PresentationDateRoom::whereHas('presentationDate', fn ($q) => $q->where('category_id', $category->id))
             ->whereHas('roomUseStatus', fn ($q) => $q->where('code', '!=', 'REMOVED'))
-            ->with('presentationDate.eventDateStatus', 'roomUseStatus')
+            ->with('presentationDate.eventDateStatus', 'roomUseStatus', 'roomSessions')
             ->get()
             ->sortBy(fn ($room) => $room->presentationDate->presentation_date->format('Y-m-d') . '-' . $room->room_name)
             ->values();
@@ -90,7 +90,12 @@ class PanelAssignmentController extends Controller
         // that can still run — ongoing or upcoming, matching the same
         // isOpenForScheduling() rule QueueAdjustmentService::transferRoom()
         // re-checks server-side and the room registry uses when placing rooms.
-        $transferRooms = $rooms->filter(fn (PresentationDateRoom $room) => $room->presentationDate->isOpenForScheduling())->values();
+        // A room already closed for the day is refused by transferRoom() too.
+        $transferRooms = $rooms
+            ->filter(fn (PresentationDateRoom $room) => $room->presentationDate->isOpenForScheduling())
+            ->filter(fn (PresentationDateRoom $room) => $room->roomUseStatus?->is_accepting_queue)
+            ->reject(fn (PresentationDateRoom $room) => $room->roomSessions->contains(fn ($session) => $session->ended_at !== null))
+            ->values();
 
         $attemptsQuery = PresentationAttempt::whereHas('researchGroup', fn ($q) => $q->where('category_id', $category->id))
             ->with([
@@ -346,10 +351,35 @@ class PanelAssignmentController extends Controller
             ->filter(fn ($schedule) => $schedule->isPastSessionEnd())
             ->mapWithKeys(fn ($schedule) => [$schedule->id => $schedule->session_end_at]);
 
+        $sectionGuide = app(QueueAdjustmentService::class)->sectionGuide($category);
+
+        // Each transfer target's queue as it stands, for the Transfer modal's
+        // position picker: number, group, section, status, and whether the
+        // row holds its place (presented or presenting).
+        $transferRoomQueues = $transferRooms->mapWithKeys(fn (PresentationDateRoom $room) => [
+            $room->id => $attempts
+                ->filter(fn ($attempt) => $attempt->attemptSchedule->presentation_date_room_id === $room->id
+                    && $attempt->attemptSchedule->queueEntry
+                    && $attempt->attemptSchedule->queueEntry->removed_at === null)
+                ->sortBy(fn ($attempt) => $attempt->attemptSchedule->queueEntry->queue_number)
+                ->map(fn ($attempt) => [
+                    'attempt' => $attempt->id,
+                    'number' => $attempt->attemptSchedule->queueEntry->queue_number,
+                    'group' => $attempt->researchGroup->group_reference,
+                    'section' => $sectionGuide['labels'][$attempt->attemptSchedule->queueEntry->id] ?? null,
+                    'status' => $attempt->presentationStatus?->name,
+                    'locked' => (bool) ($attempt->presentationStatus?->is_terminal
+                        || in_array($attempt->presentationStatus?->code, ['ONGOING', 'PAUSED'], true)),
+                    'reDefense' => $attempt->attemptType?->code === 'RE_DEFENSE' && ! $attempt->presentationStatus?->is_terminal,
+                ])
+                ->values()
+                ->all(),
+        ]);
+
         return view('admin.panel-assignments.show', [
-            // Section Based only: each group's section, the positions a Move
-            // may use and the days a Transfer may go to (null otherwise).
-            'sectionGuide' => app(QueueAdjustmentService::class)->sectionGuide($category),
+            // Section Based only: each group's section label (null otherwise).
+            'sectionGuide' => $sectionGuide,
+            'transferRoomQueues' => $transferRoomQueues,
             'expectedTimes' => $expectedTimes,
             'pastSessionEnd' => $pastSessionEnd,
             'category' => $category,
@@ -606,8 +636,8 @@ class PanelAssignmentController extends Controller
      * Same one-or-many pattern as reorder() above. Unlike Move, the
      * selected schedules don't need to share a room — transferring several
      * groups from different rooms into one target room is the whole point
-     * — each is transferred in turn (in original queue order) and lands
-     * appended to the target room's queue in that same order.
+     * — each is transferred in turn (in original queue order) and lands at
+     * the chosen position (or the end of the room), in that same order.
      */
     public function transfer(Request $request, PresentationCategory $category, QueueAdjustmentService $service)
     {
@@ -615,6 +645,7 @@ class PanelAssignmentController extends Controller
             'schedule_ids' => ['required', 'array', 'min:1'],
             'schedule_ids.*' => ['integer'],
             'target_room_id' => ['required', 'integer', 'exists:presentation_date_rooms,id'],
+            'position' => ['nullable', 'integer', 'min:1'],
             'reason_id' => ['required', 'integer', 'exists:adjustment_reasons,id'],
             'remarks' => ['nullable', 'string', 'max:1000'],
         ]);
@@ -629,12 +660,16 @@ class PanelAssignmentController extends Controller
         $moved = 0;
         $conflicts = collect();
         $lastError = null;
+        // The position the Admin picked (single-row Transfer); none means the
+        // end of the room. Several groups land one after another from there.
+        $position = isset($validated['position']) ? (int) $validated['position'] : null;
 
         foreach ($schedules as $schedule) {
-            $result = $service->transferRoom($schedule, $targetRoom, (int) $validated['reason_id'], $validated['remarks'] ?? null, $request->user()->id);
+            $result = $service->transferRoom($schedule, $targetRoom, (int) $validated['reason_id'], $validated['remarks'] ?? null, $request->user()->id, $position);
 
             if ($result['ok']) {
                 $moved++;
+                $position = $position === null ? null : $position + 1;
                 $conflicts = $conflicts->concat($result['conflicts'] ?? collect());
             } else {
                 $lastError = $result['error'] ?? null;
@@ -801,7 +836,7 @@ class PanelAssignmentController extends Controller
         }
 
         if ($resolvedCount === 0) {
-            return back()->with('error', 'Enter at least one reference number to mark a payment resolved.');
+            return back()->with('error', 'Enter at least one receipt number to mark a payment resolved.');
         }
 
         return back()->with('status', "Payment verified for {$attempt->researchGroup->group_reference}.");

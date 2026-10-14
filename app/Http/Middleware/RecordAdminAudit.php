@@ -115,6 +115,8 @@ class RecordAdminAudit
         'panel-substitutions.assign-replacement' => 'REPLACEMENT_ASSIGNED',
 
         'reports.evaluation-sheet.update' => 'EVALUATION_EDITED',
+        'reports.payment.update' => 'PAYMENT_REFERENCE_EDITED',
+        'reports.payment.store' => 'PAYMENT_VERIFIED',
 
         'panelists.store' => 'PANELIST_REGISTERED',
         'panelists.update' => 'PANELIST_UPDATED',

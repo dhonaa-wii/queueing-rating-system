@@ -183,10 +183,10 @@
                             <th>Individual Grade Avg.</th>
                             <th>Group Grade</th>
                             <th>Total</th>
-                            <th>Outcome</th>
-                            @foreach ($paymentTypes as $type)
-                                <th>{{ $type->name }}</th>
-                            @endforeach
+                            <th>Remarks</th>
+                            @if ($paymentTypes->isNotEmpty())
+                                <th>Payment/s</th>
+                            @endif
                             <th class="text-end">Evaluation</th>
                         </tr>
                     </thead>
@@ -208,15 +208,22 @@
                                         <span class="text-brand-muted">—</span>
                                     @endif
                                 </td>
-                                @foreach ($paymentTypes as $type)
+                                @if ($paymentTypes->isNotEmpty())
+                                    @php
+                                        $paidCount = collect($row['payment_details'])->where('paid', true)->count();
+                                        $typeCount = count($row['payment_details']);
+                                    @endphp
                                     <td>
-                                        @if ($row['payment'][$type->id] ?? false)
-                                            <span class="badge badge-success-tint">Paid</span>
-                                        @else
-                                            <span class="badge badge-muted-tint">Unpaid</span>
-                                        @endif
+                                        <button type="button"
+                                                class="rp-pay-link {{ $paidCount === $typeCount ? 'is-paid' : ($paidCount > 0 ? 'is-partial' : 'is-unpaid') }}"
+                                                data-payment-view
+                                                data-attempt="{{ $row['attempt_id'] }}"
+                                                data-group="{{ $row['group_reference'] }}"
+                                                data-url="{{ route('admin.reports.payment.update', [$category, $row['attempt_id'], '__V__']) }}"
+                                                data-store-url="{{ route('admin.reports.payment.store', [$category, $row['attempt_id']]) }}"
+                                                data-payments='@json($row['payment_details'])'>{{ $paidCount === $typeCount ? 'Paid' : ($paidCount > 0 ? "{$paidCount}/{$typeCount} Paid" : 'Unpaid') }}</button>
                                     </td>
-                                @endforeach
+                                @endif
                                 <td class="text-end">
                                     <button type="button" class="btn btn-sm btn-outline-brand border-0"
                                             data-view-sheet
@@ -228,7 +235,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="{{ 7 + $paymentTypes->count() }}" class="text-center text-brand-muted py-4">No completed groups match this filter.</td>
+                                <td colspan="{{ 7 + ($paymentTypes->isNotEmpty() ? 1 : 0) }}" class="text-center text-brand-muted py-4">No completed groups match this filter.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -238,6 +245,26 @@
         @endif
 
         @include('admin.partials.evaluation-sheet-modal')
+
+        {{-- Payment/s: each payment type with its recorded reference number,
+             filled from the row's View button. Only a recorded number can be
+             edited; the exports keep their own per-type columns. --}}
+        <div class="modal fade" id="payment-modal" tabindex="-1" aria-labelledby="payment-modal-label" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="payment-modal-label">Payment/s <span class="rp-pay-group" data-payment-group></span></h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="rp-pay-list" data-payment-list></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-brand" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         {{-- Running list of completed groups with the panelists' comments,
              fetched from its own route each time it opens. --}}
@@ -642,6 +669,98 @@
             white-space: pre-line;
         }
 
+        /* Payment/s column + its modal. */
+        .rp-pay-link {
+            padding: 0;
+            border: 0;
+            background: none;
+            font-size: 0.8rem;
+            font-weight: 600;
+            white-space: nowrap;
+            text-decoration: underline;
+            text-underline-offset: 0.2em;
+            text-decoration-thickness: 1px;
+            cursor: pointer;
+        }
+
+        .rp-pay-link:hover,
+        .rp-pay-link:focus-visible {
+            text-decoration-thickness: 2px;
+        }
+
+        .rp-pay-link:focus-visible {
+            outline: 2px solid var(--brand-accent);
+            outline-offset: 2px;
+            border-radius: 0.2rem;
+        }
+
+        .rp-pay-link.is-paid {
+            color: var(--brand-success);
+        }
+
+        .rp-pay-link.is-partial {
+            color: var(--brand-accent);
+        }
+
+        .rp-pay-link.is-unpaid {
+            color: var(--brand-muted);
+        }
+
+        .rp-pay-group {
+            margin-left: 0.35rem;
+            font-size: var(--modal-fs-sm, 0.8rem);
+            font-weight: 600;
+            color: var(--brand-accent);
+        }
+
+        .rp-pay-list {
+            border: 1px solid var(--brand-border);
+            border-radius: 0.6rem;
+            overflow: hidden;
+            background-color: var(--brand-surface);
+        }
+
+        .rp-pay-row {
+            padding: 0.55rem 0.75rem;
+        }
+
+        .rp-pay-row + .rp-pay-row {
+            border-top: 1px solid var(--brand-border);
+        }
+
+        .rp-pay-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            font-size: var(--modal-fs, 0.85rem);
+            font-weight: 600;
+        }
+
+        .rp-pay-edit {
+            display: flex;
+            gap: 0.4rem;
+            margin-top: 0.4rem;
+        }
+
+        .rp-pay-edit .form-control {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .rp-pay-msg {
+            margin-top: 0.3rem;
+            font-size: var(--modal-fs-xs, 0.75rem);
+        }
+
+        .rp-pay-msg.is-error {
+            color: var(--brand-danger);
+        }
+
+        .rp-pay-msg.is-ok {
+            color: var(--brand-success);
+        }
+
         .rp-sheet-frame {
             display: block;
             width: 100%;
@@ -706,6 +825,134 @@
                     .then(function (response) { return response.ok ? response.text() : Promise.reject(); })
                     .then(function (html) { body.innerHTML = '<div class="table-responsive">' + html + '</div>'; })
                     .catch(function () { body.innerHTML = '<div class="text-danger">Could not load the summary. Try again.</div>'; });
+            });
+        })();
+
+        (function () {
+            var modalEl = document.getElementById('payment-modal');
+            if (! modalEl) return;
+
+            var list = modalEl.querySelector('[data-payment-list]');
+            var groupLabel = modalEl.querySelector('[data-payment-group]');
+            var csrf = @json(csrf_token());
+
+            function el(tag, className, text) {
+                var node = document.createElement(tag);
+                if (className) node.className = className;
+                if (text !== undefined) node.textContent = text;
+                return node;
+            }
+
+            // Every row of the same group shares one attempt, so a saved
+            // number is written back to all of its status links, and their
+            // Paid / N/M Paid / Unpaid text follows.
+            function storeReceipt(attemptId, typeId, verificationId, receipt) {
+                document.querySelectorAll('[data-payment-view][data-attempt="' + attemptId + '"]').forEach(function (link) {
+                    var payments = JSON.parse(link.dataset.payments);
+                    payments.forEach(function (payment) {
+                        if (payment.type_id !== typeId) return;
+                        payment.verification_id = verificationId;
+                        payment.receipt = receipt;
+                        payment.paid = true;
+                    });
+                    link.dataset.payments = JSON.stringify(payments);
+
+                    var paid = payments.filter(function (payment) { return payment.paid; }).length;
+                    var all = paid === payments.length;
+                    link.textContent = all ? 'Paid' : (paid > 0 ? paid + '/' + payments.length + ' Paid' : 'Unpaid');
+                    link.classList.remove('is-paid', 'is-partial', 'is-unpaid');
+                    link.classList.add(all ? 'is-paid' : (paid > 0 ? 'is-partial' : 'is-unpaid'));
+                });
+            }
+
+            function render(button, notice) {
+                var payments = JSON.parse(button.dataset.payments);
+                list.innerHTML = '';
+                groupLabel.textContent = button.dataset.group;
+
+                payments.forEach(function (payment) {
+                    var recorded = payment.verification_id && payment.receipt !== null;
+
+                    var row = el('div', 'rp-pay-row');
+                    var head = el('div', 'rp-pay-head');
+                    head.appendChild(el('span', '', payment.type));
+                    head.appendChild(el('span', 'badge ' + (payment.paid ? 'badge-success-tint' : 'badge-muted-tint'), payment.paid ? 'Paid' : 'Unpaid'));
+                    row.appendChild(head);
+
+                    var form = el('form', 'rp-pay-edit');
+                    var input = el('input', 'form-control form-control-sm');
+                    input.type = 'text';
+                    input.maxLength = 100;
+                    input.value = recorded ? payment.receipt : '';
+                    input.setAttribute('aria-label', payment.type + ' receipt number');
+                    var save = el('button', 'btn btn-sm btn-brand', recorded ? 'Save' : 'Record');
+                    save.type = 'submit';
+                    form.appendChild(input);
+                    form.appendChild(save);
+                    row.appendChild(form);
+
+                    var message = el('div', 'rp-pay-msg');
+                    if (notice && notice.typeId === payment.type_id) {
+                        message.className = 'rp-pay-msg is-ok';
+                        message.textContent = notice.text;
+                    }
+                    row.appendChild(message);
+
+                    form.addEventListener('submit', function (event) {
+                        event.preventDefault();
+                        message.className = 'rp-pay-msg';
+                        message.textContent = '';
+                        save.disabled = true;
+
+                        var data = new FormData();
+                        data.append('_token', csrf);
+                        data.append('reference_number', input.value);
+                        if (recorded) {
+                            data.append('_method', 'PUT');
+                        } else {
+                            data.append('category_payment_type_id', payment.type_id);
+                        }
+
+                        var url = recorded
+                            ? button.dataset.url.replace('__V__', payment.verification_id)
+                            : button.dataset.storeUrl;
+
+                        fetch(url, {
+                            method: 'POST',
+                            body: data,
+                            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                            credentials: 'same-origin',
+                        })
+                            .then(function (response) {
+                                return response.json().then(function (json) { return { ok: response.ok, json: json }; });
+                            })
+                            .then(function (result) {
+                                if (! result.ok) {
+                                    var errors = result.json.errors && result.json.errors.reference_number;
+                                    message.className = 'rp-pay-msg is-error';
+                                    message.textContent = errors ? errors[0] : (result.json.message || 'Could not save.');
+                                    save.disabled = false;
+                                    return;
+                                }
+                                storeReceipt(button.dataset.attempt, payment.type_id, result.json.verification_id, result.json.receipt);
+                                render(button, { typeId: payment.type_id, text: result.json.message });
+                            })
+                            .catch(function () {
+                                message.className = 'rp-pay-msg is-error';
+                                message.textContent = 'Could not save. Try again.';
+                                save.disabled = false;
+                            });
+                    });
+
+                    list.appendChild(row);
+                });
+            }
+
+            document.addEventListener('click', function (event) {
+                var button = event.target.closest('[data-payment-view]');
+                if (! button) return;
+                render(button);
+                bootstrap.Modal.getOrCreateInstance(modalEl).show();
             });
         })();
 

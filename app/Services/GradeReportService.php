@@ -177,6 +177,21 @@ class GradeReportService
                 return [$type->id => in_array($verification?->paymentStatus?->code, ['VERIFIED', 'RESOLVED'], true)];
             });
 
+            // The page's single Payment/s column and its View modal: each
+            // type with its recorded reference number, editable by the Admin.
+            // The exports keep reading the per-type map above.
+            $paymentDetails = $paymentTypes->map(function ($type) use ($gradedAttempt, $payment) {
+                $verification = $gradedAttempt->paymentVerifications->firstWhere('category_payment_type_id', $type->id);
+
+                return [
+                    'type_id' => $type->id,
+                    'type' => $type->name,
+                    'paid' => $payment[$type->id],
+                    'verification_id' => $verification?->id,
+                    'receipt' => $verification?->receipt_code_encrypted,
+                ];
+            })->values()->all();
+
             // A search matching the group code keeps every member of that group.
             $groupCodeMatches = $search !== '' && str_contains(Str::lower((string) $group->group_reference), $search);
 
@@ -223,6 +238,7 @@ class GradeReportService
                     'group_grade' => $groupGrade,
                     'total' => $total,
                     'payment' => $payment,
+                    'payment_details' => $paymentDetails,
                 ]);
             }
         }

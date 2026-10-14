@@ -20,8 +20,9 @@ class PresentationOutcome extends Model
     /**
      * The grading rubric (user-directed 2026-10-13): a Standard-mode remark is
      * no longer picked by the panel, it follows the score. Lower bound of each
-     * band => outcome; anything under the last one is FAILED. Bands are whole
-     * percentages, so 90.5 is still Minor Revision and 60.5 is Failed.
+     * band => outcome; anything under the last one is FAILED. The grade is
+     * rounded off to a whole percent first (user-directed 2026-10-14), so
+     * 90.5 is No Revision, 90.49 is Minor Revision and 60.5 is Re-Defense.
      */
     public const GRADE_BANDS = [
         91 => 'PASS_NO_REVISION',
@@ -32,6 +33,10 @@ class PresentationOutcome extends Model
 
     public static function codeForGrade(float $grade): string
     {
+        // Round on the 2-dp value every screen shows, so a stored 90.4999…
+        // that displays as 90.50 also grades as 90.50.
+        $grade = round(round($grade, 2));
+
         foreach (self::GRADE_BANDS as $floor => $code) {
             if ($grade >= $floor) {
                 return $code;
@@ -48,6 +53,35 @@ class PresentationOutcome extends Model
         }
 
         return self::where('code', self::codeForGrade($grade))->value('id');
+    }
+
+    /**
+     * The rubric as the evaluation sheet prints it under the rating legend:
+     * [['range' => '91–100', 'name' => 'Passed with No Revision'], ...,
+     * ['range' => 'Below 61', 'name' => 'Failed']]. Names come from the
+     * catalog, so a renamed outcome prints its current name.
+     */
+    public static function rubricLegend(): array
+    {
+        static $legend = null;
+
+        if ($legend !== null) {
+            return $legend;
+        }
+
+        $names = self::whereIn('code', self::ORDER)->pluck('name', 'code');
+        $legend = [];
+        $ceiling = 100;
+
+        foreach (self::GRADE_BANDS as $floor => $code) {
+            $legend[] = ['range' => $floor.'–'.$ceiling, 'name' => $names[$code] ?? $code];
+            $ceiling = $floor - 1;
+        }
+
+        $lowest = array_key_last(self::GRADE_BANDS);
+        $legend[] = ['range' => 'Below '.$lowest, 'name' => $names['FAILED'] ?? 'FAILED'];
+
+        return $legend;
     }
 
     public function scopeOrdered(Builder $query): Builder

@@ -21,7 +21,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
  */
 class GradeSpreadsheetExporter
 {
-    private const HEADERS = ['Name', 'Section', 'Group', 'Individual Grade Avg.', 'Group Grade', 'Total', 'Outcome', 'Attempt'];
+    private const HEADERS = ['Name', 'Section', 'Group', 'Individual Grade Avg.', 'Group Grade', 'Total', 'Remarks', 'Attempt'];
 
     /**
      * $paymentTypes (category_payment_types, empty when the category doesn't

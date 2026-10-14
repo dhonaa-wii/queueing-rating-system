@@ -409,8 +409,12 @@ class PanelistController extends Controller
             ->get();
 
         $assignedCategories = $assignments->pluck('presentationAttempt.researchGroup.category_id')->unique()->count();
-        $assignedGroups = $assignments->filter(fn (AttemptPanelAssignment $a) => $a->presentationAttempt->presentationStatus?->code !== 'COMPLETED')->count();
-        $evaluatedGroups = $assignments->filter(fn (AttemptPanelAssignment $a) => $a->presentationAttempt->presentationStatus?->code === 'COMPLETED')->count();
+        // Assigned is every group this panelist sits on, finished or not;
+        // Upcoming is the part still to present (deferred included, it still
+        // has to present), Completed the part that has presented.
+        $assignedGroups = $assignments->count();
+        $completedGroups = $assignments->filter(fn (AttemptPanelAssignment $a) => $a->presentationAttempt->presentationStatus?->code === 'COMPLETED')->count();
+        $upcomingGroups = $assignments->filter(fn (AttemptPanelAssignment $a) => ! $a->presentationAttempt->presentationStatus?->is_terminal)->count();
 
         $forecast = $this->forecastSchedules($assignments);
 
@@ -481,7 +485,8 @@ class PanelistController extends Controller
             'summary' => [
                 'assignedCategories' => $assignedCategories,
                 'assignedGroups' => $assignedGroups,
-                'evaluatedGroups' => $evaluatedGroups,
+                'upcomingGroups' => $upcomingGroups,
+                'completedGroups' => $completedGroups,
             ],
             'rows' => $rows,
         ];

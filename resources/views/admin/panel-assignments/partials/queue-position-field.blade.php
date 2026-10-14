@@ -21,17 +21,13 @@
     too — offering a number that the group could not actually be given would
     only look like the save had failed.
 
-    Optional (Section Based, Move only):
-      $sectionLabel  — the moving group's section; its range was already
-                       narrowed to that section (QueueAdjustmentService::
-                       sectionGuide()), which also stops before a re-defense
+    Optional (Section Based):
       $sectionLabels — section per queue entry id, shown beside each row
 --}}
 @php
-    $sectionLabel = $sectionLabel ?? null;
     $sectionLabels = $sectionLabels ?? [];
 
-    $pinnedLastCount = $sectionLabel ? 0 : $rows->filter(
+    $pinnedLastCount = $rows->filter(
         fn ($queued) => $queued->attemptType?->code === 'RE_DEFENSE' && ! $queued->presentationStatus?->is_terminal
     )->count();
 
@@ -79,10 +75,6 @@
     <input type="number" name="position" class="form-control"
            min="{{ $minPosition }}" max="{{ $maxPosition }}" value="{{ $defaultPosition }}" required>
     <p class="text-brand-muted small mb-0 mt-1">
-        @if ($sectionLabel)
-            Section {{ $sectionLabel }} &middot; {{ $minPosition === $maxPosition ? 'position ' . $minPosition : 'positions ' . $minPosition . '–' . $maxPosition }} available — a group moves only within its section.
-        @else
-            {{ $minPosition }}&ndash;{{ $maxPosition }} available{{ $lockedThrough > 0 ? ' — 1–' . $lockedThrough . ' already presented or presenting' : '' }}.
-        @endif
+        {{ $minPosition }}&ndash;{{ $maxPosition }} available{{ $lockedThrough > 0 ? ' — 1–' . $lockedThrough . ' already presented or presenting' : '' }}.
     </p>
 </div>

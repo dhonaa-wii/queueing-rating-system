@@ -1255,6 +1255,86 @@
         font-size: calc(0.525rem * var(--rd-scale));
     }
 
+    /* Event Control: has this panelist joined the room session? */
+    .panel-join-dot {
+        width: 0.55em;
+        height: 0.55em;
+        border-radius: 50%;
+        margin-right: 0.4em;
+        flex-shrink: 0;
+        border: 1px solid var(--brand-muted);
+        background: transparent;
+    }
+
+    .panel-join-dot.is-joined {
+        border-color: var(--brand-success);
+        background: var(--brand-success);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand-success) 25%, transparent);
+    }
+
+    /* Event Control: a group is presenting in this room right now. */
+    .room-ongoing-banner {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem 0.85rem;
+        padding: 0.6rem 0.9rem;
+        border-radius: 0.75rem;
+        background: var(--brand-success-tint);
+        border-left: 4px solid var(--brand-success);
+        font-size: clamp(0.78rem, 0.74rem + 0.2vw, 0.88rem);
+    }
+
+    .room-ongoing-banner.is-paused {
+        background: color-mix(in srgb, var(--brand-danger) 12%, transparent);
+        border-left-color: var(--brand-danger);
+    }
+
+    .room-ongoing-pulse {
+        width: 0.65rem;
+        height: 0.65rem;
+        border-radius: 50%;
+        flex-shrink: 0;
+        background: var(--brand-success);
+        animation: room-ongoing-pulse 1.6s ease-out infinite;
+    }
+
+    .room-ongoing-banner.is-paused .room-ongoing-pulse {
+        background: var(--brand-danger);
+        animation: none;
+    }
+
+    @keyframes room-ongoing-pulse {
+        0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand-success) 55%, transparent); }
+        100% { box-shadow: 0 0 0 0.6rem transparent; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .room-ongoing-pulse { animation: none; }
+    }
+
+    .room-ongoing-text {
+        flex: 1 1 14rem;
+        min-width: 0;
+    }
+
+    .room-ongoing-title {
+        font-weight: 600;
+        color: var(--brand-success);
+    }
+
+    .room-ongoing-banner.is-paused .room-ongoing-title {
+        color: var(--brand-danger);
+    }
+
+    .room-ongoing-times {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem 0.85rem;
+        color: var(--brand-muted);
+        font-size: 0.92em;
+    }
+
     .room-data-btn {
         font-size: calc(0.68rem * var(--rd-scale));
         padding: calc(0.15rem * var(--rd-scale)) calc(0.5rem * var(--rd-scale));
@@ -1273,6 +1353,46 @@
         border-radius: 0.5rem;
         background-color: var(--brand-surface);
         font-size: calc(0.6125rem * var(--rd-scale));
+    }
+
+    /* Event Control Room Data: called / ongoing / paused group. */
+    .room-data-now-item {
+        --now-color: var(--brand-accent);
+        border-left: 3px solid var(--now-color);
+    }
+
+    .room-data-now-item.is-ongoing { --now-color: var(--brand-success); }
+    .room-data-now-item.is-paused { --now-color: var(--brand-danger); }
+
+    .room-data-now-tag {
+        flex-shrink: 0;
+        padding: 0.05rem 0.45rem;
+        border-radius: 999px;
+        font-size: calc(0.55rem * var(--rd-scale));
+        font-weight: 600;
+        color: var(--now-color);
+        background: color-mix(in srgb, var(--now-color) 14%, transparent);
+    }
+
+    /* Event Control View All: marked row (ongoing / paused / called / next). */
+    .view-all-row-mark {
+        --mark-color: var(--brand-accent);
+    }
+
+    .view-all-row-mark.is-ongoing { --mark-color: var(--brand-success); }
+    .view-all-row-mark.is-paused { --mark-color: var(--brand-danger); }
+
+    .view-all-table .view-all-row-mark > td {
+        background-color: color-mix(in srgb, var(--mark-color) 10%, transparent);
+    }
+
+    .view-all-table .view-all-row-mark > td:first-child {
+        box-shadow: inset 3px 0 0 var(--mark-color);
+    }
+
+    .view-all-mark-badge {
+        font-size: 0.52rem;
+        width: fit-content;
     }
 
     .capacity-message {

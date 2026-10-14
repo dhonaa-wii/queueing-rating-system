@@ -271,7 +271,8 @@ class LiveMonitoringController extends Controller
         }
 
         if (! ($result['dayEnded'] ?? false)) {
-            $message = "{$roomName} closed.";
+            $moves = $this->describeMoves($result['roomSummary'] ?? []);
+            $message = "{$roomName} closed." . ($moves === '' ? '' : " {$moves}");
 
             if (! empty($result['roomsRemaining'])) {
                 $message .= ' The day stays live until ' . implode(', ', $result['roomsRemaining']) . ' ' . (count($result['roomsRemaining']) === 1 ? 'is' : 'are') . ' started and closed.';
@@ -289,10 +290,17 @@ class LiveMonitoringController extends Controller
 
     private function describeEndOfDaySummary(array $result): string
     {
+        $moves = $this->describeMoves($result);
+
+        return $moves === '' ? 'Event ended.' : "Event ended. {$moves}";
+    }
+
+    private function describeMoves(array $result): string
+    {
         $notes = [];
 
         if (($result['unfinishedMoved'] ?? 0) > 0) {
-            $notes[] = "{$result['unfinishedMoved']} unfinished group(s) moved to the next day's queue";
+            $notes[] = "{$result['unfinishedMoved']} unfinished group(s) moved to the front of the next day's queue";
         }
 
         if (($result['unfinishedUnresolved'] ?? 0) > 0) {
@@ -300,14 +308,14 @@ class LiveMonitoringController extends Controller
         }
 
         if (($result['deferredMoved'] ?? 0) > 0) {
-            $notes[] = "{$result['deferredMoved']} deferred group(s) re-queued at the end of the category";
+            $notes[] = "{$result['deferredMoved']} deferred group(s) moved to the end of the last day's queue";
         }
 
         if (($result['deferredUnresolved'] ?? 0) > 0) {
             $notes[] = "{$result['deferredUnresolved']} deferred group(s) left unresolved — no open room to place them in";
         }
 
-        return $notes === [] ? 'Event ended.' : 'Event ended. ' . implode('; ', $notes) . '.';
+        return $notes === [] ? '' : ucfirst(implode('; ', $notes)) . '.';
     }
 
     public function pauseRoomSession(Request $request, PresentationCategory $category, RoomSession $roomSession, EventActivationService $service)

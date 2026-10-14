@@ -1155,14 +1155,6 @@
                         ->max(fn ($queued) => $queued->attemptSchedule->queueEntry->queue_number);
                     $moveMinPosition = $moveLockedThrough + 1;
                     $moveMaxPosition = $group['active']->count();
-                    // Section Based: a group moves only within its section and
-                    // transfers only to days that keep the section order
-                    // (QueueAdjustmentService::sectionGuide()).
-                    $entryId = $schedule->queueEntry?->id;
-                    $sectionLabel = $sectionGuide['labels'][$entryId] ?? null;
-                    if ($sectionGuide && isset($sectionGuide['move'][$entryId])) {
-                        [$moveMinPosition, $moveMaxPosition] = $sectionGuide['move'][$entryId];
-                    }
                     $hasSubmittedEvaluation = $hasSubmittedEvaluationByAttempt[$attempt->id] ?? false;
                 @endphp
 
@@ -1199,7 +1191,6 @@
                                         'defaultPosition' => max($moveMinPosition, $schedule->queueEntry->queue_number),
                                         'lockedThrough' => $moveLockedThrough,
                                         'currentAttemptId' => $attempt->id,
-                                        'sectionLabel' => $sectionLabel,
                                         'sectionLabels' => $sectionGuide['labels'] ?? [],
                                     ])
                                     <div class="mb-3">
@@ -1241,15 +1232,8 @@
                                         @php
                                             // Only rooms that take this group's track (TrackRouting).
                                             $rowTransferRooms = $transferRooms->filter(fn ($room) => app(\App\Services\TrackRouting::class)->accepts($room, $attempt->researchGroup));
-                                            // Section Based: only days where its section keeps its order.
-                                            if ($sectionGuide && isset($sectionGuide['dates'][$entryId])) {
-                                                $rowTransferRooms = $rowTransferRooms->filter(fn ($room) => in_array($room->presentation_date_id, $sectionGuide['dates'][$entryId], true));
-                                            }
                                         @endphp
-                                        @if ($sectionLabel)
-                                            <p class="text-brand-muted small mb-1">Section {{ $sectionLabel }} &middot; dates that keep the section order. It joins the end of {{ $sectionLabel }} in that room.</p>
-                                        @endif
-                                        <select name="target_room_id" class="form-select" required @disabled($rowTransferRooms->isEmpty())>
+                                        <select name="target_room_id" class="form-select" required data-transfer-room @disabled($rowTransferRooms->isEmpty())>
                                             @forelse ($rowTransferRooms as $targetRoom)
                                                 <option value="{{ $targetRoom->id }}" @selected($targetRoom->id === $schedule->presentation_date_room_id)>
                                                     {{ $targetRoom->presentationDate->presentation_date->format('M j, Y') }} &mdash; {{ $targetRoom->room_name }}
@@ -1259,6 +1243,16 @@
                                             @endforelse
                                         </select>
                                     </div>
+                                    @if ($rowTransferRooms->isNotEmpty())
+                                        <div class="mb-3" data-transfer-position data-attempt-id="{{ $attempt->id }}">
+                                            <label class="form-label">Position in <span data-transfer-room-name></span>'s queue</label>
+                                            <div class="reinsert-order mb-2">
+                                                <table class="table table-sm align-middle small mb-0"><tbody data-transfer-order></tbody></table>
+                                            </div>
+                                            <input type="number" name="position" class="form-control" required>
+                                            <p class="text-brand-muted small mb-0 mt-1" data-transfer-range></p>
+                                        </div>
+                                    @endif
                                     <div class="mb-3">
                                         <label class="form-label">Reason</label>
                                         <select name="reason_id" class="form-select" required>
@@ -2559,6 +2553,71 @@
                     setTimeout(function () {
                         bootstrap.Modal.getOrCreateInstance(modalEl).show();
                     }, 700);
+                });
+            })();
+
+            // Transfer: the chosen room's queue and a position in it, any place
+            // after the groups that presented or are presenting. A pending
+            // re-defense stays last, so the ceiling stops before it — the same
+            // rule as the Move picker (queue-position-field).
+            (function () {
+                var queues = @json($transferRoomQueues);
+
+                function esc(text) {
+                    var div = document.createElement('div');
+                    div.textContent = text == null ? '' : String(text);
+                    return div.innerHTML;
+                }
+
+                function render(modal) {
+                    var select = modal.querySelector('[data-transfer-room]');
+                    var box = modal.querySelector('[data-transfer-position]');
+                    if (!select || !box || !select.value) return;
+
+                    var attemptId = parseInt(box.dataset.attemptId, 10);
+                    var rows = (queues[select.value] || []).filter(function (row) { return row.attempt !== attemptId; });
+                    var option = select.options[select.selectedIndex];
+                    var label = option ? option.text.split('—').pop().trim() : '';
+
+                    var locked = 0;
+                    var pinned = 0;
+                    rows.forEach(function (row, i) {
+                        if (row.locked) locked = i + 1;
+                        if (row.reDefense && !row.locked) pinned++;
+                    });
+
+                    var min = locked + 1;
+                    var max = Math.max(min, rows.length + 1 - pinned);
+
+                    box.querySelector('[data-transfer-room-name]').textContent = label;
+                    box.querySelector('[data-transfer-order]').innerHTML = rows.length
+                        ? rows.map(function (row, i) {
+                            return '<tr class="' + (row.locked ? 'text-brand-muted' : '') + '">'
+                                + '<td class="ps-0" style="width: 2.5rem;">' + (i + 1) + '</td>'
+                                + '<td>' + esc(row.group)
+                                + (row.section ? ' <span class="text-brand-muted ms-1">' + esc(row.section) + '</span>' : '')
+                                + (row.reDefense && !row.locked ? ' <span class="badge badge-info-tint ms-1">Re-Defense &middot; always last</span>' : '')
+                                + '</td>'
+                                + '<td class="text-end pe-0"><span class="badge ' + (row.locked ? 'badge-muted-tint' : 'badge-info-tint') + '">' + esc(row.status) + '</span></td>'
+                                + '</tr>';
+                        }).join('')
+                        : '<tr><td class="ps-0 text-brand-muted">No groups in this room\'s queue yet.</td></tr>';
+
+                    var input = box.querySelector('input[name="position"]');
+                    input.min = min;
+                    input.max = max;
+                    input.value = max;
+
+                    box.querySelector('[data-transfer-range]').textContent = (min === max ? 'Position ' + min : min + '–' + max) + ' available'
+                        + (locked > 0 ? ' — 1–' + locked + ' already presented or presenting.' : '.');
+                }
+
+                document.querySelectorAll('[data-transfer-position]').forEach(function (box) {
+                    var modal = box.closest('.modal');
+                    if (!modal) return;
+
+                    modal.addEventListener('show.bs.modal', function () { render(modal); });
+                    modal.querySelector('[data-transfer-room]').addEventListener('change', function () { render(modal); });
                 });
             })();
         </script>

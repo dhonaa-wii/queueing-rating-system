@@ -553,17 +553,28 @@ class EventActivationService
             $this->queueAdjustments->releaseStrandedCalls();
         });
 
+        // The room's own unfinished and deferred groups move on now, without
+        // waiting for the day's other rooms (user-directed 2026-10-13).
+        $roomSummary = $this->queueAdjustments->processRoomEnd($room->fresh(), $performedByUserId);
+
         $roomsRemaining = $this->roomsStillToRun($date);
 
         if ($roomsRemaining->isNotEmpty()) {
-            return ['ok' => true, 'dayEnded' => false, 'roomsRemaining' => $roomsRemaining->all()];
+            return ['ok' => true, 'dayEnded' => false, 'roomsRemaining' => $roomsRemaining->all(), 'roomSummary' => $roomSummary];
         }
 
         $result = $this->end($date->fresh(), $performedByUserId);
 
-        return $result['ok']
-            ? ['ok' => true, 'dayEnded' => true, ...$result]
-            : ['ok' => true, 'dayEnded' => false, 'dayEndError' => $result['error']];
+        if (! $result['ok']) {
+            return ['ok' => true, 'dayEnded' => false, 'dayEndError' => $result['error'], 'roomSummary' => $roomSummary];
+        }
+
+        // This room's groups already moved above; count them with the day's.
+        foreach ($roomSummary as $key => $count) {
+            $result[$key] = ($result[$key] ?? 0) + $count;
+        }
+
+        return ['ok' => true, 'dayEnded' => true, ...$result];
     }
 
     /**

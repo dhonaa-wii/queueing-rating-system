@@ -91,7 +91,7 @@
                         <dd>{{ \App\Models\AttemptSchedule::AWAITING_DATE }}</dd>
                     @else
                         <dt>Date</dt>
-                        <dd>{{ $room?->presentationDate?->presentation_date?->format('l, M j, Y') ?? '—' }}</dd>
+                        <dd>{{ ($expectedAt ?? $room?->presentationDate?->presentation_date)?->format('l, M j, Y') ?? '—' }}</dd>
 
                         {{-- Only worth its own row once the running day has actually
                         pushed this group off its plan; otherwise it just repeats

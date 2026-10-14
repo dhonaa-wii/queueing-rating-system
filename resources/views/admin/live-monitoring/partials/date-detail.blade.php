@@ -65,8 +65,40 @@
                 $roomClosed = $session && ($session->ended_at || $sessionCode === 'CLOSED');
                 $canStartRoom = ! $session && in_array($code, ['STANDBY', 'ACTIVE'], true) && ! $overdue && $panel->room->panelist_count;
                 $presentingNow = $session?->currentAttempt && in_array($session->currentAttempt->presentationStatus?->code, ['ONGOING', 'PAUSED'], true);
+                // Panelists holding a seat in this room right now — drives the
+                // "joined" dot on the Room Data panel names.
+                $connectedPanelistIds = ($session && ! $roomClosed)
+                    ? $session->roomTerminals
+                        ->flatMap(fn ($t) => $t->terminalConnections->whereNull('disconnected_at'))
+                        ->pluck('panelist_user_id')->unique()->all()
+                    : [];
+                $ongoingSchedule = $panel->queue['current'] ?? null;
             @endphp
             <div class="{{ $panel->room->id === $defaultRoomId ? '' : 'd-none' }}" data-room-panel="{{ $panel->room->id }}">
+                @if ($ongoingSchedule)
+                    @php
+                        $ongoingPaused = $ongoingSchedule->presentationAttempt->presentationStatus->code === 'PAUSED';
+                        $ongoingGroup = $ongoingSchedule->presentationAttempt->researchGroup;
+                    @endphp
+                    <div class="room-ongoing-banner {{ $ongoingPaused ? 'is-paused' : '' }} mb-3" role="status">
+                        <span class="room-ongoing-pulse" aria-hidden="true"></span>
+                        <div class="room-ongoing-text">
+                            <div class="room-ongoing-title">{{ $ongoingPaused ? 'Presentation paused' : 'Presentation ongoing' }} · {{ $panel->room->room_name }}</div>
+                            <div class="room-ongoing-sub text-truncate" title="{{ $ongoingGroup->current_project_title }}">
+                                <span class="fw-semibold">{{ $ongoingGroup->group_reference }}</span>
+                                &mdash; {{ $ongoingGroup->current_project_title ?? $ongoingGroup->leader()?->full_name }}
+                            </div>
+                        </div>
+                        <div class="room-ongoing-times">
+                            @if ($ongoingSchedule->expected_start_at)
+                                <span>Started {{ $ongoingSchedule->expected_start_at->format('g:i A') }}</span>
+                            @endif
+                            @if ($ongoingSchedule->expected_end_at)
+                                <span>Expected end {{ $ongoingSchedule->expected_end_at->format('g:i A') }}</span>
+                            @endif
+                        </div>
+                    </div>
+                @endif
                 <div class="row g-3">
                     <div class="col-xl-5">
                         {{-- Room Status + Room Session Account merged into one
@@ -292,6 +324,48 @@
                                 </div>
                             </div>
 
+                            @php
+                                // Called and ongoing/paused groups, each on its own line. Shown only
+                                // while one exists, with no heading (user-directed 2026-10-14).
+                                $roomNowRows = collect([
+                                    $panel->queue['current'] ?? null,
+                                    $panel->queue['called'] ?? null,
+                                ])->filter();
+                            @endphp
+                            @if ($roomNowRows->isNotEmpty())
+                                <div class="room-data-section mb-2">
+                                    <div class="room-data-next">
+                                        @foreach ($roomNowRows as $nowRow)
+                                            @php
+                                                $nowCode = $nowRow->presentationAttempt->presentationStatus->code;
+                                                $nowGroup = $nowRow->presentationAttempt->researchGroup;
+                                                [$nowClass, $nowLabel] = match ($nowCode) {
+                                                    'ONGOING' => ['is-ongoing', 'Ongoing'],
+                                                    'PAUSED' => ['is-paused', 'Paused'],
+                                                    default => ['is-called', 'Called'],
+                                                };
+                                            @endphp
+                                            <div class="room-data-next-item room-data-now-item {{ $nowClass }}">
+                                                <div class="d-flex align-items-center justify-content-between gap-2">
+                                                    <span class="fw-semibold">{{ $nowGroup->group_reference }}</span>
+                                                    <span class="room-data-now-tag">{{ $nowLabel }}</span>
+                                                </div>
+                                                <div class="text-brand-muted room-data-sub text-truncate" title="{{ $nowGroup->current_project_title }}">{{ $nowGroup->current_project_title ?? $nowGroup->leader()?->full_name ?? '—' }}</div>
+                                                @if ($nowCode === 'CALLED')
+                                                    @if ($nowRow->expected_start_at)
+                                                        <div class="text-brand-muted room-data-sub">Expected {{ $nowRow->expected_start_at->format('g:i A') }}</div>
+                                                    @endif
+                                                @elseif ($nowRow->expected_start_at)
+                                                    <div class="text-brand-muted room-data-sub">
+                                                        Started {{ $nowRow->expected_start_at->format('g:i A') }}@if ($nowRow->expected_end_at) · Expected end {{ $nowRow->expected_end_at->format('g:i A') }}@endif
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endif
+
                             @if ($roomPanelSource)
                                 <div class="room-data-section mb-2">
                                     <div class="room-data-label mb-1">{{ $roomPanelLabel }}</div>
@@ -302,12 +376,14 @@
                                     </div>
                                     @php $roomMemberNumbers = \App\Models\AttemptPanelAssignment::memberNumbers($roomAssignedPanel); @endphp
                                     @forelse ($roomAssignedPanel as $pa)
-                                        <span class="badge badge-muted-tint room-data-badge mb-1 me-1 d-inline-block">{{ $pa->is_lead ? 'Chair: ' : 'Member ' . ($roomMemberNumbers[$pa->id] ?? '') . ': ' }}{{ trim(($pa->panelist->profile->first_name ?? '') . ' ' . ($pa->panelist->profile->last_name ?? '')) }}</span>
+                                        @php $paJoined = in_array($pa->panelist_user_id, $connectedPanelistIds); @endphp
+                                        <span class="badge badge-muted-tint room-data-badge mb-1 me-1 d-inline-flex align-items-center" title="{{ $paJoined ? 'Joined the session' : 'Not joined yet' }}"><span class="panel-join-dot {{ $paJoined ? 'is-joined' : '' }}" aria-hidden="true"></span>{{ $pa->is_lead ? 'Chair: ' : 'Member ' . ($roomMemberNumbers[$pa->id] ?? '') . ': ' }}{{ trim(($pa->panelist->profile->first_name ?? '') . ' ' . ($pa->panelist->profile->last_name ?? '')) }}<span class="visually-hidden">{{ $paJoined ? ' (joined)' : ' (not joined)' }}</span></span>
                                     @empty
                                         <span class="text-brand-muted d-block">No panel assigned</span>
                                     @endforelse
                                     @foreach ($roomBackupPanel as $pb)
-                                        <span class="badge badge-brand-tint room-data-badge mb-1 me-1 d-inline-block">Alternate Panel: {{ trim(($pb->panelist->profile->first_name ?? '') . ' ' . ($pb->panelist->profile->last_name ?? '')) }}</span>
+                                        @php $pbJoined = in_array($pb->panelist_user_id, $connectedPanelistIds); @endphp
+                                        <span class="badge badge-brand-tint room-data-badge mb-1 me-1 d-inline-flex align-items-center" title="{{ $pbJoined ? 'Joined the session' : 'Not joined yet' }}"><span class="panel-join-dot {{ $pbJoined ? 'is-joined' : '' }}" aria-hidden="true"></span>Alternate Panel: {{ trim(($pb->panelist->profile->first_name ?? '') . ' ' . ($pb->panelist->profile->last_name ?? '')) }}<span class="visually-hidden">{{ $pbJoined ? ' (joined)' : ' (not joined)' }}</span></span>
                                     @endforeach
                                 </div>
                             @endif
@@ -344,6 +420,9 @@
                 @include('admin.live-monitoring.partials.room-view-all-overlay', [
                     'room' => $panel->room,
                     'fullQueue' => $panel->queue['schedules'],
+                    'currentSchedule' => $panel->queue['current'] ?? null,
+                    'calledSchedule' => $panel->queue['called'] ?? null,
+                    'nextSchedule' => $panel->queue['next'] ?? null,
                 ])
             </div>
 

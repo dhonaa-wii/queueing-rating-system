@@ -337,6 +337,8 @@
         .an-table th:first-child, .an-table td:first-child { padding-left: 0; }
         .an-table th:last-child, .an-table td:last-child { padding-right: 0; text-align: right; }
         .an-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+        .an-panelists { margin-top: 0.9rem; }
+        .an-panelists .an-table td.muted { white-space: normal; }
         .an-table .muted { color: var(--brand-muted); font-size: var(--page-fs-xs); }
         .an-util { display: inline-flex; align-items: center; gap: 0.4rem; justify-content: flex-end; }
         .an-util-meter { width: 3rem; height: 0.3rem; border-radius: 999px; background: var(--brand-surface-alt); overflow: hidden; }
@@ -740,6 +742,44 @@
                 </section>
             </div>
         @endif
+
+        {{-- Active panelists' seat counts --}}
+        <section class="an-panel an-panelists">
+            <div class="an-panel-head">
+                <h2 class="an-panel-title">{!! $icon('users') !!} Active Panelists</h2>
+                <span class="an-panel-note an-num">{{ $panelists->count() }}</span>
+            </div>
+            <div class="an-panel-body">
+                @if ($panelists->isNotEmpty())
+                    <div class="an-table-wrap">
+                        <table class="an-table">
+                            <thead>
+                                <tr>
+                                    <th>Panelist</th>
+                                    <th>Department / Program</th>
+                                    <th class="num">Assigned Groups</th>
+                                    <th class="num">Upcoming</th>
+                                    <th class="num">Completed</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($panelists as $panelist)
+                                    <tr>
+                                        <td>{{ $panelist['name'] }}</td>
+                                        <td class="muted">{{ $panelist['department'] ?: '—' }}</td>
+                                        <td class="num an-num">{{ $panelist['assigned'] }}</td>
+                                        <td class="num an-num">{{ $panelist['upcoming'] }}</td>
+                                        <td class="num an-num">{{ $panelist['completed'] }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <div class="an-empty">{!! $icon('users') !!} No active panelists</div>
+                @endif
+            </div>
+        </section>
 
         <div class="an-tip" id="an-tip" role="tooltip"></div>
     </div>

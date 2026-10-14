@@ -8,6 +8,23 @@
      tablet's own version — no admin-override actions in this list. Left/
      top/width/height below are only the pre-JS fallback (show.blade.php's
      script sets the real position/size the moment it opens). --}}
+@php
+    // Row markers (user-directed 2026-10-14): the presenting group while one
+    // is on stage, the called group, and — once nothing is on stage or called
+    // (the last group completed) — the next group to call.
+    $rowMarks = [];
+    if ($currentSchedule ?? null) {
+        $rowMarks[$currentSchedule->id] = $currentSchedule->presentationAttempt->presentationStatus->code === 'PAUSED'
+            ? ['is-paused', 'Paused', 'badge-danger-tint']
+            : ['is-ongoing', 'Ongoing', 'badge-success-tint'];
+    }
+    if ($calledSchedule ?? null) {
+        $rowMarks[$calledSchedule->id] = ['is-called', 'Called', 'badge-brand-tint'];
+    }
+    if (! ($currentSchedule ?? null) && ! ($calledSchedule ?? null) && ($nextSchedule ?? null)) {
+        $rowMarks[$nextSchedule->id] = ['is-next', 'Next', 'badge-info-tint'];
+    }
+@endphp
 <div class="view-all-overlay" data-room-view-all-panel="{{ $room->id }}" style="left: auto; right: 0; width: min(480px, 92vw);">
     <div class="view-all-overlay-backdrop" data-room-view-all-close="{{ $room->id }}"></div>
     <div class="view-all-overlay-panel">
@@ -51,8 +68,14 @@
                             @include('partials.past-session-divider', ['colspan' => 7, 'sessionEnd' => $schedule->session_end_at, 'forStudents' => false])
                         @endif
                         @php $pastSessionPrev = $schedule->isPastSessionEnd(); @endphp
-                        <tr class="{{ $schedule->isPastSessionEnd() ? 'past-session-row' : '' }}">
-                            <td>{{ $schedule->queueEntry->queue_number }}</td>
+                        @php $rowMark = $rowMarks[$schedule->id] ?? null; @endphp
+                        <tr class="{{ $schedule->isPastSessionEnd() ? 'past-session-row' : '' }} {{ $rowMark ? 'view-all-row-mark ' . $rowMark[0] : '' }}">
+                            <td>
+                                {{ $schedule->queueEntry->queue_number }}
+                                @if ($rowMark)
+                                    <span class="badge {{ $rowMark[2] }} view-all-mark-badge d-block mt-1">{{ $rowMark[1] }}</span>
+                                @endif
+                            </td>
                             <td class="text-nowrap">{{ $room->presentationDate?->presentation_date?->format('M d, Y') ?? '—' }}</td>
                             <td class="view-all-time-col">
                                 @if ($schedule->expected_start_at && $schedule->expected_end_at)

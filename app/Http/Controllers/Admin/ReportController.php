@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Exceptions\DuplicatePaymentReferenceException;
 use App\Http\Controllers\Controller;
 use App\Models\EvaluationLetterhead;
 use App\Models\EvaluationSubmission;
+use App\Models\PaymentVerification;
 use App\Models\PresentationAttempt;
 use App\Models\PresentationCategory;
 use App\Models\PresentationDate;
@@ -13,6 +15,7 @@ use App\Services\GradePdfExporter;
 use App\Services\GradeReportService;
 use App\Services\GradeSpreadsheetExporter;
 use App\Services\PanelistDaySheetService;
+use App\Services\PaymentVerificationService;
 use App\Services\RecommendationSummaryService;
 use App\Support\DefaultCategoryPicker;
 use Illuminate\Http\Request;
@@ -407,6 +410,80 @@ class ReportController extends Controller
         }
 
         return response()->json(['message' => 'Evaluation updated.']);
+    }
+
+    /**
+     * Correct a group's recorded payment reference number from the Payment/s
+     * modal on Generated Grades. The PDF/Excel exports are untouched by this.
+     */
+    public function updatePaymentReceipt(Request $request, PresentationCategory $category, PresentationAttempt $attempt, PaymentVerification $verification, PaymentVerificationService $service)
+    {
+        if ($attempt->researchGroup?->category_id !== $category->id
+            || $verification->presentation_attempt_id !== $attempt->id
+            || $verification->receipt_code_encrypted === null) {
+            throw new NotFoundHttpException();
+        }
+
+        $referenceNumber = $this->validatedReceiptNumber($request);
+
+        try {
+            $service->updateReceiptByAdmin($verification, $referenceNumber);
+        } catch (DuplicatePaymentReferenceException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'message' => 'Receipt number updated.',
+            'verification_id' => $verification->id,
+            'receipt' => $verification->receipt_code_encrypted,
+        ]);
+    }
+
+    /**
+     * Record a payment type that has no receipt number yet, from the same
+     * modal. Saved as RESOLVED by the Admin, the same as Group & Panel
+     * Assignment's Verify Payment.
+     */
+    public function storePaymentReceipt(Request $request, PresentationCategory $category, PresentationAttempt $attempt, PaymentVerificationService $service)
+    {
+        if ($attempt->researchGroup?->category_id !== $category->id) {
+            throw new NotFoundHttpException();
+        }
+
+        $type = $service->typesFor($category)->firstWhere('id', (int) $request->input('category_payment_type_id'))
+            ?? throw new NotFoundHttpException();
+
+        $existing = $attempt->paymentVerifications()->where('category_payment_type_id', $type->id)->first();
+        if ($existing?->receipt_code_encrypted !== null) {
+            return response()->json(['message' => 'This payment already has a receipt number. Edit it instead.'], 422);
+        }
+
+        $referenceNumber = $this->validatedReceiptNumber($request);
+
+        try {
+            $service->resolveByAdmin($attempt, $category, [$type->id => $referenceNumber], null, $request->user()->id);
+        } catch (DuplicatePaymentReferenceException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        $verification = $attempt->paymentVerifications()->where('category_payment_type_id', $type->id)->firstOrFail();
+
+        return response()->json([
+            'message' => 'Payment recorded.',
+            'verification_id' => $verification->id,
+            'receipt' => $verification->receipt_code_encrypted,
+        ]);
+    }
+
+    private function validatedReceiptNumber(Request $request): string
+    {
+        return trim($request->validate([
+            'reference_number' => ['required', 'string', 'max:100', 'regex:/^[A-Za-z0-9\-\/ ]+$/'],
+        ], [
+            'reference_number.regex' => 'The receipt number may only contain letters, numbers, spaces, hyphens and slashes.',
+        ], [
+            'reference_number' => 'receipt number',
+        ])['reference_number']);
     }
 
     /** PDF of the same sheets, one per page. */

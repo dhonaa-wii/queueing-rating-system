@@ -193,7 +193,7 @@ class PaymentVerificationService
             $hash = $this->hashFor($referenceNumber);
 
             if (isset($seenHashes[$hash])) {
-                throw new DuplicatePaymentReferenceException("Reference number \"{$referenceNumber}\" is entered more than once in this submission.");
+                throw new DuplicatePaymentReferenceException("Receipt number \"{$referenceNumber}\" is entered more than once in this submission.");
             }
 
             $seenHashes[$hash] = true;
@@ -228,6 +228,23 @@ class PaymentVerificationService
     }
 
     /**
+     * An Admin corrects a reference number that was already recorded
+     * (Reports > Generated Grades, user-directed 2026-10-14). Only the number
+     * changes: the payment keeps its status and who checked it, so a typo fix
+     * never turns into a second verification. Same system-wide duplicate rule
+     * as every other writer.
+     *
+     * @throws DuplicatePaymentReferenceException
+     */
+    public function updateReceiptByAdmin(PaymentVerification $verification, string $referenceNumber): void
+    {
+        $referenceNumber = trim($referenceNumber);
+
+        $this->assertNotDuplicate($referenceNumber, $verification->id);
+        $this->persist($verification, $referenceNumber);
+    }
+
+    /**
      * Normalized (trimmed, whitespace-collapsed, uppercased) so "12345",
      * " 12345 ", and "12345" typed by two different panelists all collide,
      * while remaining meaningless on its own — the real value only ever
@@ -257,7 +274,7 @@ class PaymentVerificationService
         $group = $conflict->presentationAttempt?->researchGroup?->group_reference ?? 'another group';
         $type = $conflict->categoryPaymentType?->name ?? 'a payment';
 
-        throw new DuplicatePaymentReferenceException("Reference number \"{$referenceNumber}\" is already recorded for {$group} — {$type}.");
+        throw new DuplicatePaymentReferenceException("Receipt number \"{$referenceNumber}\" is already recorded for {$group} — {$type}.");
     }
 
     /**
@@ -277,7 +294,7 @@ class PaymentVerificationService
             $verification->save();
         } catch (QueryException $e) {
             if ((string) $e->getCode() === '23000') {
-                throw new DuplicatePaymentReferenceException("Reference number \"{$referenceNumber}\" is already recorded for another payment.");
+                throw new DuplicatePaymentReferenceException("Receipt number \"{$referenceNumber}\" is already recorded for another payment.");
             }
 
             throw $e;

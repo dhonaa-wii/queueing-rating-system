@@ -106,7 +106,8 @@
 
                 overlay.querySelector('[data-drawer-stat-categories]').textContent = data.summary.assignedCategories;
                 overlay.querySelector('[data-drawer-stat-groups]').textContent = data.summary.assignedGroups;
-                overlay.querySelector('[data-drawer-stat-evaluated]').textContent = data.summary.evaluatedGroups;
+                overlay.querySelector('[data-drawer-stat-upcoming]').textContent = data.summary.upcomingGroups;
+                overlay.querySelector('[data-drawer-stat-completed]').textContent = data.summary.completedGroups;
 
                 currentRows = data.assignedGroups || [];
                 renderRows();

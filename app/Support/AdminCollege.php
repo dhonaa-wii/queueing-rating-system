@@ -11,6 +11,7 @@ use App\Models\EvaluationForm;
 use App\Models\EvaluationFormVersion;
 use App\Models\EvaluationSubmission;
 use App\Models\PanelSubstitutionRequest;
+use App\Models\PaymentVerification;
 use App\Models\PresentationAttempt;
 use App\Models\PresentationCategory;
 use App\Models\PresentationDate;
@@ -71,7 +72,8 @@ class AdminCollege
             $model instanceof AttemptSchedule => $model->presentationAttempt?->researchGroup?->category?->college_id,
             $model instanceof QueueEntry => $model->attemptSchedule?->presentationAttempt?->researchGroup?->category?->college_id,
             $model instanceof PanelSubstitutionRequest => $model->presentationAttempt?->researchGroup?->category?->college_id,
-            $model instanceof EvaluationSubmission => $model->presentationAttempt?->researchGroup?->category?->college_id,
+            $model instanceof EvaluationSubmission,
+            $model instanceof PaymentVerification => $model->presentationAttempt?->researchGroup?->category?->college_id,
 
             default => false,
         };

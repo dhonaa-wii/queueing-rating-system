@@ -103,7 +103,7 @@
                 <th class="num">Individual Grade Avg.</th>
                 <th class="num">Group Grade</th>
                 <th class="num">Total</th>
-                <th>Outcome</th>
+                <th>Remarks</th>
                 @foreach ($paymentTypes as $type)
                     <th class="center">{{ $type->name }}</th>
                 @endforeach

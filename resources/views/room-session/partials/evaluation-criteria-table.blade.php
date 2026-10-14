@@ -25,6 +25,15 @@
                 </td>
             </tr>
         @endif
+        @if ($remarkBands = $version->remarkBands())
+            <tr class="eval-legend-row">
+                <td colspan="2">
+                    @foreach ($remarkBands as $band)
+                        <strong>{{ $band['range'] }}</strong> &ndash; {{ $band['name'] }}@if (! $loop->last)&nbsp;&nbsp;&nbsp;@endif
+                    @endforeach
+                </td>
+            </tr>
+        @endif
 
         @forelse ($sections as $section)
             @php $items = $section->childCriteria->sortBy('sort_order')->values(); @endphp

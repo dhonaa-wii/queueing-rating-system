@@ -124,6 +124,8 @@ class ReDefenseService
     {
         $rooms = PresentationDateRoom::whereHas('presentationDate', fn ($q) => $q->where('category_id', $category->id))
             ->whereHas('roomUseStatus', fn ($q) => $q->where('is_accepting_queue', true))
+            // A room already closed for the day takes nobody else.
+            ->whereDoesntHave('roomSessions', fn ($q) => $q->whereNotNull('ended_at'))
             ->with('presentationDate')
             ->get()
             ->filter(fn (PresentationDateRoom $room) => $room->presentationDate->isOpenForScheduling())

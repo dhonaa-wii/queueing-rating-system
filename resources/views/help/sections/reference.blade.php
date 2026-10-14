@@ -39,7 +39,7 @@
 
 <div class="hc-topic" id="rf-outcomes">
     <h3><x-icon name="trophy" /> Presentation outcomes</h3>
-    <p>Remarks are not picked by the panel. When a panelist submits, their sheet's remark is marked from its Total Score; the group's official outcome comes from its <strong>Group Grade</strong> (the average Total Score of all submitted sheets): 91–100% Passed with No Revision, 81–90% Passed with Minor Revision, 71–80% Passed with Major Revision, 61–70% Re-Defense, below 61% Failed. Title Proposal sheets still have the remark picked, and the Lead Panelist's pick is the official outcome.</p>
+    <p>Remarks are not picked by the panel. When a panelist submits, their sheet's remark is marked from its Total Score; the group's official outcome comes from its <strong>Group Grade</strong> (the average Total Score of all submitted sheets), rounded off to a whole percent (90.5 counts as 91): 91–100% Passed with No Revision, 81–90% Passed with Minor Revision, 71–80% Passed with Major Revision, 61–70% Re-Defense, below 61% Failed. Title Proposal sheets still have the remark picked, and the Lead Panelist's pick is the official outcome.</p>
     <div class="hc-table-wrap">
         <table class="hc-table">
             <thead><tr><th>Outcome</th><th>Successful</th><th>Another attempt</th><th>In grade reports</th></tr></thead>

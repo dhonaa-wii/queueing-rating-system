@@ -102,7 +102,16 @@
                     </span>
                     <div class="panelist-stat-text">
                         <div class="panelist-stat-value" data-drawer-stat-groups>0</div>
-                        <div class="panelist-stat-label">Assigned Groups</div>
+                        <div class="panelist-stat-label">Assigned</div>
+                    </div>
+                </div>
+                <div class="panelist-stat">
+                    <span class="panelist-stat-icon badge-brand-tint">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    </span>
+                    <div class="panelist-stat-text">
+                        <div class="panelist-stat-value" data-drawer-stat-upcoming>0</div>
+                        <div class="panelist-stat-label">Upcoming</div>
                     </div>
                 </div>
                 <div class="panelist-stat">
@@ -110,8 +119,8 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
                     </span>
                     <div class="panelist-stat-text">
-                        <div class="panelist-stat-value" data-drawer-stat-evaluated>0</div>
-                        <div class="panelist-stat-label">Evaluated</div>
+                        <div class="panelist-stat-value" data-drawer-stat-completed>0</div>
+                        <div class="panelist-stat-label">Completed</div>
                     </div>
                 </div>
             </div>
@@ -237,7 +246,7 @@
            tinted icon chip beside its number, split by hairline dividers. */
         .panelist-stats {
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(4, minmax(0, 1fr));
             background-color: var(--brand-surface-alt);
             border-radius: 0.75rem;
             padding: 0.55rem 0;

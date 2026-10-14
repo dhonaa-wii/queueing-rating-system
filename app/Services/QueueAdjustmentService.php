@@ -56,22 +56,9 @@ class QueueAdjustmentService
         $room = $schedule->presentationDateRoom;
         $oldPosition = $entry->queue_number;
 
-        // Section Based: a group moves only within its own section
-        // (user-directed 2026-10-11) — from the first to the last 4B slot.
-        $room->loadMissing('presentationDate.category');
-        $category = $room->presentationDate->category;
-
-        if ($this->ordering->isSectionBased($category)) {
-            [$min, $max] = $this->sectionMoveRange($room, $entry->id);
-
-            if ($newPosition < $min || $newPosition > $max) {
-                $label = $this->ordering->label($category, $this->rankOf($category, $entry));
-                $range = $min === $max ? "position {$min}" : "positions {$min}–{$max}";
-
-                return $this->failure("{$schedule->presentationAttempt->researchGroup->group_reference} is {$label}: in {$room->room_name} it can only be placed at {$range}.");
-            }
-        }
-
+        // Any position, whatever the queue strategy (user-directed 2026-10-13:
+        // a 4A group may be placed among 4B groups). Only a group that has
+        // presented or is presenting keeps its number (firstOpenPosition()).
         $conflicts = DB::transaction(function () use ($schedule, $entry, $room, $newPosition, $oldPosition, $reasonId, $remarks, $performedByUserId) {
             $this->releaseCalledAttempt($schedule, 'MOVED', $performedByUserId);
             $this->panelistNotifier->scheduleChanged($schedule);
@@ -109,7 +96,7 @@ class QueueAdjustmentService
      * presentation_date_id, since attempt_schedules only stores
      * presentation_date_room_id.
      */
-    public function transferRoom(AttemptSchedule $schedule, PresentationDateRoom $targetRoom, int $reasonId, ?string $remarks, int $performedByUserId): array
+    public function transferRoom(AttemptSchedule $schedule, PresentationDateRoom $targetRoom, int $reasonId, ?string $remarks, int $performedByUserId, ?int $position = null): array
     {
         $entry = $schedule->queueEntry;
 
@@ -165,31 +152,22 @@ class QueueAdjustmentService
             return ['ok' => true, 'unchanged' => true];
         }
 
-        // Section Based (user-directed 2026-10-11): the group may only go to a
-        // day where it still presents after every earlier section and before
-        // every later one, and it lands at the end of its own section in the
-        // target room instead of the end of the room.
+        // The Admin picks the position (user-directed 2026-10-13), any day and
+        // room whatever the queue strategy — a 4A group may land among 4B
+        // groups. No position (bulk transfer) means the end of the room. A
+        // group that has presented or is presenting keeps its number.
         $category = $originRoom->presentationDate->category()->first();
-        $sectionBased = $this->ordering->isSectionBased($category);
         $targetIds = $this->activeEntryIdsForRoom($targetRoom->id)->reject(fn ($id) => $id === $entry->id)->values();
-        $index = $targetIds->count();
-
-        if ($sectionBased) {
-            $rank = $this->rankOf($category, $entry);
-
-            if ($why = $this->sectionTransferBlock($category, $entry, $rank, $targetRoom)) {
-                return $this->failure($why);
-            }
-
-            $index = $this->insertIndexFor($targetRoom, $rank, 'after', [], $entry->id);
-        }
+        $index = $position === null
+            ? $targetIds->count()
+            : max($this->firstOpenPosition($targetIds) - 1, min($position - 1, $targetIds->count()));
 
         // Refused rather than appended past the room's close time
         // (user-directed 2026-09-13). Bouncing the group straight back out
         // via spillOverflow() would look like the transfer silently failed;
         // saying so up front lets the Admin pick a day that has room. A group
-        // placed inside its section instead pushes the room's last group on
-        // to the next day, the same as a late registration does.
+        // placed ahead of others instead pushes the room's last group on to
+        // the next day, the same as a late registration does.
         if ($index >= $targetIds->count() && ! $this->roomHasRemainingCapacity($targetRoom)) {
             return $this->failure("\"{$targetRoom->room_name}\" on {$targetRoom->presentationDate->presentation_date->format('M j, Y')} is full for the day — its schedule has no slot left before it closes.");
         }
@@ -220,9 +198,9 @@ class QueueAdjustmentService
             return $this->conflicts->conflictsInRoom($originRoom)->merge($this->conflicts->conflictsInRoom($targetRoom));
         });
 
-        // Placed inside its section, the group may have pushed the target
-        // day's last group past the close time — that one moves on.
-        if ($sectionBased && $index < $targetIds->count() - 1) {
+        // Placed ahead of others, the group may have pushed the target day's
+        // last group past the close time — that one moves on.
+        if ($index < $targetIds->count() - 1) {
             $this->spillOverflow($category, $performedByUserId);
         }
 
@@ -419,6 +397,33 @@ class QueueAdjustmentService
      * category to place it — user-directed 2026-08-22: never auto-mark
      * absent, just leave it flagged for manual handling.
      */
+    /**
+     * One room closed for the day (user-directed 2026-10-13: "it should not
+     * rely on other rooms"). Its unfinished groups go to the front of the
+     * next open day straight away, in the order they had, and its deferred
+     * groups to the last open day, last number — the same two sweeps the
+     * end of the whole day runs, scoped to this room. Whatever has nowhere
+     * to go stays put; the end of the day tries again.
+     */
+    public function processRoomEnd(PresentationDateRoom $room, int $performedByUserId): array
+    {
+        $room->loadMissing('presentationDate.category');
+        $date = $room->presentationDate;
+        $category = $date->category;
+
+        $unfinished = $this->carryOverUnfinishedToNextDay($date, $category, $performedByUserId, $room->id);
+        $deferred = $this->requeueDeferredToCategoryEnd($date, $category, $performedByUserId, $room->id);
+
+        $this->spillOverflow($category, $performedByUserId);
+
+        return [
+            'unfinishedMoved' => $unfinished['moved'],
+            'unfinishedUnresolved' => $unfinished['unmoved'],
+            'deferredMoved' => $deferred['moved'],
+            'deferredUnresolved' => $deferred['unmoved'],
+        ];
+    }
+
     public function processEndOfDay(PresentationDate $date, int $performedByUserId): array
     {
         $date->loadMissing('category');
@@ -617,8 +622,8 @@ class QueueAdjustmentService
                 $ordered = collect($group)->sortBy('queue_number')->values();
 
                 try {
-                    DB::transaction(function () use ($ordered, $targetRoom, $category, $performedByUserId) {
-                        $this->insertAheadOfSameRank($ordered, $targetRoom, $category, 'CARRY_OVER_NEXT_DAY', 'UNFINISHED_END_OF_DAY', $performedByUserId);
+                    DB::transaction(function () use ($ordered, $targetRoom, $performedByUserId) {
+                        $this->insertAtFront($ordered, $targetRoom, 'CARRY_OVER_NEXT_DAY', 'UNFINISHED_END_OF_DAY', $performedByUserId);
                     });
                     $moved += $ordered->count();
                     // Unlike an end-of-day carry-over, the room they left still
@@ -674,6 +679,10 @@ class QueueAdjustmentService
             ->groupBy('presentation_date_id');
 
         $manualTypeIds = QueueAdjustmentType::whereIn('code', ['TRANSFER_ROOM', 'CHANGE_DATE'])->pluck('id')->all();
+        // An unresolved defer sits on the last day, last number (user-directed
+        // 2026-10-13); pulling it onto an earlier day would put it ahead of
+        // groups that never left their turn.
+        $deferredTailReasonId = (int) AdjustmentReason::where('code', 'UNRESOLVED_DEFERRED_END_OF_DAY')->value('id');
 
         $waiting = QueueEntry::whereNull('removed_at')
             ->whereHas('attemptSchedule.presentationDateRoom', fn ($q) => $q->whereIn('presentation_date_id', $dates->pluck('id')))
@@ -684,12 +693,13 @@ class QueueAdjustmentService
             ->whereDoesntHave('attemptSchedule.presentationAttempt.attemptType', fn ($q) => $q->where('code', 'RE_DEFENSE'))
             ->with('attemptSchedule.presentationDateRoom', 'attemptSchedule.presentationAttempt.presentationStatus', 'attemptSchedule.presentationAttempt.researchGroup.students')
             ->get()
-            ->reject(function (QueueEntry $entry) use ($manualTypeIds) {
-                $latestType = QueueAdjustment::where('queue_entry_id', $entry->id)
+            ->reject(function (QueueEntry $entry) use ($manualTypeIds, $deferredTailReasonId) {
+                $latest = QueueAdjustment::where('queue_entry_id', $entry->id)
                     ->orderByDesc('adjusted_at')->orderByDesc('id')
-                    ->value('adjustment_type_id');
+                    ->first(['adjustment_type_id', 'reason_id']);
 
-                return in_array($latestType, $manualTypeIds, true);
+                return in_array($latest?->adjustment_type_id, $manualTypeIds, true)
+                    || (int) $latest?->reason_id === $deferredTailReasonId;
             })
             ->sortBy(fn (QueueEntry $entry) => sprintf(
                 '%05d|%s|%s|%010d',
@@ -879,14 +889,15 @@ class QueueAdjustmentService
         return ['ok' => true, 'relocated' => $relocated - $unscheduled, 'unscheduled' => $unscheduled, 'unqueued' => $unqueued];
     }
 
-    private function carryOverUnfinishedToNextDay(PresentationDate $date, PresentationCategory $category, int $performedByUserId): array
+    private function carryOverUnfinishedToNextDay(PresentationDate $date, PresentationCategory $category, int $performedByUserId, ?int $onlyRoomId = null): array
     {
         $moved = 0;
         $unmoved = 0;
 
         // "Next" includes a follow-up session on the same calendar day (a day
         // ended early and continued): it is always created after this one
-        // finished, so a higher id on the same day is later.
+        // finished, so a higher id on the same day is later. Only a day that
+        // can still run (ongoing or upcoming) takes them.
         $nextDate = $category->presentationDates()
             ->whereNull('completed_at')
             ->where(fn ($q) => $q
@@ -895,9 +906,13 @@ class QueueAdjustmentService
                     ->whereDate('presentation_date', $date->presentation_date)
                     ->where('id', '>', $date->id)))
             ->chronological()
-            ->first();
+            ->with('eventDateStatus')
+            ->get()
+            ->first(fn (PresentationDate $candidate) => $candidate->isOpenForScheduling());
 
-        $rooms = PresentationDateRoom::where('presentation_date_id', $date->id)->get();
+        $rooms = PresentationDateRoom::where('presentation_date_id', $date->id)
+            ->when($onlyRoomId, fn ($q) => $q->where('id', $onlyRoomId))
+            ->get();
 
         foreach ($rooms as $originRoom) {
             $unfinishedEntries = QueueEntry::whereHas('attemptSchedule', fn ($q) => $q->where('presentation_date_room_id', $originRoom->id))
@@ -944,8 +959,8 @@ class QueueAdjustmentService
                 $bucketEntries = collect($bucket['entries']);
 
                 try {
-                    DB::transaction(function () use ($bucketEntries, $targetRoom, $category, $performedByUserId) {
-                        $this->insertAheadOfSameRank($bucketEntries, $targetRoom, $category, 'CARRY_OVER_NEXT_DAY', 'UNFINISHED_END_OF_DAY', $performedByUserId);
+                    DB::transaction(function () use ($bucketEntries, $targetRoom, $performedByUserId) {
+                        $this->insertAtFront($bucketEntries, $targetRoom, 'CARRY_OVER_NEXT_DAY', 'UNFINISHED_END_OF_DAY', $performedByUserId);
                     });
                     $moved += $bucketEntries->count();
                 } catch (\RuntimeException $e) {
@@ -957,12 +972,19 @@ class QueueAdjustmentService
         return ['moved' => $moved, 'unmoved' => $unmoved];
     }
 
-    private function requeueDeferredToCategoryEnd(PresentationDate $date, PresentationCategory $category, int $performedByUserId): array
+    /**
+     * Unresolved deferred groups go to the last open day, last number
+     * (user-directed 2026-10-13) — the same "last day, room that finishes
+     * last" rule a re-defense uses (ReDefenseService::targetRoom()), appended
+     * at the end of that room. A pending re-defense still presents after them.
+     */
+    private function requeueDeferredToCategoryEnd(PresentationDate $date, PresentationCategory $category, int $performedByUserId, ?int $onlyRoomId = null): array
     {
         $moved = 0;
         $unmoved = 0;
 
         $deferredEntries = QueueEntry::whereHas('attemptSchedule.presentationDateRoom', fn ($q) => $q->where('presentation_date_id', $date->id))
+            ->when($onlyRoomId, fn ($q) => $q->whereHas('attemptSchedule', fn ($s) => $s->where('presentation_date_room_id', $onlyRoomId)))
             ->whereNotNull('removed_at')
             ->whereHas('attemptSchedule.presentationAttempt.presentationStatus', fn ($q) => $q->where('is_terminal', false))
             ->orderBy('removed_at')
@@ -970,7 +992,7 @@ class QueueAdjustmentService
             ->get();
 
         foreach ($deferredEntries as $entry) {
-            $targetRoom = $this->lastOpenRoomInCategory($category, null, $entry->attemptSchedule->presentationAttempt->researchGroup);
+            $targetRoom = app(ReDefenseService::class)->targetRoom($category, $entry->attemptSchedule->presentationAttempt);
 
             if (! $targetRoom) {
                 $unmoved++;
@@ -1018,6 +1040,7 @@ class QueueAdjustmentService
             }
         })
             ->whereHas('presentationDateRoom.roomUseStatus', fn ($q) => $q->where('is_accepting_queue', true))
+            ->whereDoesntHave('presentationDateRoom.roomSessions', fn ($q) => $q->whereNotNull('ended_at'))
             ->whereHas('queueEntry', fn ($q) => $q->whereNull('removed_at'))
             // A group waiting "to be scheduled" holds no slot, so it doesn't
             // mark where the queue ends.
@@ -1039,6 +1062,7 @@ class QueueAdjustmentService
             }
         })
             ->whereHas('roomUseStatus', fn ($q) => $q->where('is_accepting_queue', true))
+            ->whereDoesntHave('roomSessions', fn ($q) => $q->whereNotNull('ended_at'))
             ->with('presentationDate')
             ->get()
             ->filter($accepts)
@@ -1682,6 +1706,10 @@ class QueueAdjustmentService
             ->with('attemptSchedule.presentationDateRoom', 'attemptSchedule.presentationAttempt.researchGroup.students')
             ->get();
 
+        // A group carried to the front of the next day keeps that place.
+        $carried = $this->carriedToFrontIds($entries->pluck('id'));
+        $entries = $entries->reject(fn (QueueEntry $entry) => in_array($entry->id, $carried, true))->values();
+
         if ($entries->count() < 2) {
             return 0;
         }
@@ -1963,156 +1991,59 @@ class QueueAdjustmentService
     }
 
     /**
-     * Places entries carried off an earlier day ahead of the target room's
-     * own groups of the same section (behind earlier sections), keeping the
-     * carried groups' own order. Under FIFO and Random Draw that is the front
-     * of the room, as before.
+     * Places groups carried off an earlier day at the front of the target
+     * room, in the order they had, whatever the queue strategy (user-directed
+     * 2026-10-13). They go behind anything that has presented or is
+     * presenting, and behind groups carried there earlier, so an older carry
+     * keeps its turn.
      */
-    private function insertAheadOfSameRank(\Illuminate\Support\Collection $entries, PresentationDateRoom $targetRoom, PresentationCategory $category, string $adjustmentTypeCode, string $reasonCode, int $performedByUserId): void
+    private function insertAtFront(\Illuminate\Support\Collection $entries, PresentationDateRoom $targetRoom, string $adjustmentTypeCode, string $reasonCode, int $performedByUserId): void
     {
-        $placed = [];
+        $movingIds = $entries->pluck('id');
+        $ids = $this->activeEntryIdsForRoom($targetRoom->id)->reject(fn ($id) => $movingIds->contains($id))->values();
+        $position = $this->firstOpenPosition($ids);
+        $carried = $this->carriedToFrontIds($ids);
+
+        while ($position <= $ids->count() && in_array($ids[$position - 1], $carried, true)) {
+            $position++;
+        }
 
         foreach ($entries as $entry) {
-            $position = $this->insertIndexFor($targetRoom, $this->rankOf($category, $entry), 'before', $placed, $entry->id) + 1;
             $this->relocateEntryToRoom($entry, $targetRoom, $position, $adjustmentTypeCode, $reasonCode, $performedByUserId);
-            $placed[] = $entry->id;
+            $position++;
         }
     }
 
     /**
-     * Section Based: the positions a group may be moved to in its own room —
-     * from just after the last group of an earlier section to just before
-     * the first group of a later one, and never ahead of a group that has
-     * presented or is presenting. 1-based, inclusive.
+     * Of the given queue entries, those whose latest adjustment is an
+     * end-of-day carry to the front (UNFINISHED_END_OF_DAY) and that haven't
+     * presented yet — they keep the place the carry gave them.
      *
-     * @return array{0: int, 1: int}
+     * @return array<int, int>
      */
-    public function sectionMoveRange(PresentationDateRoom $room, int $entryId): array
+    private function carriedToFrontIds(\Illuminate\Support\Collection $entryIds): array
     {
-        $room->loadMissing('presentationDate.category');
-        $category = $room->presentationDate->category;
-
-        $ids = $this->activeEntryIdsForRoom($room->id)->reject(fn ($id) => $id === $entryId)->values();
-        $ranks = $this->ordering->entryRanks($category, $ids->concat([$entryId]));
-
-        return $this->rangeWithin($ids, $ranks, $ranks[$entryId] ?? 0, $this->firstOpenPosition($ids));
-    }
-
-    /** @return array{0: int, 1: int} */
-    private function rangeWithin(\Illuminate\Support\Collection $ids, array $ranks, int $rank, int $floor): array
-    {
-        $min = $floor;
-        $max = $ids->count() + 1;
-
-        foreach ($ids->values() as $i => $id) {
-            if (($ranks[$id] ?? 0) < $rank) {
-                $min = max($min, $i + 2);
-            }
+        if ($entryIds->isEmpty()) {
+            return [];
         }
 
-        foreach ($ids->values() as $i => $id) {
-            if (($ranks[$id] ?? 0) > $rank) {
-                $max = $i + 1;
-                break;
-            }
-        }
+        $reasonId = AdjustmentReason::where('code', 'UNFINISHED_END_OF_DAY')->value('id');
 
-        return [$min, max($min, $max)];
-    }
-
-    /**
-     * Section Based: why $entry may not be transferred to $targetRoom's day,
-     * or null when it may. Allowed while no earlier day still holds a group
-     * of a later section and no later day still holds a group of an earlier
-     * one (user-directed 2026-10-11: "allow if order kept"). Rooms running in
-     * parallel on the same day are not compared.
-     */
-    private function sectionTransferBlock(PresentationCategory $category, QueueEntry $entry, int $rank, PresentationDateRoom $targetRoom): ?string
-    {
-        $bounds = $this->sectionDayBounds($category, $entry->id);
-        $reason = $this->dayRankConflict($bounds, $targetRoom->presentation_date_id, $rank);
-
-        if (! $reason) {
-            return null;
-        }
-
-        [$side, $otherRank, $dateId] = $reason;
-        $reference = $entry->attemptSchedule->presentationAttempt->researchGroup->group_reference;
-        $mine = $this->ordering->label($category, $rank);
-        $theirs = $this->ordering->label($category, $otherRank);
-        $target = $targetRoom->presentationDate->presentation_date->format('M j, Y');
-        $other = $bounds['dates'][$dateId]->presentation_date->format('M j, Y');
-
-        return $side === 'earlier'
-            ? "{$reference} ({$mine}) can't go to {$target}: {$theirs} groups present earlier, on {$other}, and {$mine} must present before them."
-            : "{$reference} ({$mine}) can't go to {$target}: {$theirs} groups still present later, on {$other}, and {$mine} must present after them.";
-    }
-
-    /**
-     * The lowest and highest regular rank (sections, not the deferred tail or
-     * re-defense) still waiting to present on each ongoing or upcoming day,
-     * leaving $excludeEntryId out.
-     */
-    private function sectionDayBounds(PresentationCategory $category, ?int $excludeEntryId = null): array
-    {
-        $dates = $category->presentationDates()->chronological()->with('eventDateStatus')->get()
-            ->filter(fn (PresentationDate $date) => $date->completed_at === null)
-            ->values();
-
-        $entries = QueueEntry::whereNull('removed_at')
-            ->whereHas('attemptSchedule.presentationDateRoom', fn ($q) => $q->whereIn('presentation_date_id', $dates->pluck('id')))
+        return QueueEntry::whereIn('id', $entryIds)
             ->whereHas('attemptSchedule.presentationAttempt.presentationStatus', fn ($q) => $q->where('is_terminal', false))
-            ->when($excludeEntryId, fn ($q) => $q->where('id', '!=', $excludeEntryId))
-            ->with('attemptSchedule.presentationDateRoom')
-            ->get();
-
-        $ranks = $this->ordering->entryRanks($category, $entries->pluck('id'));
-        $min = [];
-        $max = [];
-
-        foreach ($entries as $entry) {
-            $rank = $ranks[$entry->id] ?? 0;
-
-            if ($rank >= QueueOrdering::TAIL) {
-                continue;
-            }
-
-            $dateId = $entry->attemptSchedule->presentationDateRoom->presentation_date_id;
-            $min[$dateId] = min($min[$dateId] ?? PHP_INT_MAX, $rank);
-            $max[$dateId] = max($max[$dateId] ?? PHP_INT_MIN, $rank);
-        }
-
-        return ['order' => $dates->pluck('id')->all(), 'dates' => $dates->keyBy('id'), 'min' => $min, 'max' => $max];
-    }
-
-    /** ['earlier'|'later', the conflicting rank, its date id] or null. */
-    private function dayRankConflict(array $bounds, int $targetDateId, int $rank): ?array
-    {
-        $position = array_search($targetDateId, $bounds['order'], true);
-
-        if ($position === false) {
-            return null;
-        }
-
-        foreach ($bounds['order'] as $i => $dateId) {
-            if ($i < $position && ($bounds['max'][$dateId] ?? PHP_INT_MIN) > $rank) {
-                return ['earlier', $bounds['max'][$dateId], $dateId];
-            }
-
-            if ($i > $position && ($bounds['min'][$dateId] ?? PHP_INT_MAX) < $rank) {
-                return ['later', $bounds['min'][$dateId], $dateId];
-            }
-        }
-
-        return null;
+            ->with(['queueAdjustments' => fn ($q) => $q->orderByDesc('adjusted_at')->orderByDesc('id')])
+            ->get()
+            ->filter(fn (QueueEntry $entry) => (int) $entry->queueAdjustments->first()?->reason_id === (int) $reasonId)
+            ->pluck('id')
+            ->all();
     }
 
     /**
-     * Everything Group & Panel Assignment needs to show the section rules
-     * (Section Based only): each active entry's section label, the positions
-     * it may be moved to in its room, and the days it may be transferred to.
+     * Section Based only: each active entry's section label, shown beside the
+     * groups in Group & Panel Assignment's position pickers. Move and Transfer
+     * no longer limit a group to its section (user-directed 2026-10-13).
      *
-     * @return array{labels: array<int, string>, move: array<int, array{0: int, 1: int}>, dates: array<int, array<int, int>>}|null
+     * @return array{labels: array<int, string>}|null
      */
     public function sectionGuide(PresentationCategory $category): ?array
     {
@@ -2120,33 +2051,15 @@ class QueueAdjustmentService
             return null;
         }
 
-        $entries = QueueEntry::whereNull('removed_at')
+        $entryIds = QueueEntry::whereNull('removed_at')
             ->whereHas('attemptSchedule.presentationDateRoom.presentationDate', fn ($q) => $q->where('category_id', $category->id))
-            ->with('attemptSchedule.presentationAttempt.presentationStatus')
-            ->orderBy('queue_number')
-            ->get();
+            ->pluck('id');
 
-        $ranks = $this->ordering->entryRanks($category, $entries->pluck('id'));
-        $bounds = $this->sectionDayBounds($category);
-        $guide = ['labels' => [], 'move' => [], 'dates' => []];
+        $ranks = $this->ordering->entryRanks($category, $entryIds);
 
-        foreach ($entries->groupBy(fn ($entry) => $entry->attemptSchedule->presentation_date_room_id) as $roomEntries) {
-            foreach ($roomEntries as $entry) {
-                $rank = $ranks[$entry->id] ?? 0;
-                $guide['labels'][$entry->id] = $this->ordering->label($category, $rank);
-
-                $others = $roomEntries->reject(fn ($other) => $other->id === $entry->id)->values();
-                $locked = $others->keys()->filter(fn ($i) => $this->holdsItsSlot($others[$i]->attemptSchedule->presentationAttempt->presentationStatus))->max();
-                $guide['move'][$entry->id] = $this->rangeWithin($others->pluck('id'), $ranks, $rank, $locked === null ? 1 : $locked + 2);
-
-                $guide['dates'][$entry->id] = collect($bounds['order'])
-                    ->filter(fn ($dateId) => $this->dayRankConflict($bounds, $dateId, $rank) === null)
-                    ->values()
-                    ->all();
-            }
-        }
-
-        return $guide;
+        return [
+            'labels' => $entryIds->mapWithKeys(fn ($id) => [$id => $this->ordering->label($category, $ranks[$id] ?? 0)])->all(),
+        ];
     }
 
     private function failure(string $message): array

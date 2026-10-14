@@ -94,6 +94,21 @@ class EvaluationFormVersion extends Model
         return $this->belongsToMany(PresentationMode::class, 'evaluation_form_version_presentation_modes');
     }
 
+    /**
+     * Score bands to print under the rating legend. Empty for a Title Proposal
+     * form, whose remark is still picked rather than graded from the score.
+     */
+    public function remarkBands(): array
+    {
+        $this->loadMissing('applicablePresentationModes');
+
+        if ($this->applicablePresentationModes->first()?->code === 'TITLE_PROPOSAL') {
+            return [];
+        }
+
+        return PresentationOutcome::rubricLegend();
+    }
+
     public function isDraft(): bool
     {
         return $this->status->code === 'DRAFT';
