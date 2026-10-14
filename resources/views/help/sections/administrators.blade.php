@@ -400,7 +400,7 @@
             <div class="hc-screen">
                 <div class="m-grid-2" style="grid-template-columns:2fr 1fr;align-items:start;">
                     <div class="m-card"><div class="m-label">Filters</div><div class="m-row m-wrap" style="margin-top:.3rem;"><span class="m-input is-empty" style="min-width:6rem">Name or Group Code</span><span class="m-input">All sections ▾</span><span class="m-input">All dates ▾</span><span class="m-input">Section, then name ▾</span></div></div>
-                    <div class="m-card"><div class="m-row"><x-icon name="trophy" style="width:.9rem;height:.9rem;color:var(--hc-accent)" /><span class="m-label">Best Group</span></div><div class="m-bold">CFD-2026-0005</div><div class="m-small">Group Grade 96.40</div></div>
+                    <div class="m-card"><div class="m-row"><x-icon name="trophy" style="width:.9rem;height:.9rem;color:var(--hc-accent)" /><span class="m-label">Best Group</span></div><div class="m-bold">CFD-2026-0005</div><div class="m-small">Score 94.48</div></div>
                 </div>
                 <table class="m-table" style="margin-top:.5rem;">
                     <thead><tr><th>Name</th><th>Section</th><th>Individual Avg.</th><th>Group Grade</th><th>Total</th><th>Outcome</th><th>Fee</th></tr></thead>
@@ -417,7 +417,7 @@
     <ul class="hc-list">
         <li><strong>Filters</strong> — name or group code (a code shows every member of that group), section, presentation date, and sort (section then name, or last name). Exports follow the filters.</li>
         <li><strong>Evaluation</strong> — view the evaluation sheets the panel submitted for a group.</li>
-        <li><strong>Best Group</strong> and <strong>Best Presenter</strong> — the category's leaders; <strong>View</strong> shows the top five, exportable to PDF.</li>
+        <li><strong>Best Group</strong> (Group Grade × 70% + the members' average Individual Grade × 30%) and <strong>Best Presenter</strong> (Group Grade × 30% + their own Individual Grade × 70%) — the category's leaders; <strong>View</strong> shows the top five, exportable to PDF.</li>
         <li><strong>Panelist Sign-off Sheet</strong> — every panelist and how many groups they evaluated, with signature lines. View, print or export to PDF at any time.</li>
         <li><strong>Recommendations Summary</strong> — the panel's remarks and comments per group, viewable and exportable.</li>
         <li>Groups awaiting a re-defense are left out until their final attempt; Failed groups appear, marked in red.</li>

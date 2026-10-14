@@ -82,6 +82,7 @@ class ReportController extends Controller
         $sections = $gradeReportService->sectionsFor($category);
         $hasUnassignedSection = $gradeReportService->hasUnassignedSection($category);
         $dates = $gradeReportService->datesFor($category);
+        $tracks = $gradeReportService->tracksFor($category);
         $rows = $gradeReportService->generate($category, $filters);
         $paymentTypes = $gradeReportService->paymentTypesFor($category);
         // Deliberately unfiltered: the Best Group is the category's running
@@ -110,6 +111,7 @@ class ReportController extends Controller
             'sections',
             'hasUnassignedSection',
             'dates',
+            'tracks',
             'filters',
             'rows',
             'paymentTypes',
@@ -131,6 +133,7 @@ class ReportController extends Controller
             'search' => trim((string) $request->query('q', '')),
             'section' => $request->query('section') ?: null,
             'date' => $request->query('date') ?: null,
+            'track' => $request->query('track') ?: null,
             'sort' => $request->query('sort') === GradeReportService::SORT_LAST_NAME
                 ? GradeReportService::SORT_LAST_NAME
                 : GradeReportService::SORT_NAME,
@@ -157,6 +160,7 @@ class ReportController extends Controller
 
         return collect([
             $sectionLabel ? 'Section: ' . $sectionLabel : null,
+            ($trackLabel = $this->trackLabel($filters, $category)) ? 'Track: ' . $trackLabel : null,
             $date ? 'Date: ' . $date->presentation_date->format('M j, Y') : null,
             $filters['search'] !== '' ? 'Search: ' . $filters['search'] : null,
             $filters['sort'] === GradeReportService::SORT_LAST_NAME ? 'Sorted by last name' : null,
@@ -290,14 +294,28 @@ class ReportController extends Controller
 
         $filterLabel = collect([
             'Section: ' . ($sectionLabel ?? 'All'),
+            ($trackLabel = $this->trackLabel($filters, $category)) ? 'Track: ' . $trackLabel : null,
             $date ? 'Date: ' . $date->presentation_date->format('M j, Y') : null,
             $filters['search'] !== '' ? 'Search: ' . $filters['search'] : null,
             $filters['sort'] === GradeReportService::SORT_LAST_NAME ? 'Sorted by last name' : null,
         ])->filter()->implode('   ·   ');
 
-        $filename = Str::slug($category->name) . '-grades' . ($sectionLabel ? '-' . Str::slug($sectionLabel) : '') . '-' . now()->format('Y-m-d');
+        $filename = Str::slug($category->name) . '-grades'
+            . ($sectionLabel ? '-' . Str::slug($sectionLabel) : '')
+            . ($trackLabel ? '-' . Str::slug($trackLabel) : '')
+            . '-' . now()->format('Y-m-d');
 
         return [$filterLabel, $filename];
+    }
+
+    /** Display name of the Track filter's value, or null when unset/unknown. */
+    private function trackLabel(array $filters, PresentationCategory $category): ?string
+    {
+        if (! $filters['track']) {
+            return null;
+        }
+
+        return app(GradeReportService::class)->tracksFor($category)->get($filters['track']);
     }
 
     /**

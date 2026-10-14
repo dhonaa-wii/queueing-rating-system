@@ -21,6 +21,9 @@ class GradeReportService
 {
     public const UNASSIGNED_SECTION = '__unassigned__';
 
+    /** Track filter value for groups whose leader recorded no track. */
+    public const NO_TRACK = '__none__';
+
     public const SORT_NAME = 'name';
     public const SORT_LAST_NAME = 'last_name';
 
@@ -65,6 +68,28 @@ class GradeReportService
     }
 
     /**
+     * The Track filter's options: key => display name, one per track the
+     * report's own rows carry (a group's track is its leader's, the same one
+     * TrackRouting routes rooms and evaluation forms by), plus NO_TRACK when
+     * some rows have none. Empty when no row has a track, so the filter only
+     * shows on a category that actually uses tracks.
+     */
+    public function tracksFor(PresentationCategory $category): Collection
+    {
+        $rows = $this->generate($category);
+        $tracks = $rows->filter(fn ($row) => $row['track'] !== null)
+            ->unique('track')
+            ->mapWithKeys(fn ($row) => [$row['track'] => $row['track_name']])
+            ->sort(SORT_NATURAL | SORT_FLAG_CASE);
+
+        if ($tracks->isNotEmpty() && $rows->contains(fn ($row) => $row['track'] === null)) {
+            $tracks->put(self::NO_TRACK, 'No track');
+        }
+
+        return $tracks;
+    }
+
+    /**
      * Every presentation day of the category that at least one completed
      * attempt was presented on, latest first — the Date filter's options.
      * Filtering by a day means "every group that presented in any of that
@@ -100,6 +125,8 @@ class GradeReportService
      *   search  — case-insensitive substring of the student's name, or of
      *             the group code (keeps every member of that group)
      *   date    — presentation_dates.id the group presented on
+     *   track   — a TrackRouting::key() of the group's (leader's) track, or
+     *             self::NO_TRACK for groups with none
      *   sort    — self::SORT_NAME (section, then name) or SORT_LAST_NAME
      */
     public function generate(PresentationCategory $category, array $filters = []): Collection
@@ -108,8 +135,10 @@ class GradeReportService
         $search = Str::lower(trim((string) ($filters['search'] ?? '')));
         $dateId = ($filters['date'] ?? null) !== null && $filters['date'] !== '' ? (int) $filters['date'] : null;
         $sort = $filters['sort'] ?? self::SORT_NAME;
+        $trackFilter = ($filters['track'] ?? null) ?: null;
 
         $category->loadMissing([
+            'researchTracks',
             'categoryPaymentSetting',
             'categoryPaymentTypes',
             'researchGroups.students',
@@ -156,6 +185,17 @@ class GradeReportService
             $presentationDate = $room?->presentationDate;
 
             if ($dateId !== null && $presentationDate?->id !== $dateId) {
+                continue;
+            }
+
+            // The group's track is its leader's (TrackRouting::trackOf()),
+            // shown with the category's own spelling when it has one.
+            $leaderTrack = $group->leader()?->research_track_name;
+            $trackKey = $leaderTrack === null || trim($leaderTrack) === '' ? null : TrackRouting::key($leaderTrack);
+            $trackName = $trackKey === null ? null
+                : ($category->researchTracks->first(fn ($t) => TrackRouting::key($t->name) === $trackKey)?->name ?? trim($leaderTrack));
+
+            if ($trackFilter !== null && ($trackFilter === self::NO_TRACK ? $trackKey !== null : $trackKey !== $trackFilter)) {
                 continue;
             }
 
@@ -222,6 +262,8 @@ class GradeReportService
                     'presentation_date_id' => $presentationDate?->id,
                     'presentation_date' => $presentationDate?->presentation_date,
                     'room_name' => $room?->room_name,
+                    'track' => $trackKey,
+                    'track_name' => $trackName,
                     'group_reference' => $group->group_reference,
                     'project_title' => $group->current_project_title,
                     'attempt_id' => $gradedAttempt->id,
@@ -262,7 +304,7 @@ class GradeReportService
 
     /**
      * Running Best Group for the whole category (user-directed 2026-09-13):
-     * the highest Group Grade among every group this report lists, recomputed
+     * the highest Best Group score (see topGroups()) among every group this report lists, recomputed
      * on each read so it moves as evaluations come in. Every group sharing
      * that top grade is returned — a tie shows them all. A FAILED group is
      * never a best group, and a group with no submitted grade yet can't rank.
@@ -274,7 +316,8 @@ class GradeReportService
     }
 
     /**
-     * Running Best Presenter: the highest Individual Grade Avg. among every
+     * Running Best Presenter: the highest Best Presenter score (see
+     * topPresenters()) among every
      * student this report lists (user-directed 2026-09-25). Same rules as
      * bestGroups() — ties all returned, FAILED groups and students with no
      * individual grade yet never rank.
@@ -285,33 +328,50 @@ class GradeReportService
     }
 
     /**
-     * The top $limit groups by Group Grade, ranked (1, 2, 2, 4 …). Whoever is
-     * tied with the last place is kept, so a tie is never cut in half — the
-     * list can run past $limit only by exactly those ties.
+     * The top $limit groups by Best Group score (user-directed 2026-10-14):
+     * Group Grade × 70% + the average of its members' Individual Grade Avg. ×
+     * 30%. Ranked (1, 2, 2, 4 …); whoever is tied with the last place is kept,
+     * so a tie is never cut in half — the list can run past $limit only by
+     * exactly those ties. A group needs a Group Grade and at least one member
+     * with an individual grade to rank.
      */
     public function topGroups(PresentationCategory $category, int $limit = 5): Collection
     {
         $groups = $this->generate($category)
             ->groupBy('group_reference')
-            ->map(fn (Collection $members) => (object) [
-                'group_reference' => $members->first()['group_reference'],
-                'project_title' => $members->first()['project_title'],
-                'members' => $members->pluck('name')->values(),
-                'group_grade' => $members->first()['group_grade'],
-                'failed' => $members->first()['outcome_failed'],
-                'attempt_id' => $members->first()['attempt_id'],
-            ])
-            ->reject(fn ($group) => $group->failed || $group->group_grade === null)
+            ->map(function (Collection $members) {
+                $first = $members->first();
+                $individuals = $members->pluck('individual_avg')->filter(fn ($value) => $value !== null);
+                $membersAvg = $individuals->isNotEmpty() ? round($individuals->avg(), 2) : null;
+
+                return (object) [
+                    'group_reference' => $first['group_reference'],
+                    'project_title' => $first['project_title'],
+                    'members' => $members->pluck('name')->values(),
+                    'group_grade' => $first['group_grade'],
+                    'members_individual_avg' => $membersAvg,
+                    'score' => ($first['group_grade'] !== null && $membersAvg !== null)
+                        ? round(($first['group_grade'] * 0.70) + ($membersAvg * 0.30), 2)
+                        : null,
+                    'failed' => $first['outcome_failed'],
+                    'attempt_id' => $first['attempt_id'],
+                ];
+            })
+            ->reject(fn ($group) => $group->failed || $group->score === null)
             ->values();
 
-        return $this->rank($groups, 'group_grade', 'group_reference', $limit);
+        return $this->rank($groups, 'score', 'group_reference', $limit);
     }
 
-    /** The top $limit students by Individual Grade Avg., ranked like topGroups(). */
+    /**
+     * The top $limit students by Best Presenter score (user-directed
+     * 2026-10-14): Group Grade × 30% + their own Individual Grade Avg. (the
+     * average of their raw scores) × 70%. Ranked like topGroups().
+     */
     public function topPresenters(PresentationCategory $category, int $limit = 5): Collection
     {
         $presenters = $this->generate($category)
-            ->reject(fn ($row) => $row['outcome_failed'] || $row['individual_avg'] === null)
+            ->reject(fn ($row) => $row['outcome_failed'] || $row['individual_avg'] === null || $row['group_grade'] === null)
             ->map(fn ($row) => (object) [
                 'name' => $row['name'],
                 'section' => $row['section'],
@@ -320,11 +380,12 @@ class GradeReportService
                 'individual_avg' => $row['individual_avg'],
                 'group_grade' => $row['group_grade'],
                 'total' => $row['total'],
+                'score' => round(($row['group_grade'] * 0.30) + ($row['individual_avg'] * 0.70), 2),
                 'attempt_id' => $row['attempt_id'],
             ])
             ->values();
 
-        return $this->rank($presenters, 'individual_avg', 'name', $limit);
+        return $this->rank($presenters, 'score', 'name', $limit);
     }
 
     /**

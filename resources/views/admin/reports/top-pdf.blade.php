@@ -96,7 +96,7 @@
                 <th class="rank">Rank</th>
                 <th>{{ $isGroups ? 'Group' : 'Presenter' }}</th>
                 <th>{{ $isGroups ? 'Members' : 'Project Title' }}</th>
-                <th class="num">{{ $isGroups ? 'Group Grade' : 'Individual Avg.' }}</th>
+                <th class="num">Score</th>
             </tr>
         </thead>
         <tbody>
@@ -113,7 +113,7 @@
                         @endif
                     </td>
                     <td class="muted">{{ $isGroups ? $item->members->implode(', ') : ($item->project_title ?? '—') }}</td>
-                    <td class="num">{{ number_format($isGroups ? $item->group_grade : $item->individual_avg, 2) }}</td>
+                    <td class="num">{{ number_format($item->score, 2) }}</td>
                 </tr>
             @empty
                 <tr>

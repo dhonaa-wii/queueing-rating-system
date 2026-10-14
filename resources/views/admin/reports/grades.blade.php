@@ -9,6 +9,7 @@
     $activeFilters = $filters['search'] !== ''
         || $filters['section'] !== null
         || $filters['date'] !== null
+        || $filters['track'] !== null
         || $filters['sort'] !== GradeReportService::SORT_NAME;
 @endphp
 
@@ -100,6 +101,18 @@
                                 </select>
                             </div>
 
+                            @if ($tracks->isNotEmpty())
+                                <div>
+                                    <label for="filter-track" class="rp-field-label">Track</label>
+                                    <select name="track" id="filter-track" class="form-select form-select-sm" data-filter-auto>
+                                        <option value="">All tracks</option>
+                                        @foreach ($tracks as $trackKey => $trackName)
+                                            <option value="{{ $trackKey }}" @selected($filters['track'] === (string) $trackKey)>{{ $trackName }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            @endif
+
                             <div>
                                 <label for="filter-date" class="rp-field-label">Date</label>
                                 <select name="date" id="filter-date" class="form-select form-select-sm" data-filter-auto>
@@ -160,6 +173,7 @@
                     'q' => $filters['search'] ?: null,
                     'section' => $filters['section'],
                     'date' => $filters['date'],
+                    'track' => $filters['track'],
                     'sort' => $filters['sort'],
                 ]);
             @endphp

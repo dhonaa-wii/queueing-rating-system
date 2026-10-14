@@ -57,8 +57,8 @@ class PresentationOutcome extends Model
 
     /**
      * The rubric as the evaluation sheet prints it under the rating legend:
-     * [['range' => '91–100', 'name' => 'Passed with No Revision'], ...,
-     * ['range' => 'Below 61', 'name' => 'Failed']]. Names come from the
+     * [['range' => '91–100%', 'name' => 'Passed with No Revision'], ...,
+     * ['range' => 'Below 61%', 'name' => 'Failed']]. Names come from the
      * catalog, so a renamed outcome prints its current name.
      */
     public static function rubricLegend(): array
@@ -74,12 +74,12 @@ class PresentationOutcome extends Model
         $ceiling = 100;
 
         foreach (self::GRADE_BANDS as $floor => $code) {
-            $legend[] = ['range' => $floor.'–'.$ceiling, 'name' => $names[$code] ?? $code];
+            $legend[] = ['range' => $floor.'–'.$ceiling.'%', 'name' => $names[$code] ?? $code];
             $ceiling = $floor - 1;
         }
 
         $lowest = array_key_last(self::GRADE_BANDS);
-        $legend[] = ['range' => 'Below '.$lowest, 'name' => $names['FAILED'] ?? 'FAILED'];
+        $legend[] = ['range' => 'Below '.$lowest.'%','name' => $names['FAILED'] ?? 'FAILED'];
 
         return $legend;
     }

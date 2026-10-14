@@ -48,8 +48,8 @@
                 </div>
 
                 <div class="rp-best-score">
-                    <span class="rp-best-score-value">{{ number_format($isGroups ? $item->group_grade : $item->individual_avg, 2) }}</span>
-                    <span class="rp-best-score-label">{{ $isGroups ? 'Group Grade' : 'Individual Avg.' }}</span>
+                    <span class="rp-best-score-value">{{ number_format($item->score, 2) }}</span>
+                    <span class="rp-best-score-label">Score</span>
                 </div>
             </div>
         @endforeach

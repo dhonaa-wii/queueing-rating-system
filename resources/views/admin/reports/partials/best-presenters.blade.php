@@ -30,8 +30,8 @@
             <div class="rp-best-title">{{ $leader->name }}</div>
         </div>
         <div class="rp-best-score">
-            <span class="rp-best-score-value">{{ number_format($leader->individual_avg, 2) }}</span>
-            <span class="rp-best-score-label">Individual Avg.</span>
+            <span class="rp-best-score-value">{{ number_format($leader->score, 2) }}</span>
+            <span class="rp-best-score-label">Score</span>
         </div>
     </div>
 @else

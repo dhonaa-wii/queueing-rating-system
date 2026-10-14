@@ -31,8 +31,8 @@
             <div class="rp-best-title">{{ $leader->project_title ?? '—' }}</div>
         </div>
         <div class="rp-best-score">
-            <span class="rp-best-score-value">{{ number_format($leader->group_grade, 2) }}</span>
-            <span class="rp-best-score-label">Group Grade</span>
+            <span class="rp-best-score-value">{{ number_format($leader->score, 2) }}</span>
+            <span class="rp-best-score-label">Score</span>
         </div>
     </div>
 @else
