@@ -72,6 +72,7 @@
         <div class="hc-legend-row"><span class="hc-badge hc-badge-success">Completed</span><span>Already presented, with the real completion time and the outcome. <strong>View Evaluation</strong> opens the sheets the panel submitted.</span></div>
     </div>
     <p>Search by group code, title or leader, and filter by track, section or category.</p>
+    <p><strong>Recommendations Summary</strong> (upper right) lists the panel's comments for each of your advisees that has presented. <strong>View</strong> opens the list and <strong>Export to PDF</strong> downloads it. In the list, each group has <strong>Print</strong> and <strong>Export to PDF</strong> for its own Recommendation Form.</p>
 </div>
 
 <div class="hc-topic" id="pn-unavailable">

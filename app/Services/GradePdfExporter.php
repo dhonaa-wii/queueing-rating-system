@@ -75,7 +75,9 @@ class GradePdfExporter
         $showLetterhead = $letterhead && $letterhead->hasContent();
 
         $html = view('admin.reports.recommendations-pdf', [
-            'category' => $category,
+            'heading' => $category->name,
+            'subheading' => ($category->academicYear->name ?? '—') . ' · ' . ($category->semester->name ?? '—') . ' · ' . ($category->college->name ?? '—'),
+            'showCategory' => false,
             'rows' => $rows,
             'letterhead' => $showLetterhead ? $letterhead : null,
             'logo' => $showLetterhead ? $this->logoDataUri($letterhead->logo_path) : null,
@@ -88,6 +90,47 @@ class GradePdfExporter
     }
 
     /**
+     * The same summary for a panelist's advisees (My Advisees) — rows may
+     * span several categories, so each row names its category, and the
+     * letterhead/footer are the panelist's own college.
+     */
+    public function renderAdviseeRecommendations(
+        string $panelistName,
+        ?string $collegeName,
+        Collection $rows,
+        ?EvaluationLetterhead $letterhead,
+    ): string {
+        $showLetterhead = $letterhead && $letterhead->hasContent();
+
+        $html = view('admin.reports.recommendations-pdf', [
+            'heading' => 'My Advisees',
+            'subheading' => 'Technical Adviser: ' . $panelistName,
+            'showCategory' => true,
+            'rows' => $rows,
+            'letterhead' => $showLetterhead ? $letterhead : null,
+            'logo' => $showLetterhead ? $this->logoDataUri($letterhead->logo_path) : null,
+            'secondaryLogo' => $showLetterhead ? $this->logoDataUri($letterhead->secondary_logo_path) : null,
+            'footerText' => implode(' · ', array_filter(['ARPQRS', $collegeName])),
+            'generatedAt' => now()->format('M j, Y g:i A'),
+        ])->render();
+
+        return $this->toPdf($html, 'portrait');
+    }
+
+    /**
+     * One group's Recommendation Form (RecommendationSummaryService::form()),
+     * laid out like the printed paper. The same view is served as HTML for
+     * the Print button, so print and PDF match.
+     */
+    public function renderRecommendationForm(object $form, ?EvaluationLetterhead $letterhead): string
+    {
+        return $this->toPdf(view('admin.reports.recommendation-form', [
+            'form' => $form,
+            'letterhead' => $letterhead && $letterhead->hasContent() ? $letterhead : null,
+        ])->render(), 'portrait');
+    }
+
+    /**
      * The top-5 list behind a Best card — $type is 'groups' (by Group Grade)
      * or 'presenters' (by Individual Grade Avg.), $rows already ranked by
      * GradeReportService.
@@ -97,6 +140,7 @@ class GradePdfExporter
         string $type,
         Collection $rows,
         ?EvaluationLetterhead $letterhead,
+        string $filterLabel = '',
     ): string {
         $showLetterhead = $letterhead && $letterhead->hasContent();
 
@@ -104,6 +148,7 @@ class GradePdfExporter
             'category' => $category,
             'type' => $type,
             'rows' => $rows,
+            'filterLabel' => $filterLabel,
             'letterhead' => $showLetterhead ? $letterhead : null,
             'logo' => $showLetterhead ? $this->logoDataUri($letterhead->logo_path) : null,
             'secondaryLogo' => $showLetterhead ? $this->logoDataUri($letterhead->secondary_logo_path) : null,

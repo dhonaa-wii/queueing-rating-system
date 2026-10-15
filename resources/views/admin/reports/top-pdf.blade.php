@@ -87,7 +87,7 @@
         <div class="eyebrow">{{ $isGroups ? 'Ranked by Group Grade' : 'Ranked by Individual Grade Avg.' }}</div>
         <h1>{{ $heading }}</h1>
         <div class="sub">{{ $category->name }} &middot; {{ $category->academicYear->name ?? '—' }} &middot; {{ $category->semester->name ?? '—' }}</div>
-        <div class="filters">Generated {{ $generatedAt }}</div>
+        <div class="filters">@if ($filterLabel !== ''){{ $filterLabel }} &middot; @endif Generated {{ $generatedAt }}</div>
     </div>
 
     <table class="top">

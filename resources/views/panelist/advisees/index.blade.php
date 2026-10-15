@@ -66,16 +66,26 @@
                     </select>
                 </div>
 
-                @if ($categoryOptions->count() > 1)
-                    <div class="assign-toolbar-right d-flex align-items-center gap-2 ms-auto flex-shrink-0">
+                <div class="assign-toolbar-right d-flex flex-wrap align-items-center gap-2 ms-auto">
+                    @if ($categoryOptions->count() > 1)
                         <select id="myassign-category" class="form-select myassign-filter myassign-category" aria-label="Category">
                             <option value="">All Categories</option>
                             @foreach ($categoryOptions as $option)
                                 <option value="{{ $option->id }}">{{ $option->name }}</option>
                             @endforeach
                         </select>
+                    @endif
+
+                    <div class="advisee-rec-tools">
+                        <span class="advisee-rec-label"><x-icon name="file-text" /> Recommendations Summary</span>
+                        <button type="button" class="btn btn-sm btn-outline-brand" data-recommendations-open>
+                            <x-icon name="eye" /> View
+                        </button>
+                        <a href="{{ route('panelist.advisees.recommendations.export-pdf') }}" class="btn btn-sm btn-outline-brand">
+                            <x-icon name="file-text" /> Export to PDF
+                        </a>
                     </div>
-                @endif
+                </div>
             </div>
 
             <div class="notification-tabs mb-3">
@@ -347,6 +357,11 @@
             @endforeach
 
             @include('admin.partials.evaluation-sheet-modal')
+
+            @include('admin.reports.partials.recommendations-modal', [
+                'fetchUrl' => route('panelist.advisees.recommendations'),
+                'pdfUrl' => route('panelist.advisees.recommendations.export-pdf'),
+            ])
         @endif
     </div>
 
@@ -379,6 +394,40 @@
 
             .myassign-category {
                 max-width: 16rem;
+            }
+
+            .advisee-rec-tools {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 0.4rem;
+            }
+
+            .advisee-rec-tools .btn {
+                height: 2.1rem;
+            }
+
+            .advisee-rec-label {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.4rem;
+                margin-right: 0.15rem;
+                font-size: 0.85rem;
+                font-weight: 600;
+                white-space: nowrap;
+            }
+
+            /* Bare icon outside a button — only .btn-* > svg has a size rule. */
+            .advisee-rec-label svg {
+                width: 1.05em;
+                height: 1.05em;
+                flex-shrink: 0;
+            }
+
+            @media (max-width: 575.98px) {
+                .assign-toolbar-right {
+                    margin-left: 0 !important;
+                }
             }
 
             .assign-toolbar .form-control,

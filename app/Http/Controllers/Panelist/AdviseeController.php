@@ -4,13 +4,16 @@ namespace App\Http\Controllers\Panelist;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Panelist\Concerns\RendersEvaluationSheets;
+use App\Models\EvaluationLetterhead;
 use App\Models\PresentationAttempt;
 use App\Models\ResearchGroup;
 use App\Services\AdviseeService;
 use App\Services\GradePdfExporter;
+use App\Services\RecommendationSummaryService;
 use App\Services\RoomQueuePreviewService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -75,6 +78,81 @@ class AdviseeController extends Controller
     public function exportEvaluationSheetPdf(Request $request, PresentationAttempt $attempt, GradePdfExporter $exporter)
     {
         return $this->evaluationSheetPdf($this->advisedAttempt($request, $attempt), $exporter);
+    }
+
+    /**
+     * Summary of Recommendations & Comments for this panelist's advisees only
+     * — the same list Admin Reports shows per category, across every category
+     * the panelist advises in.
+     */
+    public function recommendations(Request $request, RecommendationSummaryService $service)
+    {
+        return view('admin.reports.partials.recommendations', [
+            'rows' => $service->rowsForAdviser($request->user()),
+            'showCategory' => true,
+            'formUrls' => fn ($row) => [
+                'print' => route('panelist.advisees.recommendation-form', $row->attempt_id),
+                'pdf' => route('panelist.advisees.recommendation-form.export-pdf', $row->attempt_id),
+            ],
+        ]);
+    }
+
+    public function exportRecommendationsPdf(Request $request, RecommendationSummaryService $service, GradePdfExporter $exporter)
+    {
+        $user = $request->user()->loadMissing(['profile', 'panelistProfile.college']);
+        $college = $user->panelistProfile?->college;
+        $name = trim(($user->profile?->first_name ?? '') . ' ' . ($user->profile?->last_name ?? '')) ?: $user->username;
+
+        $pdf = $exporter->renderAdviseeRecommendations(
+            $name,
+            $college?->name,
+            $service->rowsForAdviser($user),
+            EvaluationLetterhead::forCollege($college?->id),
+        );
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="my-advisees-recommendations-' . now()->format('Y-m-d') . '.pdf"',
+        ]);
+    }
+
+    public function recommendationForm(Request $request, PresentationAttempt $attempt, RecommendationSummaryService $service)
+    {
+        $form = $service->form($this->completedAdvisedAttempt($request, $attempt));
+
+        return view('admin.reports.recommendation-form', [
+            'form' => $form,
+            'letterhead' => $this->formLetterhead($form->category->college_id),
+            'forPrint' => true,
+        ]);
+    }
+
+    public function exportRecommendationForm(Request $request, PresentationAttempt $attempt, RecommendationSummaryService $service, GradePdfExporter $exporter)
+    {
+        $form = $service->form($this->completedAdvisedAttempt($request, $attempt));
+
+        return response($exporter->renderRecommendationForm($form, $this->formLetterhead($form->category->college_id)), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . Str::slug($form->group_reference) . '-recommendation-form.pdf"',
+        ]);
+    }
+
+    private function completedAdvisedAttempt(Request $request, PresentationAttempt $attempt): PresentationAttempt
+    {
+        $attempt = $this->advisedAttempt($request, $attempt);
+
+        if ($attempt->presentationStatus()->value('code') !== 'COMPLETED') {
+            throw new NotFoundHttpException();
+        }
+
+        return $attempt;
+    }
+
+    private function formLetterhead(?int $collegeId): ?EvaluationLetterhead
+    {
+        $letterhead = EvaluationLetterhead::forCollege($collegeId);
+
+        return $letterhead && $letterhead->hasContent() ? $letterhead : null;
     }
 
     /** Only an attempt of a group this panelist advises — anything else 404s. */

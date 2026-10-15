@@ -35,6 +35,9 @@
         </div>
 
         <div class="row g-3 mb-3">
+            {{-- The grades filters only apply to the table, so they are hidden
+                 while a top-5 list replaces it (user-directed 2026-10-15). --}}
+            @unless ($top)
             <div class="col-lg-8">
                 <div class="card-brand rp-card h-100">
                     <div class="rp-card-header">
@@ -138,8 +141,9 @@
                     </form>
                 </div>
             </div>
+            @endunless
 
-            <div class="col-lg-4 d-flex flex-column gap-3">
+            <div class="{{ $top ? 'col-12 rp-best-pair' : 'col-lg-4 d-flex flex-column gap-3' }}">
                 {{-- Refreshed in place every 30s by the script below, so they
                      keep up as panels submit evaluations. Sized to their
                      content, not to the filters card beside them. Each one's
@@ -333,21 +337,10 @@
 
         {{-- Running list of completed groups with the panelists' comments,
              fetched from its own route each time it opens. --}}
-        <div class="modal fade" id="recommendations-modal" tabindex="-1" aria-labelledby="recommendations-modal-label" aria-hidden="true">
-            <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="recommendations-modal-label">Summary of Recommendations &amp; Comments</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body" data-recommendations-body></div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-brand" data-bs-dismiss="modal">Close</button>
-                        <a href="{{ route('admin.reports.recommendations.export-pdf', $category) }}" class="btn btn-brand"><x-icon name="file-text" /> Export to PDF</a>
-                    </div>
-                </div>
-            </div>
-        </div>
+        @include('admin.reports.partials.recommendations-modal', [
+            'fetchUrl' => route('admin.reports.recommendations', $category),
+            'pdfUrl' => route('admin.reports.recommendations.export-pdf', $category),
+        ])
 
         {{-- The running sign-off sheet, embedded from its own standalone route
              (?embed=1 drops that page's toolbar) so there is exactly one copy
@@ -618,32 +611,132 @@
             color: var(--brand-muted);
         }
 
-        /* Top-5 cards that replace the grades table. */
-        .rp-top-grid {
+        /* Best cards side by side while a top-5 list is open (the filters
+           card beside them is hidden then). */
+        .rp-best-pair {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 0.75rem;
+            align-items: start;
+        }
+
+        @media (max-width: 767.98px) {
+            .rp-best-pair {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Top-5 list that replaces the grades table: one group or presenter
+           per row. */
+        .rp-top-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem 1rem;
+            margin-bottom: 0.6rem;
+        }
+
+        .rp-top-actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .rp-top-actions .form-select {
+            width: auto;
+            min-width: 9rem;
+            max-width: 14rem;
+        }
+
+        .rp-top-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
         }
 
         .rp-top-card {
             display: flex;
             align-items: center;
-            gap: 0.85rem;
-            padding: 0.9rem 1rem;
+            gap: 1rem;
+            padding: 0.75rem 1rem;
         }
 
         .rp-top-card .rp-best-main {
+            flex: 1 1 auto;
             min-width: 0;
         }
 
-        .rp-top-card .rp-best-ref {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+        .rp-top-card .rp-best-title {
+            -webkit-line-clamp: 1;
+            line-clamp: 1;
+        }
+
+        .rp-top-card .rp-best-members {
+            white-space: normal;
         }
 
         .rp-top-card.is-first {
             box-shadow: inset 3px 0 0 var(--brand-accent);
+        }
+
+        .rp-top-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.35rem;
+            margin-bottom: 0.15rem;
+        }
+
+        .rp-top-stats {
+            display: flex;
+            flex-shrink: 0;
+            gap: 1.25rem;
+        }
+
+        .rp-top-stat {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            min-width: 4.5rem;
+        }
+
+        .rp-top-stat-value {
+            font-size: 0.92rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .rp-top-stat-label {
+            font-size: 0.6rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--brand-muted);
+            white-space: nowrap;
+        }
+
+        @media (max-width: 767.98px) {
+            .rp-top-card {
+                flex-wrap: wrap;
+                gap: 0.6rem 0.85rem;
+            }
+
+            .rp-top-card .rp-best-main {
+                flex-basis: calc(100% - 3.1rem);
+            }
+
+            .rp-top-stats {
+                flex: 1 1 auto;
+                justify-content: flex-start;
+                padding-left: 3.05rem;
+            }
+
+            .rp-top-stat {
+                align-items: flex-start;
+                min-width: 0;
+            }
         }
 
         .rp-top-rank {
@@ -675,64 +768,6 @@
             gap: 0.75rem 1.5rem;
         }
 
-        .rp-rec-count {
-            margin-bottom: 0.6rem;
-            font-size: 0.8rem;
-            color: var(--brand-muted);
-        }
-
-        .rp-rec-grid {
-            min-width: 44rem;
-            border: 1px solid var(--brand-border);
-            border-radius: 0.6rem;
-            overflow: hidden;
-        }
-
-        .rp-rec-row {
-            display: grid;
-            grid-template-columns: 2.5rem 7.5rem minmax(0, 1.1fr) minmax(0, 2fr);
-            gap: 0.75rem;
-            padding: 0.7rem 0.85rem;
-            font-size: 0.85rem;
-        }
-
-        .rp-rec-row + .rp-rec-row {
-            border-top: 1px solid var(--brand-border);
-        }
-
-        .rp-rec-head {
-            font-size: 0.7rem;
-            font-weight: 600;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-            color: var(--brand-muted);
-            background-color: var(--brand-surface);
-        }
-
-        .rp-rec-seq {
-            font-weight: 600;
-            text-align: center;
-        }
-
-        .rp-rec-title {
-            font-weight: 600;
-            margin: 0.1rem 0 0.25rem;
-        }
-
-        .rp-rec-comment + .rp-rec-comment {
-            margin-top: 0.4rem;
-        }
-
-        .rp-rec-panelist {
-            display: block;
-            font-size: 0.78rem;
-            font-weight: 600;
-            color: var(--brand-accent);
-        }
-
-        .rp-rec-text {
-            white-space: pre-line;
-        }
 
         /* Payment/s column + its modal. */
         .rp-pay-link {
@@ -934,10 +969,11 @@
         (function () {
             // Selects apply immediately; the name box keeps its own Search
             // button so a half-typed name doesn't reload the page.
-            document.querySelectorAll('[data-filter-auto]').forEach(function (control) {
-                control.addEventListener('change', function () {
-                    control.closest('form').submit();
-                });
+            // Delegated, since the top-5 list's own selects are swapped in
+            // place by the 30s refresh below.
+            document.addEventListener('change', function (event) {
+                var control = event.target.closest('[data-filter-auto]');
+                if (control) control.closest('form').submit();
             });
         })();
 
@@ -1005,26 +1041,6 @@
                     })
                     .catch(function () {});
             }, 30000);
-        })();
-
-        (function () {
-            var modalEl = document.getElementById('recommendations-modal');
-            var trigger = document.querySelector('[data-recommendations-open]');
-            if (! modalEl || ! trigger) return;
-
-            var body = modalEl.querySelector('[data-recommendations-body]');
-
-            // Fetched on every open, so groups completed since the last look
-            // are already on the list.
-            trigger.addEventListener('click', function () {
-                body.innerHTML = '<div class="text-brand-muted">Loading&hellip;</div>';
-                bootstrap.Modal.getOrCreateInstance(modalEl).show();
-
-                fetch(@json(route('admin.reports.recommendations', $category)), { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
-                    .then(function (response) { return response.ok ? response.text() : Promise.reject(); })
-                    .then(function (html) { body.innerHTML = '<div class="table-responsive">' + html + '</div>'; })
-                    .catch(function () { body.innerHTML = '<div class="text-danger">Could not load the summary. Try again.</div>'; });
-            });
         })();
 
         (function () {

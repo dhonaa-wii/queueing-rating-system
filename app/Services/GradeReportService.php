@@ -358,10 +358,25 @@ class GradeReportService
      * so a tie is never cut in half — the list can run past $limit only by
      * exactly those ties. A group needs a Group Grade and at least one member
      * with an individual grade to rank.
+     *
+     * $filters takes 'track' (the group's track, as in generate()) and
+     * 'section': a group is listed when any member is in that section, but its
+     * score still averages every member (user-directed 2026-10-15).
      */
-    public function topGroups(PresentationCategory $category, int $limit = 5): Collection
+    public function topGroups(PresentationCategory $category, int $limit = 5, array $filters = []): Collection
     {
-        $groups = $this->generate($category)
+        $rows = $this->generate($category, ['track' => $filters['track'] ?? null]);
+        $section = $filters['section'] ?? null;
+
+        if ($section !== null && $section !== '') {
+            $inSection = $rows->filter(fn ($row) => $this->matchesSection($row['section'], $section))
+                ->pluck('group_reference')
+                ->unique()
+                ->all();
+            $rows = $rows->whereIn('group_reference', $inSection);
+        }
+
+        $groups = $rows
             ->groupBy('group_reference')
             ->map(function (Collection $members) {
                 $first = $members->first();
@@ -371,6 +386,8 @@ class GradeReportService
                 return (object) [
                     'group_reference' => $first['group_reference'],
                     'project_title' => $first['project_title'],
+                    'track_name' => $first['track_name'],
+                    'sections' => $members->pluck('section')->filter()->unique()->sort(SORT_NATURAL)->values(),
                     'members' => $members->pluck('name')->values(),
                     'group_grade' => $first['group_grade'],
                     'members_individual_avg' => $membersAvg,
@@ -390,15 +407,20 @@ class GradeReportService
     /**
      * The top $limit students by Best Presenter score (user-directed
      * 2026-10-14): Group Grade × 30% + their own Individual Grade Avg. (the
-     * average of their raw scores) × 70%. Ranked like topGroups().
+     * average of their raw scores) × 70%. Ranked like topGroups(). $filters
+     * takes 'track' and 'section', both applied per student as in generate().
      */
-    public function topPresenters(PresentationCategory $category, int $limit = 5): Collection
+    public function topPresenters(PresentationCategory $category, int $limit = 5, array $filters = []): Collection
     {
-        $presenters = $this->generate($category)
+        $presenters = $this->generate($category, [
+            'track' => $filters['track'] ?? null,
+            'section' => $filters['section'] ?? null,
+        ])
             ->reject(fn ($row) => $row['outcome_failed'] || $row['individual_avg'] === null || $row['group_grade'] === null)
             ->map(fn ($row) => (object) [
                 'name' => $row['name'],
                 'section' => $row['section'],
+                'track_name' => $row['track_name'],
                 'group_reference' => $row['group_reference'],
                 'project_title' => $row['project_title'],
                 'individual_avg' => $row['individual_avg'],

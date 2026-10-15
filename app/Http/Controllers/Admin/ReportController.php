@@ -100,9 +100,12 @@ class ReportController extends Controller
         // behind the matching Best card's View button (user-directed
         // 2026-09-25). Like the Best cards, it ignores the table's filters.
         $top = in_array($request->query('top'), self::TOP_TYPES, true) ? $request->query('top') : null;
+        // Its own Track/Section dropdowns narrow it (user-directed 2026-10-15);
+        // the default, all tracks and all sections, is the category's record.
+        $topFilters = $this->topFilters($request);
         $topRows = match ($top) {
-            'groups' => $gradeReportService->topGroups($category, self::TOP_LIMIT),
-            'presenters' => $gradeReportService->topPresenters($category, self::TOP_LIMIT),
+            'groups' => $gradeReportService->topGroups($category, self::TOP_LIMIT, $topFilters),
+            'presenters' => $gradeReportService->topPresenters($category, self::TOP_LIMIT, $topFilters),
             default => collect(),
         };
 
@@ -120,6 +123,7 @@ class ReportController extends Controller
             'bestPresenters',
             'top',
             'topRows',
+            'topFilters',
             'filterSummary',
         ));
     }
@@ -139,6 +143,30 @@ class ReportController extends Controller
                 ? GradeReportService::SORT_LAST_NAME
                 : GradeReportService::SORT_NAME,
         ];
+    }
+
+    /** The top-5 view's Track/Section, shared by the page and its PDF. */
+    private function topFilters(Request $request): array
+    {
+        return [
+            'section' => $request->query('section') ?: null,
+            'track' => $request->query('track') ?: null,
+        ];
+    }
+
+    /** "Section: 4B · Track: Web" for the top-5 PDF, or '' when unfiltered. */
+    private function topFilterLabel(array $filters, PresentationCategory $category): string
+    {
+        $section = match ($filters['section']) {
+            null => null,
+            GradeReportService::UNASSIGNED_SECTION => 'Unassigned',
+            default => $filters['section'],
+        };
+
+        return collect([
+            $section ? 'Section: ' . $section : null,
+            ($track = $this->trackLabel($filters, $category)) ? 'Track: ' . $track : null,
+        ])->filter()->implode(' · ');
     }
 
     /**
@@ -228,26 +256,29 @@ class ReportController extends Controller
      * Grade or best presenters by Individual Grade Avg. — under the college's
      * letterhead.
      */
-    public function exportTopPdf(PresentationCategory $category, string $type, GradeReportService $gradeReportService, GradePdfExporter $exporter)
+    public function exportTopPdf(Request $request, PresentationCategory $category, string $type, GradeReportService $gradeReportService, GradePdfExporter $exporter)
     {
         abort_unless(in_array($type, self::TOP_TYPES, true), 404);
 
         $category->load(['academicYear', 'semester', 'college']);
 
+        $topFilters = $this->topFilters($request);
+        $label = $this->topFilterLabel($topFilters, $category);
         $rows = $type === 'groups'
-            ? $gradeReportService->topGroups($category, self::TOP_LIMIT)
-            : $gradeReportService->topPresenters($category, self::TOP_LIMIT);
+            ? $gradeReportService->topGroups($category, self::TOP_LIMIT, $topFilters)
+            : $gradeReportService->topPresenters($category, self::TOP_LIMIT, $topFilters);
 
         $pdf = $exporter->renderTop(
             $category,
             $type,
             $rows,
             EvaluationLetterhead::forCollege($category->college_id),
+            $label,
         );
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="' . Str::slug($category->name) . '-top-' . $type . '-' . now()->format('Y-m-d') . '.pdf"',
+            'Content-Disposition' => 'attachment; filename="' . Str::slug($category->name) . '-top-' . $type . ($label !== '' ? '-' . Str::slug($label) : '') . '-' . now()->format('Y-m-d') . '.pdf"',
         ]);
     }
 
@@ -260,7 +291,54 @@ class ReportController extends Controller
     {
         return view('admin.reports.partials.recommendations', [
             'rows' => $service->rows($category),
+            'formUrls' => fn ($row) => [
+                'print' => route('admin.reports.recommendation-form', [$category, $row->attempt_id]),
+                'pdf' => route('admin.reports.recommendation-form.export-pdf', [$category, $row->attempt_id]),
+            ],
         ]);
+    }
+
+    /**
+     * One group's Recommendation Form as a printable page — the summary row's
+     * Print button loads it into a hidden frame and prints that.
+     */
+    public function recommendationForm(PresentationCategory $category, PresentationAttempt $attempt, RecommendationSummaryService $service)
+    {
+        $this->ensureCompletedAttemptOf($category, $attempt);
+
+        return view('admin.reports.recommendation-form', [
+            'form' => $service->form($attempt),
+            'letterhead' => $this->formLetterhead($category->college_id),
+            'forPrint' => true,
+        ]);
+    }
+
+    public function exportRecommendationForm(PresentationCategory $category, PresentationAttempt $attempt, RecommendationSummaryService $service, GradePdfExporter $exporter)
+    {
+        $this->ensureCompletedAttemptOf($category, $attempt);
+
+        $form = $service->form($attempt);
+
+        return response($exporter->renderRecommendationForm($form, $this->formLetterhead($category->college_id)), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . Str::slug($form->group_reference) . '-recommendation-form.pdf"',
+        ]);
+    }
+
+    private function ensureCompletedAttemptOf(PresentationCategory $category, PresentationAttempt $attempt): void
+    {
+        $attempt->load(['researchGroup', 'presentationStatus']);
+
+        if ($attempt->researchGroup?->category_id !== $category->id || $attempt->presentationStatus?->code !== 'COMPLETED') {
+            throw new NotFoundHttpException();
+        }
+    }
+
+    private function formLetterhead(?int $collegeId): ?EvaluationLetterhead
+    {
+        $letterhead = EvaluationLetterhead::forCollege($collegeId);
+
+        return $letterhead && $letterhead->hasContent() ? $letterhead : null;
     }
 
     /**

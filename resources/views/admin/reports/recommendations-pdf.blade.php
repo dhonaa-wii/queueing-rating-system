@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>{{ $category->name }} — Recommendations Summary</title>
+    <title>{{ $heading }} — Recommendations Summary</title>
     {{-- Rendered by Dompdf (CSS 2.1 only), same conventions as
          grades-pdf.blade.php: tables and literal colours, a fixed footer that
          repeats on every page, @page's bottom margin keeping rows clear of it. --}}
@@ -88,8 +88,8 @@
 
     <div class="heading">
         <div class="eyebrow">Summary of Recommendations &amp; Comments</div>
-        <h1>{{ $category->name }}</h1>
-        <div class="sub">{{ $category->academicYear->name ?? '—' }} &middot; {{ $category->semester->name ?? '—' }} &middot; {{ $category->college->name ?? '—' }}</div>
+        <h1>{{ $heading }}</h1>
+        <div class="sub">{{ $subheading }}</div>
         <div class="filters">Generated {{ $generatedAt }}</div>
     </div>
 
@@ -113,6 +113,9 @@
                         <span class="muted">{{ $row->completed_at?->format('g:i A') }}</span>
                     </td>
                     <td>
+                        @if ($showCategory)
+                            <div class="muted">{{ $row->category_name }}</div>
+                        @endif
                         <span class="ref">{{ $row->group_reference }}</span>
                         @if ($row->attempt_number > 1)
                             <span class="attempt">Attempt {{ $row->attempt_number }}</span>

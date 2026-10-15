@@ -285,6 +285,8 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::get('/{category}/top/{type}/export-pdf', [ReportController::class, 'exportTopPdf'])->name('top.export-pdf');
         Route::get('/{category}/recommendations', [ReportController::class, 'recommendations'])->name('recommendations');
         Route::get('/{category}/recommendations/export-pdf', [ReportController::class, 'exportRecommendationsPdf'])->name('recommendations.export-pdf');
+        Route::get('/{category}/attempts/{attempt}/recommendation-form', [ReportController::class, 'recommendationForm'])->name('recommendation-form');
+        Route::get('/{category}/attempts/{attempt}/recommendation-form/export-pdf', [ReportController::class, 'exportRecommendationForm'])->name('recommendation-form.export-pdf');
         Route::get('/{category}/panelist-sheet', [ReportController::class, 'panelistSheet'])->name('panelist-sheet');
         Route::get('/{category}/panelist-sheet/export-pdf', [ReportController::class, 'exportPanelistSheetPdf'])->name('panelist-sheet.export-pdf');
         Route::get('/{category}/attempts/{attempt}/evaluation-sheet', [ReportController::class, 'evaluationSheet'])->name('evaluation-sheet');
@@ -307,6 +309,10 @@ Route::middleware(['auth', 'account.active'])->group(function () {
 
     Route::prefix('/panelist/advisees')->name('panelist.advisees.')->middleware('role:PANELIST')->group(function () {
         Route::get('/', [PanelistAdviseeController::class, 'index'])->name('index');
+        Route::get('/recommendations', [PanelistAdviseeController::class, 'recommendations'])->name('recommendations');
+        Route::get('/recommendations/export-pdf', [PanelistAdviseeController::class, 'exportRecommendationsPdf'])->name('recommendations.export-pdf');
+        Route::get('/{attempt}/recommendation-form', [PanelistAdviseeController::class, 'recommendationForm'])->name('recommendation-form');
+        Route::get('/{attempt}/recommendation-form/export-pdf', [PanelistAdviseeController::class, 'exportRecommendationForm'])->name('recommendation-form.export-pdf');
         Route::get('/{attempt}/evaluation-sheet', [PanelistAdviseeController::class, 'evaluationSheet'])->name('evaluation-sheet');
         Route::get('/{attempt}/evaluation-sheet/export-pdf', [PanelistAdviseeController::class, 'exportEvaluationSheetPdf'])->name('evaluation-sheet.export-pdf');
     });

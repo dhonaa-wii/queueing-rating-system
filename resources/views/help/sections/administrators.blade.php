@@ -418,9 +418,9 @@
         <li><strong>Filters</strong> — name or group code (a code shows every member of that group), section, presentation date, and sort (section then name, or last name). Exports follow the filters.</li>
         <li><strong>Export to Excel / PDF</strong> — opens a list of columns to tick. Name, Section and Track are always included; everything else (group, grades, remarks, attempt, each payment) is ticked by default and can be left out.</li>
         <li><strong>Evaluation</strong> — view the evaluation sheets the panel submitted for a group.</li>
-        <li><strong>Best Group</strong> (Group Grade × 70% + the members' average Individual Grade × 30%) and <strong>Best Presenter</strong> (Group Grade × 30% + their own Individual Grade × 70%) — the category's leaders; <strong>View</strong> shows the top five, exportable to PDF.</li>
+        <li><strong>Best Group</strong> (Group Grade × 70% + the members' average Individual Grade × 30%) and <strong>Best Presenter</strong> (Group Grade × 30% + their own Individual Grade × 70%) — the category's leaders; <strong>View</strong> shows the top five, one per row, with its own <strong>Track</strong> and <strong>Section</strong> dropdowns (default: all) and exportable to PDF. The grades filters are hidden while it is open.</li>
         <li><strong>Panelist Sign-off Sheet</strong> — every panelist and how many groups they evaluated, with signature lines. View, print or export to PDF at any time.</li>
-        <li><strong>Recommendations Summary</strong> — the panel's remarks and comments per group, viewable and exportable.</li>
+        <li><strong>Recommendations Summary</strong> — the panel's remarks and comments per group, viewable and exportable. Each group in the list has <strong>Print</strong> and <strong>Export to PDF</strong> for its own Recommendation Form (title, researchers, defense date, numbered recommendations and the panel's sign-off).</li>
         <li>Groups awaiting a re-defense are left out until their final attempt; Failed groups appear, marked in red.</li>
     </ul>
     <p>How the numbers are computed is explained in <a href="#rf-grading">How scores and grades are computed</a>.</p>
