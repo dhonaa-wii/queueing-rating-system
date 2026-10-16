@@ -40,9 +40,11 @@ class DashboardController extends Controller
             ->filter(fn ($row) => $row['count'] > 0)
             ->values();
 
-        $adminActive = $admins->filter(fn (User $a) => $a->accountStatus?->code === 'ACTIVE')->count();
+        // "Active" = can sign in (not Inactive/Locked), so an account still on its
+        // temporary credentials counts — it is usable, just not yet signed in.
+        $adminActive = $admins->filter(fn (User $a) => (bool) $a->accountStatus?->is_login_allowed)->count();
         $lockedAdmins = $admins->filter(fn (User $a) => $a->accountStatus?->code === 'LOCKED')->count();
-        $panelistActive = $panelists->filter(fn (User $p) => $p->accountStatus?->code === 'ACTIVE')->count();
+        $panelistActive = $panelists->filter(fn (User $p) => (bool) $p->accountStatus?->is_login_allowed)->count();
 
         $campuses = Campus::withCount([
             'colleges',

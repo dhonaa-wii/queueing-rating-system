@@ -11,12 +11,6 @@
         .al-table th { font-size: var(--page-fs-xs); text-transform: uppercase; letter-spacing: .04em; color: var(--brand-text-muted); font-weight: 600; white-space: nowrap; }
         .al-table td { vertical-align: top; font-size: var(--page-fs-sm); }
         .al-action { font-weight: 600; }
-        .al-details summary { cursor: pointer; color: var(--brand-accent); font-size: var(--page-fs-xs); list-style: none; }
-        .al-details summary::-webkit-details-marker { display: none; }
-        .al-details[open] summary { margin-bottom: .4rem; }
-        .al-values { margin: 0; padding: .5rem .65rem; border-radius: .4rem; background: var(--brand-surface); font-size: var(--page-fs-xs); white-space: pre-wrap; word-break: break-word; }
-        .al-values + .al-values { margin-top: .35rem; }
-        .al-values-label { display: block; font-weight: 600; color: var(--brand-text-muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: .15rem; }
         @media (max-width: 991.98px) { .al-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } .al-filters .al-search { grid-column: span 2; } .al-table { min-width: 42rem; } }
     </style>
 @endpush
@@ -97,8 +91,7 @@
                             <th class="ps-3">When</th>
                             <th>User</th>
                             <th>Action</th>
-                            <th>Entity</th>
-                            <th class="pe-3">Details</th>
+                            <th class="pe-3">Entity</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -110,28 +103,10 @@
                                 </td>
                                 <td>{{ $actorName($log) }}</td>
                                 <td class="al-action">{{ Str::of($log->action)->replace('_', ' ')->title() }}</td>
-                                <td class="text-brand-muted">{{ class_basename($log->entity_type) }}{{ $log->entity_id ? ' #'.$log->entity_id : '' }}</td>
-                                <td class="pe-3">
-                                    @if ($log->old_values || $log->new_values || $log->ip_address)
-                                        <details class="al-details">
-                                            <summary>View</summary>
-                                            @if ($log->old_values)
-                                                <pre class="al-values"><span class="al-values-label">Before</span>{{ json_encode($log->old_values, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) }}</pre>
-                                            @endif
-                                            @if ($log->new_values)
-                                                <pre class="al-values"><span class="al-values-label">After</span>{{ json_encode($log->new_values, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) }}</pre>
-                                            @endif
-                                            @if ($log->ip_address)
-                                                <div class="text-brand-muted mt-1" style="font-size: var(--page-fs-xs);">{{ $log->ip_address }}</div>
-                                            @endif
-                                        </details>
-                                    @else
-                                        <span class="text-brand-muted">—</span>
-                                    @endif
-                                </td>
+                                <td class="pe-3 text-brand-muted">{{ class_basename($log->entity_type) }}{{ $log->entity_id ? ' #'.$log->entity_id : '' }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="5" class="text-center text-brand-muted py-4">{{ $hasFilters ? 'No entries match these filters.' : 'No audit entries yet.' }}</td></tr>
+                            <tr><td colspan="4" class="text-center text-brand-muted py-4">{{ $hasFilters ? 'No entries match these filters.' : 'No audit entries yet.' }}</td></tr>
                         @endforelse
                     </tbody>
                 </table>
