@@ -229,6 +229,9 @@ class AdminAccountController extends Controller
             'password' => $temporaryPassword,
             'account_status_id' => $temporaryStatus->id,
             'must_change_password' => true,
+            // A reset also lifts a failed-login lockout.
+            'failed_login_attempts' => 0,
+            'locked_until' => null,
         ])->save();
 
         AuditLog::create([

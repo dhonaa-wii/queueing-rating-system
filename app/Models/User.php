@@ -32,6 +32,8 @@ class User extends Authenticatable
             'must_change_password' => 'boolean',
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
+            'locked_until' => 'datetime',
+            'password_changed_at' => 'datetime',
             'password' => 'hashed',
         ];
     }
@@ -89,7 +91,18 @@ class User extends Authenticatable
     public function mustChangePassword(): bool
     {
         return $this->must_change_password
-            || in_array($this->accountStatus->code, ['TEMPORARY_CREDENTIALS_ISSUED', 'PASSWORD_RESET_REQUIRED'], true);
+            || in_array($this->accountStatus->code, ['TEMPORARY_CREDENTIALS_ISSUED', 'PASSWORD_RESET_REQUIRED'], true)
+            || $this->passwordExpired();
+    }
+
+    /** Older than the Security Settings' maximum password age (off when unset). */
+    public function passwordExpired(): bool
+    {
+        $days = \App\Support\SecurityPolicy::passwordMaxAgeDays();
+
+        return $days !== null
+            && $this->password_changed_at !== null
+            && $this->password_changed_at->copy()->addDays($days)->isPast();
     }
 
     public function dashboardRouteName(): string

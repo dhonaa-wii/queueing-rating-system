@@ -43,7 +43,13 @@
 
 <div class="hc-topic" id="sa-security">
     <h3><x-icon name="shield-check" /> Security Settings</h3>
-    <p>A list of named system configuration values (text, number, true/false or JSON) that you can add, edit and remove. They are stored for reference; changing them does not, by itself, change how sign-in works.</p>
+    <p>Three cards, each saved on its own. Nothing is set until you set it; a blank field keeps the built-in behaviour.</p>
+    <ul>
+        <li><strong>Login Lockout</strong> — after the set number of wrong passwords in a row, the account cannot sign in for the set number of minutes, even with the right password. It unlocks by itself after that, or at once when an Administrator (or you, for an Administrator) uses <strong>Reset Password</strong>. Applies to Administrators and Panelists, including a panelist's sign-in on a room session device. Super Admin accounts are never locked. Blank = no lockout.</li>
+        <li><strong>Session Timeout</strong> — minutes without activity before a signed-in user is signed out. Blank = the server's default (usually 120). A page that refreshes itself in the background, such as a room session device or a panelist's open dashboard, counts as activity.</li>
+        <li><strong>Password Rules</strong> — the minimum length and the characters a new password must contain (uppercase, lowercase, number, symbol), checked whenever someone changes their password; the Change Password page lists the current rules. <strong>Password expires after</strong> forces everyone whose password is older than that many days to choose a new one at their next sign-in. Blank = never expires. The default rule is 8+ characters with an uppercase letter, a lowercase letter and a number.</li>
+    </ul>
+    <p>Every change is recorded in the Audit Log as <code>SECURITY_SETTING_UPDATED</code>, with the old and new values.</p>
 </div>
 
 <div class="hc-topic" id="sa-audit">

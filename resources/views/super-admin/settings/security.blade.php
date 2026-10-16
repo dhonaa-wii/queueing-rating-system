@@ -2,69 +2,127 @@
 
 @section('title', 'Security Settings')
 
+@push('styles')
+<style>
+    .sec-grid { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); align-items: start; }
+    .sec-card-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .sec-card-icon {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 2rem; height: 2rem; border-radius: 0.6rem; flex-shrink: 0;
+        background: var(--brand-accent-tint); color: var(--brand-accent);
+    }
+    .sec-card-icon svg { width: 1rem; height: 1rem; }
+    .sec-card-head h3 { margin: 0; font-size: var(--page-fs-heading); font-weight: 600; }
+    .sec-card-head .badge { margin-left: auto; }
+    .sec-checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.35rem 0.75rem; }
+</style>
+@endpush
+
 @section('content')
     <div class="page-shell">
-        <h2 class="h4 mb-1">Security Settings</h2>
-        <p class="text-brand-muted mb-3" style="font-size: var(--page-fs-sm);">
-            General system configuration values (institution info, password/session policy, appearance, etc.).
-            No password/session rule is currently specified in the functional spec, so this stores plain
-            key/value configuration rather than enforcing invented rules.
-        </p>
+        <h2 class="h4 mb-3">Security Settings</h2>
 
-        <div class="row g-3">
-            <div class="col-lg-5">
-                <div class="card-brand p-3">
-                    <h3 class="h6 mb-2">Add Setting</h3>
-
-                    <form method="POST" action="{{ route('super-admin.settings.security.store') }}">
-                        @csrf
-
-                        <div class="mb-2">
-                            <label for="setting_key" class="form-label">Key</label>
-                            <input type="text" name="setting_key" id="setting_key" class="form-control form-control-sm @error('setting_key') is-invalid @enderror" value="{{ old('setting_key') }}" required>
-                            @error('setting_key') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                        </div>
-
-                        <div class="mb-2">
-                            <label for="value_type" class="form-label">Type</label>
-                            <select name="value_type" id="value_type" class="form-select form-select-sm">
-                                <option value="string">Text</option>
-                                <option value="integer">Number</option>
-                                <option value="boolean">True/False</option>
-                                <option value="json">JSON</option>
-                            </select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="setting_value" class="form-label">Value</label>
-                            <input type="text" name="setting_value" id="setting_value" class="form-control form-control-sm @error('setting_value') is-invalid @enderror" value="{{ old('setting_value') }}" required>
-                            @error('setting_value') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                        </div>
-
-                        <button type="submit" class="btn btn-brand btn-sm"><x-icon name="plus" /> Add Setting</button>
-                    </form>
+        <div class="sec-grid">
+            {{-- Login lockout --}}
+            <div class="card-brand p-3">
+                <div class="sec-card-head">
+                    <span class="sec-card-icon"><x-icon name="lock" /></span>
+                    <h3>Login Lockout</h3>
+                    <span class="badge {{ $lockout ? 'badge-success-tint' : 'badge-muted-tint' }}">{{ $lockout ? 'On' : 'Off' }}</span>
                 </div>
+
+                <form method="POST" action="{{ route('super-admin.settings.security.update', 'lockout') }}">
+                    @csrf
+                    @method('PUT')
+
+                    <div class="mb-2">
+                        <label for="max_attempts" class="form-label">Failed attempts before lock</label>
+                        <input type="number" min="1" max="100" name="max_attempts" id="max_attempts" placeholder="Off"
+                               class="form-control form-control-sm @error('max_attempts') is-invalid @enderror"
+                               value="{{ old('max_attempts', $lockout['max_attempts'] ?? '') }}">
+                        @error('max_attempts') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="lockout_minutes" class="form-label">Lock duration (minutes)</label>
+                        <input type="number" min="1" max="1440" name="lockout_minutes" id="lockout_minutes" placeholder="Off"
+                               class="form-control form-control-sm @error('lockout_minutes') is-invalid @enderror"
+                               value="{{ old('lockout_minutes', $lockout['minutes'] ?? '') }}">
+                        @error('lockout_minutes') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+
+                    <button type="submit" class="btn btn-brand btn-sm"><x-icon name="save" /> Save</button>
+                </form>
             </div>
 
-            <div class="col-lg-7">
-                <h3 class="h6 mb-2">Current Settings</h3>
+            {{-- Session timeout --}}
+            <div class="card-brand p-3">
+                <div class="sec-card-head">
+                    <span class="sec-card-icon"><x-icon name="clock" /></span>
+                    <h3>Session Timeout</h3>
+                    <span class="badge {{ $sessionTimeout ? 'badge-success-tint' : 'badge-muted-tint' }}">{{ $sessionTimeout ? 'Custom' : 'Default' }}</span>
+                </div>
 
-                @forelse ($settings as $setting)
-                    <div class="card-brand p-2 mb-2">
-                        <div class="d-flex justify-content-between align-items-start mb-1">
-                            <strong style="font-size: var(--page-fs-sm);">{{ $setting->setting_key }}</strong>
-                            <span class="badge badge-muted-tint">{{ $setting->value_type }}</span>
-                        </div>
-                        <pre class="mb-2 text-brand-muted" style="white-space: pre-wrap; font-size: var(--page-fs-xs);">{{ is_array($setting->setting_value) ? json_encode($setting->setting_value) : $setting->setting_value }}</pre>
-                        <form method="POST" action="{{ route('super-admin.settings.security.destroy', $setting) }}" onsubmit="return confirm('Remove this setting?');">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="btn btn-sm btn-outline-brand"><x-icon name="trash" /> Remove</button>
-                        </form>
+                <form method="POST" action="{{ route('super-admin.settings.security.update', 'session') }}">
+                    @csrf
+                    @method('PUT')
+
+                    <div class="mb-3">
+                        <label for="session_timeout" class="form-label">Sign out after inactivity (minutes)</label>
+                        <input type="number" min="1" max="1440" name="session_timeout" id="session_timeout"
+                               placeholder="Default ({{ $defaultSessionLifetime }})"
+                               class="form-control form-control-sm @error('session_timeout') is-invalid @enderror"
+                               value="{{ old('session_timeout', $sessionTimeout ?? '') }}">
+                        @error('session_timeout') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
-                @empty
-                    <div class="card-brand p-3 text-center text-brand-muted">No settings configured yet.</div>
-                @endforelse
+
+                    <button type="submit" class="btn btn-brand btn-sm"><x-icon name="save" /> Save</button>
+                </form>
+            </div>
+
+            {{-- Password rules + age --}}
+            <div class="card-brand p-3">
+                <div class="sec-card-head">
+                    <span class="sec-card-icon"><x-icon name="key" /></span>
+                    <h3>Password Rules</h3>
+                    <span class="badge {{ $customPasswordRules || $passwordMaxAge ? 'badge-success-tint' : 'badge-muted-tint' }}">{{ $customPasswordRules || $passwordMaxAge ? 'Custom' : 'Default' }}</span>
+                </div>
+
+                <form method="POST" action="{{ route('super-admin.settings.security.update', 'password') }}">
+                    @csrf
+                    @method('PUT')
+
+                    <div class="mb-2">
+                        <label for="min_length" class="form-label">Minimum length</label>
+                        <input type="number" min="4" max="64" name="min_length" id="min_length" required
+                               class="form-control form-control-sm @error('min_length') is-invalid @enderror"
+                               value="{{ old('min_length', $passwordRules['min_length']) }}">
+                        @error('min_length') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label">Must contain</label>
+                        <div class="sec-checks">
+                            @foreach (['uppercase' => 'Uppercase letter', 'lowercase' => 'Lowercase letter', 'number' => 'Number', 'symbol' => 'Symbol'] as $key => $label)
+                                <div class="form-check mb-0">
+                                    <input class="form-check-input" type="checkbox" name="{{ $key }}" value="1" id="rule_{{ $key }}"
+                                           @checked(old('_token') ? old($key) : $passwordRules[$key])>
+                                    <label class="form-check-label" for="rule_{{ $key }}">{{ $label }}</label>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="max_age_days" class="form-label">Password expires after (days)</label>
+                        <input type="number" min="1" max="3650" name="max_age_days" id="max_age_days" placeholder="Never"
+                               class="form-control form-control-sm @error('max_age_days') is-invalid @enderror"
+                               value="{{ old('max_age_days', $passwordMaxAge ?? '') }}">
+                        @error('max_age_days') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+
+                    <button type="submit" class="btn btn-brand btn-sm"><x-icon name="save" /> Save</button>
+                </form>
             </div>
         </div>
     </div>

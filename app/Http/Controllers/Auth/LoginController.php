@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Services\LoginLockout;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
@@ -14,7 +15,7 @@ class LoginController extends Controller
         return view('auth.login');
     }
 
-    public function store(Request $request)
+    public function store(Request $request, LoginLockout $lockout)
     {
         $credentials = $request->validate([
             'username' => ['required', 'string'],
@@ -23,11 +24,20 @@ class LoginController extends Controller
 
         $user = \App\Models\User::where('username', $credentials['username'])->first();
 
+        // A locked account is refused even with the right password.
+        if ($user && ($locked = $lockout->lockedMessage($user))) {
+            throw ValidationException::withMessages(['username' => $locked]);
+        }
+
         if (! $user || ! Auth::attempt($credentials)) {
+            $locked = $user ? $lockout->recordFailure($user) : null;
+
             throw ValidationException::withMessages([
-                'username' => 'These credentials do not match our records.',
+                'username' => $locked ?? 'These credentials do not match our records.',
             ]);
         }
+
+        $lockout->clear($user);
 
         if (! $user->accountStatus->is_login_allowed) {
             Auth::logout();

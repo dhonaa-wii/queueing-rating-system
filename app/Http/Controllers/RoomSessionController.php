@@ -20,6 +20,7 @@ use App\Models\TerminalAccessToken;
 use App\Models\TerminalConnection;
 use App\Models\User;
 use App\Services\EvaluationSubmissionService;
+use App\Services\LoginLockout;
 use App\Services\PanelAssignmentService;
 use App\Services\PanelSubstitutionService;
 use App\Services\PaymentVerificationService;
@@ -597,9 +598,20 @@ class RoomSessionController extends Controller
             ->whereHas('userRoles.role', fn ($query) => $query->where('code', 'PANELIST'))
             ->first();
 
-        if (! $panelist || ! Hash::check($validated['password'], $panelist->password)) {
-            return back()->with('error', 'Invalid panelist username or password.');
+        // Same lockout as the sign-in page — these are the panelist's own credentials.
+        $lockout = app(LoginLockout::class);
+
+        if ($panelist && ($locked = $lockout->lockedMessage($panelist))) {
+            return back()->with('error', $locked);
         }
+
+        if (! $panelist || ! Hash::check($validated['password'], $panelist->password)) {
+            $locked = $panelist ? $lockout->recordFailure($panelist) : null;
+
+            return back()->with('error', $locked ?? 'Invalid panelist username or password.');
+        }
+
+        $lockout->clear($panelist);
 
         $outcome = $service->connect($terminal, $panelist, 'MANUAL_CODE', $request->ip(), $request->userAgent());
 

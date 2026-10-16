@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\AccountStatus;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rules\Password;
+use App\Support\SecurityPolicy;
 
 class PasswordChangeController extends Controller
 {
@@ -13,6 +13,8 @@ class PasswordChangeController extends Controller
     {
         return view('auth.password-change', [
             'forced' => $request->user()->mustChangePassword(),
+            'expired' => $request->user()->passwordExpired(),
+            'rules' => SecurityPolicy::passwordRules(),
         ]);
     }
 
@@ -22,14 +24,16 @@ class PasswordChangeController extends Controller
 
         $validated = $request->validate([
             'current_password' => ['required', 'current_password'],
-            // Strong password: 8+ characters with an uppercase letter, a lowercase
-            // letter and a number. Must differ from the current (often temporary)
-            // password, or a first-login change would accomplish nothing.
+            // The Security Settings' password rules (default: 8+ characters with
+            // an uppercase letter, a lowercase letter and a number). Must differ
+            // from the current (often temporary) password, or a first-login
+            // change would accomplish nothing.
             'password' => [
                 'required',
+                'string',
                 'confirmed',
                 'different:current_password',
-                Password::min(8)->mixedCase()->numbers(),
+                ...SecurityPolicy::passwordValidationRules(),
             ],
         ], [
             'password.different' => 'The new password must be different from your current password.',
@@ -41,6 +45,7 @@ class PasswordChangeController extends Controller
             'password' => $validated['password'],
             'must_change_password' => false,
             'account_status_id' => $activeStatus->id,
+            'password_changed_at' => now(),
         ])->save();
 
         // Once the panelist sets their own password, the temp password Admin could

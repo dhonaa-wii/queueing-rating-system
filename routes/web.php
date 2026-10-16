@@ -376,9 +376,8 @@ Route::middleware(['auth', 'account.active'])->group(function () {
 
     Route::prefix('/super-admin/settings/security')->name('super-admin.settings.security.')->middleware('role:SUPER_ADMIN')->group(function () {
         Route::get('/', [SecuritySettingController::class, 'index'])->name('index');
-        Route::post('/', [SecuritySettingController::class, 'store'])->name('store');
-        Route::put('/{setting}', [SecuritySettingController::class, 'update'])->name('update');
-        Route::delete('/{setting}', [SecuritySettingController::class, 'destroy'])->name('destroy');
+        Route::put('/{section}', [SecuritySettingController::class, 'update'])->name('update')
+            ->where('section', 'lockout|session|password');
     });
 
     Route::prefix('/super-admin/settings/application')->name('super-admin.settings.application.')->middleware('role:SUPER_ADMIN')

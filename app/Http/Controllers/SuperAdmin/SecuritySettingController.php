@@ -5,84 +5,119 @@ namespace App\Http\Controllers\SuperAdmin;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\SystemSetting;
+use App\Support\SecurityPolicy;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
+/**
+ * Super Admin → Security Settings (2026-10-16): login lockout, session
+ * timeout, password rules and password age. A blank field removes its
+ * `system_settings` row, which puts that part back to the built-in
+ * behaviour (see SecurityPolicy).
+ */
 class SecuritySettingController extends Controller
 {
     public function index()
     {
-        $settings = SystemSetting::orderBy('setting_key')->get();
-
-        return view('super-admin.settings.security', compact('settings'));
-    }
-
-    public function store(Request $request)
-    {
-        $validated = $this->validateSetting($request);
-
-        SystemSetting::create([
-            ...$validated,
-            'updated_by' => $request->user()->id,
+        return view('super-admin.settings.security', [
+            'lockout' => SecurityPolicy::lockout(),
+            'sessionTimeout' => SecurityPolicy::sessionTimeout(),
+            'defaultSessionLifetime' => (int) config('session.env_lifetime', config('session.lifetime')),
+            'passwordRules' => SecurityPolicy::passwordRules(),
+            'customPasswordRules' => SecurityPolicy::hasCustomPasswordRules(),
+            'passwordMaxAge' => SecurityPolicy::passwordMaxAgeDays(),
         ]);
-
-        $this->audit($request, 'SYSTEM_SETTING_CREATED', $validated['setting_key']);
-
-        return back()->with('status', 'Setting added.');
     }
 
-    public function update(Request $request, SystemSetting $setting)
+    public function update(Request $request, string $section)
     {
-        $validated = $this->validateSetting($request, $setting);
-
-        $setting->update([
-            ...$validated,
-            'updated_by' => $request->user()->id,
-        ]);
-
-        $this->audit($request, 'SYSTEM_SETTING_UPDATED', $setting->setting_key);
-
-        return back()->with('status', 'Setting updated.');
-    }
-
-    public function destroy(Request $request, SystemSetting $setting)
-    {
-        $key = $setting->setting_key;
-        $setting->delete();
-
-        $this->audit($request, 'SYSTEM_SETTING_DELETED', $key);
-
-        return back()->with('status', 'Setting removed.');
-    }
-
-    private function validateSetting(Request $request, ?SystemSetting $setting = null): array
-    {
-        $validated = $request->validate([
-            'setting_key' => [
-                'required', 'string', 'max:150',
-                Rule::unique('system_settings', 'setting_key')->ignore($setting?->id),
-            ],
-            'value_type' => ['required', Rule::in(['string', 'integer', 'boolean', 'json'])],
-            'setting_value' => ['required', 'string'],
-        ]);
-
-        $validated['setting_value'] = match ($validated['value_type']) {
-            'integer' => (int) $validated['setting_value'],
-            'boolean' => filter_var($validated['setting_value'], FILTER_VALIDATE_BOOLEAN),
-            'json' => json_decode($validated['setting_value'], true) ?? [],
-            default => $validated['setting_value'],
+        match ($section) {
+            'lockout' => $this->saveLockout($request),
+            'session' => $this->saveSession($request),
+            'password' => $this->savePassword($request),
         };
 
-        return $validated;
+        SecurityPolicy::forget();
+
+        return redirect()->route('super-admin.settings.security.index')->with('status', 'Security settings saved.');
     }
 
-    private function audit(Request $request, string $action, string $key): void
+    private function saveLockout(Request $request): void
     {
+        $validated = $request->validate([
+            'max_attempts' => ['nullable', 'integer', 'min:1', 'max:100', 'required_with:lockout_minutes'],
+            'lockout_minutes' => ['nullable', 'integer', 'min:1', 'max:1440', 'required_with:max_attempts'],
+        ], [
+            'max_attempts.required_with' => 'Set both the attempts and the lock duration, or leave both blank.',
+            'lockout_minutes.required_with' => 'Set both the attempts and the lock duration, or leave both blank.',
+        ]);
+
+        $this->put($request, SecurityPolicy::LOCKOUT, 'json', blank($validated['max_attempts']) ? null : [
+            'max_attempts' => (int) $validated['max_attempts'],
+            'minutes' => (int) $validated['lockout_minutes'],
+        ]);
+    }
+
+    private function saveSession(Request $request): void
+    {
+        $validated = $request->validate([
+            'session_timeout' => ['nullable', 'integer', 'min:1', 'max:1440'],
+        ]);
+
+        $value = $validated['session_timeout'];
+        $this->put($request, SecurityPolicy::SESSION_TIMEOUT, 'integer', blank($value) ? null : (int) $value);
+    }
+
+    private function savePassword(Request $request): void
+    {
+        $validated = $request->validate([
+            'min_length' => ['required', 'integer', 'min:4', 'max:64'],
+            'max_age_days' => ['nullable', 'integer', 'min:1', 'max:3650'],
+        ]);
+
+        $rules = [
+            'min_length' => (int) $validated['min_length'],
+            'uppercase' => $request->boolean('uppercase'),
+            'lowercase' => $request->boolean('lowercase'),
+            'number' => $request->boolean('number'),
+            'symbol' => $request->boolean('symbol'),
+        ];
+
+        // Rules identical to the built-in default are stored as "not set".
+        $this->put($request, SecurityPolicy::PASSWORD_RULES, 'json',
+            $rules === SecurityPolicy::DEFAULT_PASSWORD_RULES ? null : $rules);
+
+        $age = $validated['max_age_days'];
+        $this->put($request, SecurityPolicy::PASSWORD_MAX_AGE, 'integer', blank($age) ? null : (int) $age);
+    }
+
+    /** Save one setting; null removes it. Audited only when it changes. */
+    private function put(Request $request, string $key, string $type, mixed $value): void
+    {
+        $existing = SystemSetting::where('setting_key', $key)->first();
+        $old = $existing?->setting_value;
+
+        if ($old === $value) {
+            return;
+        }
+
+        if ($value === null) {
+            $existing?->delete();
+        } else {
+            SystemSetting::updateOrCreate(['setting_key' => $key], [
+                'setting_value' => $value,
+                'value_type' => $type,
+                'updated_by' => $request->user()->id,
+            ]);
+        }
+
         AuditLog::create([
             'user_id' => $request->user()->id,
-            'action' => $action,
+            'action' => 'SECURITY_SETTING_UPDATED',
             'entity_type' => SystemSetting::class,
-            'new_values' => ['setting_key' => $key],
+            'entity_id' => $existing?->id,
+            'old_values' => [$key => $old],
+            'new_values' => [$key => $value],
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
         ]);

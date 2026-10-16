@@ -16,6 +16,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => \App\Http\Middleware\EnsureUserHasRole::class,
         ]);
 
+        // Security Settings' session timeout — before StartSession (2026-10-16).
+        $middleware->prependToGroup('web', \App\Http\Middleware\ApplySessionTimeout::class);
+
         // Runs the automatic sweeps this app has no scheduler for. Appended to
         // the whole web group rather than aliased onto each admin route group
         // (there are a dozen) — the middleware itself no-ops unless a signed-in

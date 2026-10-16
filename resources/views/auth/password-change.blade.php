@@ -29,7 +29,9 @@
                 </div>
             </div>
 
-            @if ($forced)
+            @if ($expired)
+                <div class="alert alert-warning">Your password has expired. Choose a new one to continue.</div>
+            @elseif ($forced)
                 <div class="alert alert-warning">You must change your password before continuing.</div>
             @endif
 
@@ -58,14 +60,15 @@
                     <div class="auth-input">
                         <x-icon name="key" />
                         <input type="password" name="password" id="password" class="form-control" required
-                               minlength="8" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}" autocomplete="new-password">
+                               minlength="{{ $rules['min_length'] }}" autocomplete="new-password">
                         <button type="button" class="auth-eye" data-auth-eye="password" aria-label="Show password" aria-pressed="false"><x-icon name="eye" /></button>
                     </div>
-                    <ul class="pw-rules" data-pw-rules>
-                        <li data-rule="length">8+ characters</li>
-                        <li data-rule="upper">Uppercase letter</li>
-                        <li data-rule="lower">Lowercase letter</li>
-                        <li data-rule="number">Number</li>
+                    <ul class="pw-rules" data-pw-rules data-min-length="{{ $rules['min_length'] }}">
+                        <li data-rule="length">{{ $rules['min_length'] }}+ characters</li>
+                        @if ($rules['uppercase']) <li data-rule="upper">Uppercase letter</li> @endif
+                        @if ($rules['lowercase']) <li data-rule="lower">Lowercase letter</li> @endif
+                        @if ($rules['number']) <li data-rule="number">Number</li> @endif
+                        @if ($rules['symbol']) <li data-rule="symbol">Symbol</li> @endif
                     </ul>
                 </div>
 
@@ -93,11 +96,13 @@
             var input = document.getElementById('password');
             var list = document.querySelector('[data-pw-rules]');
             if (!input || !list) return;
+            var minLength = parseInt(list.dataset.minLength, 10) || 8;
             var tests = {
-                length: function (v) { return v.length >= 8; },
+                length: function (v) { return v.length >= minLength; },
                 upper: function (v) { return /[A-Z]/.test(v); },
                 lower: function (v) { return /[a-z]/.test(v); },
-                number: function (v) { return /\d/.test(v); }
+                number: function (v) { return /\d/.test(v); },
+                symbol: function (v) { return /[^A-Za-z0-9]/.test(v); }
             };
             function update() {
                 var v = input.value;
