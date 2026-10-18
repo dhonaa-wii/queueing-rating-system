@@ -105,6 +105,7 @@
                         $breakLocked => $breakLockedTitle,
                         $paymentRequired && ! $paymentSatisfied => 'Verify payment before starting',
                         ! $allTerminalsStaffed => 'All panelists must be connected before starting',
+                        ($unseatedReason ?? null) !== null => $unseatedReason,
                         // User-directed 2026-09-13 — the room's required panel
                         // size changed after this group was assigned; an Admin
                         // has to reassign before it can present.
@@ -185,28 +186,37 @@
         </div>
 
         @if ($paymentRequired && $statusCode === 'CALLED')
-            <div class="mb-2 p-2 rounded-3" style="background-color: var(--brand-surface-alt);">
+            {{-- One form, one Verify button for every payment type still to
+                 check; every field is required (2026-10-19). A type already
+                 satisfied (e.g. resolved by an Admin) shows as Verified. --}}
+            @php
+                $allPaymentsSatisfied = (bool) ($paymentSummary['allSatisfied'] ?? false);
+            @endphp
+            <form method="POST" action="{{ route('room-session.verify-payment') }}" class="mb-2 p-2 rounded-3" style="background-color: var(--brand-surface-alt);">
+                @csrf
                 @foreach ($paymentTypes as $type)
                     @php
                         $typeRow = collect($paymentSummary['types'] ?? [])->first(fn ($row) => $row['type']->id === $type->id);
                         $typeSatisfied = $typeRow['satisfied'] ?? false;
                     @endphp
-                    <form method="POST" action="{{ route('room-session.verify-payment') }}" class="d-flex align-items-center gap-2 {{ $loop->last ? '' : 'mb-2' }}">
-                        @csrf
-                        <input type="hidden" name="category_payment_type_id" value="{{ $type->id }}">
+                    <div class="d-flex align-items-center gap-2 mb-2">
                         <span class="small text-truncate" style="width: 7rem; flex-shrink: 0;" title="{{ $type->name }}">{{ $type->name }}</span>
-                        <input type="text" name="reference_number" class="form-control form-control-sm" placeholder="Receipt #" maxlength="100"
-                               data-reference-number-input @disabled($typeSatisfied || $breakLocked) @required(! $typeSatisfied)>
-                        <button type="submit" class="btn btn-sm {{ $typeSatisfied ? 'btn-success-brand' : 'btn-outline-success-brand' }} flex-shrink-0" @disabled($typeSatisfied || $breakLocked)>
-                            @if ($typeSatisfied)
-                                <x-icon name="check" /> Verified
-                            @else
-                                Verify
-                            @endif
-                        </button>
-                    </form>
+                        @if ($typeSatisfied)
+                            <span class="badge badge-success-tint"><x-icon name="check" /> Verified</span>
+                        @else
+                            <input type="text" name="reference_numbers[{{ $type->id }}]" value="{{ old('reference_numbers.'.$type->id) }}" class="form-control form-control-sm" placeholder="Receipt #" maxlength="100"
+                                   data-reference-number-input @disabled($breakLocked) required>
+                        @endif
+                    </div>
                 @endforeach
-            </div>
+                <button type="submit" class="btn btn-sm w-100 {{ $allPaymentsSatisfied ? 'btn-success-brand' : 'btn-outline-success-brand' }}" @disabled($allPaymentsSatisfied || $breakLocked)>
+                    @if ($allPaymentsSatisfied)
+                        <x-icon name="check" /> Payment Verified
+                    @else
+                        <x-icon name="shield-check" /> Verify Payment
+                    @endif
+                </button>
+            </form>
         @endif
 
         @if ($attempt && in_array($statusCode, ['CALLED', 'ONGOING', 'PAUSED'], true))

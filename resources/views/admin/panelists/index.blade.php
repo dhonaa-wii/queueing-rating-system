@@ -62,7 +62,7 @@
                         <tr>
                             <th class="ps-3">User</th>
                             <th class="d-none d-md-table-cell">Role</th>
-                            <th class="d-none d-sm-table-cell">College</th>
+                            <th class="d-none d-sm-table-cell">Department</th>
                             <th><span class="d-none d-sm-inline">Assigned </span>Groups</th>
                             <th>Status</th>
                             <th class="text-end pe-3">Actions</th>
@@ -98,7 +98,7 @@
                                     </div>
                                 </td>
                                 <td class="d-none d-md-table-cell">Panelist</td>
-                                <td class="d-none d-sm-table-cell pm-dept">{{ $panelist->panelistProfile->college->name ?? '—' }}</td>
+                                <td class="d-none d-sm-table-cell pm-dept">{{ $panelist->panelistProfile?->departmentName() ?? '—' }}@if ($panelist->panelistProfile?->is_external) <span class="badge badge-info-tint ms-1">External</span>@endif</td>
                                 <td>{{ $panelist->assigned_groups_count }}</td>
                                 <td>
                                     <span class="badge status-pill {{ $statusBadge }}">

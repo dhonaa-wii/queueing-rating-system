@@ -94,7 +94,7 @@ class ResearchGroupRegistrationService
         $rules = [
             'leader_last_name' => ['required', ...$nameRules],
             'leader_first_name' => ['required', ...$nameRules],
-            'leader_middle_name' => ['required', ...$nameRules],
+            'leader_middle_name' => ['nullable', ...$nameRules],
             'leader_sex' => ['required', 'in:'.implode(',', Student::SEXES)],
             'leader_section' => ['required', 'string', 'regex:'.self::SECTION_PATTERN],
             'members' => ['array', 'size:'.$memberSlots],
@@ -162,7 +162,7 @@ class ResearchGroupRegistrationService
         $leader = [
             'last_name' => $validated['leader_last_name'],
             'first_name' => $validated['leader_first_name'],
-            'middle_name' => $validated['leader_middle_name'],
+            'middle_name' => ($validated['leader_middle_name'] ?? '') ?: null,
             'sex' => $validated['leader_sex'],
             'section' => trim($validated['leader_section']),
             'research_track_name' => $trackRequired ? trim($validated['leader_research_track_name']) : null,
@@ -170,7 +170,8 @@ class ResearchGroupRegistrationService
 
         $members = [];
         $seen = [$this->identityKey($leader)];
-        $required = ['last_name', 'first_name', 'middle_name', 'sex', 'section'];
+        // Middle name is optional (user-directed 2026-10-19).
+        $required = ['last_name', 'first_name', 'sex', 'section'];
 
         if ($trackRequired) {
             $required[] = 'research_track_name';
@@ -214,6 +215,7 @@ class ResearchGroupRegistrationService
 
             $seen[] = $key;
             $person['research_track_name'] = $person['research_track_name'] ?: null;
+            $person['middle_name'] = $person['middle_name'] ?: null;
             $members[] = $person;
         }
 
@@ -230,6 +232,7 @@ class ResearchGroupRegistrationService
             'project_title' => $isTitleProposal ? null : trim($validated['project_title']),
             'proposed_titles' => $isTitleProposal ? array_values(array_map('trim', $validated['proposed_titles'])) : [],
             'technical_adviser_name' => $adviserName,
+            'technical_adviser_user_id' => $this->adviserUserId($category, $adviserName),
             // null = the category doesn't let groups choose; leave any picks alone.
             'panelist_choices' => $panelistChoices,
         ];
@@ -348,7 +351,7 @@ class ResearchGroupRegistrationService
 
     private function identityKey(array $person): string
     {
-        return mb_strtolower(implode('|', [$person['last_name'], $person['first_name'], $person['middle_name']]));
+        return mb_strtolower(implode('|', [$person['last_name'], $person['first_name'], $person['middle_name'] ?? '']));
     }
 
     /**
@@ -378,7 +381,7 @@ class ResearchGroupRegistrationService
                 $query->whereHas('students', fn ($q) => $q->where('is_leader', true)
                     ->whereRaw('LOWER(TRIM(last_name)) = ?', [mb_strtolower(trim($leader['last_name']))])
                     ->whereRaw('LOWER(TRIM(first_name)) = ?', [mb_strtolower(trim($leader['first_name']))])
-                    ->whereRaw("LOWER(TRIM(COALESCE(middle_name, ''))) = ?", [mb_strtolower(trim($leader['middle_name']))]));
+                    ->whereRaw("LOWER(TRIM(COALESCE(middle_name, ''))) = ?", [mb_strtolower(trim($leader['middle_name'] ?? ''))]));
 
                 if (! $isTitleProposal && $projectTitle) {
                     $query->orWhereRaw('LOWER(TRIM(current_project_title)) = ?', [strtolower(trim($projectTitle))]);
@@ -391,6 +394,23 @@ class ResearchGroupRegistrationService
                 'leader_last_name' => 'An active registration with matching information already exists for this category.',
             ]);
         }
+    }
+
+    /**
+     * The panelist account behind the chosen adviser name — the dropdown
+     * lists the category's college panelists by name (adviserOptions()).
+     * My Advisees matches on this id, so renaming the panelist later keeps
+     * the group on their list.
+     */
+    private function adviserUserId(PresentationCategory $category, ?string $adviserName): ?int
+    {
+        if (! filled($adviserName)) {
+            return null;
+        }
+
+        return $category->choosablePanelists()
+            ->first(fn (\App\Models\User $panelist) => PresentationCategory::panelistName($panelist) === $adviserName)
+            ?->id;
     }
 
     private function studentAttributes(array $person, bool $isLeader): array
@@ -414,6 +434,7 @@ class ResearchGroupRegistrationService
                 'category_id' => $category->id,
                 'current_project_title' => $data['project_title'],
                 'technical_adviser_name' => $data['technical_adviser_name'],
+                'technical_adviser_user_id' => $data['technical_adviser_user_id'] ?? null,
                 'registered_at' => now(),
             ]);
 
@@ -449,9 +470,17 @@ class ResearchGroupRegistrationService
     public function update(ResearchGroup $group, array $data, bool $isTitleProposal): void
     {
         DB::transaction(function () use ($group, $data, $isTitleProposal) {
+            // An unchanged adviser name that is no longer in the registry
+            // (keepAdviser) keeps the account it was already linked to.
+            $adviserUserId = $data['technical_adviser_user_id'] ?? null;
+            if (! $adviserUserId && $data['technical_adviser_name'] === $group->technical_adviser_name) {
+                $adviserUserId = $group->technical_adviser_user_id;
+            }
+
             $group->update([
                 'current_project_title' => $data['project_title'],
                 'technical_adviser_name' => $data['technical_adviser_name'],
+                'technical_adviser_user_id' => $adviserUserId,
             ]);
 
             $leader = $group->students()->where('is_leader', true)->first();

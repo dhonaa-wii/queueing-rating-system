@@ -148,7 +148,10 @@ class PresentationControlService
         });
     }
 
-    public function verifyPayment(RoomSession $session, TerminalConnection $connection, int $categoryPaymentTypeId, string $referenceNumber): array
+    /**
+     * @param  array<int|string, string>  $referenceNumbers  category_payment_type_id => receipt number
+     */
+    public function verifyPayment(RoomSession $session, TerminalConnection $connection, array $referenceNumbers): array
     {
         if ($breakBlock = $this->blockedByBreak($session)) {
             return $this->failure($breakBlock);
@@ -161,15 +164,10 @@ class PresentationControlService
         }
 
         $category = $this->categoryFor($attempt);
-        $type = CategoryPaymentType::where('category_id', $category->id)->find($categoryPaymentTypeId);
-
-        if (! $type) {
-            return $this->failure('Unknown payment type.');
-        }
 
         try {
-            $this->paymentVerificationService->verifyType($attempt, $type, $referenceNumber, $connection->panelist_user_id, $connection);
-        } catch (DuplicatePaymentReferenceException $e) {
+            $this->paymentVerificationService->verifyAll($attempt, $category, $referenceNumbers, $connection->panelist_user_id, $connection);
+        } catch (DuplicatePaymentReferenceException|\InvalidArgumentException $e) {
             return $this->failure($e->getMessage());
         }
 
@@ -234,6 +232,17 @@ class PresentationControlService
         // substitute-is-fine posture below.
         if (! $this->allTerminalsStaffed($session)) {
             return $this->failure('All panelists must be connected before starting this presentation.');
+        }
+
+        // User-directed 2026-10-19: a connected panelist must actually sit on
+        // this group's panel — assigned, or swapped in by an approved
+        // replacement (applySwap() seats them as ASSIGNED_PANELIST). An
+        // unassigned panelist, or an Alternate who never confirmed a
+        // replacement, holding a seat blocks Start.
+        $unseated = $this->unseatedConnectedPanelists($session, $attempt);
+
+        if ($unseated->isNotEmpty()) {
+            return $this->failure($this->unseatedMessage($unseated));
         }
 
         $run = $attempt->presentationRun;
@@ -595,6 +604,41 @@ class PresentationControlService
             ->get();
 
         return $terminals->isNotEmpty() && $terminals->every(fn ($terminal) => $terminal->terminalConnections->isNotEmpty());
+    }
+
+    /**
+     * Names of panelists connected to this room who hold no live
+     * ASSIGNED_PANELIST seat on the attempt (not on the panel, or only its
+     * Alternate). An approved replacement already holds such a seat.
+     */
+    public function unseatedConnectedPanelists(RoomSession $session, PresentationAttempt $attempt): \Illuminate\Support\Collection
+    {
+        $connections = TerminalConnection::whereHas('roomTerminal', fn ($q) => $q->where('room_session_id', $session->id))
+            ->whereNull('disconnected_at')
+            ->with('panelist.profile')
+            ->get();
+
+        $seatedIds = AttemptPanelAssignment::where('presentation_attempt_id', $attempt->id)
+            ->whereHas('assignmentKind', fn ($q) => $q->where('code', 'ASSIGNED_PANELIST'))
+            ->whereHas('assignmentStatus', fn ($q) => $q->whereNotIn('code', ['REPLACED', 'WITHDRAWN']))
+            ->pluck('panelist_user_id');
+
+        return $connections
+            ->reject(fn ($connection) => $seatedIds->contains($connection->panelist_user_id))
+            ->map(function ($connection) {
+                $profile = $connection->panelist?->profile;
+                $name = trim(($profile->first_name ?? '') . ' ' . ($profile->last_name ?? ''));
+
+                return $name !== '' ? $name : ($connection->panelist?->username ?? 'A panelist');
+            })
+            ->unique()
+            ->values();
+    }
+
+    public function unseatedMessage(\Illuminate\Support\Collection $names): string
+    {
+        return $names->implode(', ') . ($names->count() === 1 ? ' is' : ' are')
+            . ' not on this group\'s panel — request a replacement approved by an Administrator, or log out.';
     }
 
     private function blockedByBreak(RoomSession $session): ?string

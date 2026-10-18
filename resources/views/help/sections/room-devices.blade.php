@@ -41,7 +41,7 @@
     <div class="hc-options">
         <div class="hc-option"><div class="hc-option-icon"><x-icon name="log-out" /></div><div><div class="hc-option-title">Log Out (panelist)</div><p>Signs the panelist out. The device stays set up for the next panelist.</p></div></div>
         <div class="hc-option"><div class="hc-option-icon is-danger"><x-icon name="power" /></div><div><div class="hc-option-title">Release This Device</div><p>Frees the terminal number. The device has to sign in with the room account again. Use it to swap a broken tablet.</p></div></div>
-        <div class="hc-option"><div class="hc-option-icon is-info"><x-icon name="stop" /></div><div><div class="hc-option-title">End Room (Event Control)</div><p>Closes the room for the day and deletes its room account, so every device in it is released.</p></div></div>
+        <div class="hc-option"><div class="hc-option-icon is-info"><x-icon name="stop" /></div><div><div class="hc-option-title">End Room (Event Control)</div><p>Closes the room for the day and deletes its room account. Every device in it is signed out on its next refresh with “Room … has ended for the day.” A day still running at 11:00 PM ends on its own the same way. Nothing else signs a device out: it never times out from being idle.</p></div></div>
     </div>
     <p>Administrators can also <strong>Disconnect</strong> a panelist or release a device remotely from the room's Terminals table in Event Control.</p>
 </div>

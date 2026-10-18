@@ -126,31 +126,68 @@ class PaymentVerificationService
     }
 
     /**
-     * The Lead/Chair verifies one payment type from the room-session
-     * tablet, typing in the reference number shown on the group's receipt.
+     * The Lead/Chair verifies the group's payments from the room-session
+     * tablet with one button (2026-10-19): a receipt number is required for
+     * every type not already satisfied, and they are saved together or not
+     * at all. Keyed by category_payment_type_id => receipt number.
      *
-     * @throws DuplicatePaymentReferenceException if the reference number is
-     *         already recorded against another payment anywhere in the system.
+     * @param  array<int|string, string>  $referenceNumbers
+     *
+     * @throws \InvalidArgumentException if a type still to check has no number.
+     * @throws DuplicatePaymentReferenceException if a number repeats within this
+     *         submission or is already recorded anywhere in the system.
      */
-    public function verifyType(PresentationAttempt $attempt, CategoryPaymentType $type, string $referenceNumber, int $performedByUserId, ?TerminalConnection $connection = null): PaymentVerification
+    public function verifyAll(PresentationAttempt $attempt, PresentationCategory $category, array $referenceNumbers, int $performedByUserId, ?TerminalConnection $connection = null): int
     {
-        $verification = PaymentVerification::firstOrNew([
-            'presentation_attempt_id' => $attempt->id,
-            'category_payment_type_id' => $type->id,
-        ]);
+        $summary = $this->summaryFor($category, $attempt);
+        $pending = $summary['types']->reject(fn ($row) => $row['satisfied'])->pluck('type');
 
-        $this->assertNotDuplicate($referenceNumber, $verification->exists ? $verification->id : null);
-
-        if (! $verification->exists) {
-            $verification->initially_checked_by = $performedByUserId;
-            $verification->checked_at = now();
+        if ($pending->isEmpty()) {
+            throw new \InvalidArgumentException('Every payment is already verified.');
         }
 
-        $verification->payment_status_id = PaymentStatus::where('code', 'VERIFIED')->firstOrFail()->id;
-        $verification->terminal_connection_id = $connection?->id;
-        $this->persist($verification, $referenceNumber);
+        $entries = [];
+        $seenHashes = [];
+        foreach ($pending as $type) {
+            $referenceNumber = trim((string) ($referenceNumbers[$type->id] ?? ''));
 
-        return $verification;
+            if ($referenceNumber === '') {
+                throw new \InvalidArgumentException('Enter the receipt number for every payment.');
+            }
+
+            $hash = $this->hashFor($referenceNumber);
+            if (isset($seenHashes[$hash])) {
+                throw new DuplicatePaymentReferenceException("Receipt number \"{$referenceNumber}\" is entered more than once.");
+            }
+
+            $seenHashes[$hash] = true;
+            $entries[] = [$type, $referenceNumber];
+        }
+
+        $verifiedStatusId = PaymentStatus::where('code', 'VERIFIED')->firstOrFail()->id;
+        $now = now();
+
+        return DB::transaction(function () use ($entries, $attempt, $verifiedStatusId, $now, $performedByUserId, $connection) {
+            foreach ($entries as [$type, $referenceNumber]) {
+                $verification = PaymentVerification::firstOrNew([
+                    'presentation_attempt_id' => $attempt->id,
+                    'category_payment_type_id' => $type->id,
+                ]);
+
+                $this->assertNotDuplicate($referenceNumber, $verification->exists ? $verification->id : null);
+
+                if (! $verification->exists) {
+                    $verification->initially_checked_by = $performedByUserId;
+                    $verification->checked_at = $now;
+                }
+
+                $verification->payment_status_id = $verifiedStatusId;
+                $verification->terminal_connection_id = $connection?->id;
+                $this->persist($verification, $referenceNumber);
+            }
+
+            return count($entries);
+        });
     }
 
     /**

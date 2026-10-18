@@ -117,6 +117,7 @@ class PanelistController extends Controller
                 // the Admin who registers them belongs to; it isn't a choice
                 // made on this form.
                 'college_id' => $request->user()->administratorProfile?->college_id,
+                ...$this->departmentAttributes($validated),
                 'specialization' => $validated['specialization'] ?? null,
                 'temporary_password' => $password,
                 'registered_by' => $request->user()->id,
@@ -169,7 +170,8 @@ class PanelistController extends Controller
             'username' => $panelist->username,
             'contactNumber' => $panelist->profile->contact_number,
             'sex' => $panelist->profile->sex,
-            'college' => $panelist->panelistProfile?->college?->code ?: $panelist->panelistProfile?->college?->name,
+            'department' => $panelist->panelistProfile?->departmentName(),
+            'isExternal' => (bool) $panelist->panelistProfile?->is_external,
             'specialization' => $panelist->panelistProfile?->specialization,
             'accountStatus' => $panelist->accountStatus?->code,
             'accountStatusName' => $panelist->accountStatus?->name,
@@ -209,7 +211,14 @@ class PanelistController extends Controller
         ]);
 
         $panelist->panelistProfile()->update([
+            ...$this->departmentAttributes($validated),
             'specialization' => $validated['specialization'] ?? null,
+        ]);
+
+        // Groups that picked this panelist as adviser print the adviser's
+        // name; keep it current with the rename.
+        \App\Models\ResearchGroup::where('technical_adviser_user_id', $panelist->id)->update([
+            'technical_adviser_name' => trim($validated['first_name'] . ' ' . $validated['last_name']),
         ]);
 
         return redirect()->route('admin.panelists.index', ['panelist' => $panelist->id])->with('status', 'Panelist updated.');
@@ -505,7 +514,23 @@ class PanelistController extends Controller
             'sex' => ['required', 'in:'.implode(',', Student::SEXES)],
             'contact_number' => ['nullable', 'string', 'max:30'],
             'specialization' => ['nullable', 'string', 'max:200'],
+            'affiliation' => ['required', 'in:INTERNAL,EXTERNAL'],
+            'external_department' => ['nullable', 'required_if:affiliation,EXTERNAL', 'string', 'max:150'],
+        ], [
+            'affiliation.required' => 'Choose Internal or External.',
+            'external_department.required_if' => 'Enter the external panelist\'s department.',
         ]);
+    }
+
+    /** Internal = the registering Admin's college; external = a typed department. */
+    private function departmentAttributes(array $validated): array
+    {
+        $external = $validated['affiliation'] === 'EXTERNAL';
+
+        return [
+            'is_external' => $external,
+            'external_department' => $external ? trim($validated['external_department']) : null,
+        ];
     }
 
     private function ensureIsPanelist(User $user): void

@@ -43,8 +43,8 @@
                         <div class="drawer-info-value" data-drawer-contact>&mdash;</div>
                     </div>
                     <div class="drawer-info-block">
-                        <div class="drawer-info-label">College</div>
-                        <div class="drawer-info-value" data-drawer-college>&mdash;</div>
+                        <div class="drawer-info-label">Department</div>
+                        <div class="drawer-info-value" data-drawer-department>&mdash;</div>
                     </div>
                     <div class="drawer-info-block">
                         <div class="drawer-info-label">Field of Specialization</div>

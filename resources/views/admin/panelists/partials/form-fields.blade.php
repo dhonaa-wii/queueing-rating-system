@@ -6,9 +6,11 @@
 @php
     $profile = $panelist->profile ?? null;
     $panelistProfile = $panelist->panelistProfile ?? null;
+    // Internal = the registering Admin's college, locked; external = typed.
     $collegeName = $panelist
         ? ($panelistProfile->college->name ?? '—')
         : (auth()->user()->administratorProfile?->college?->name ?? '—');
+    $isExternal = (bool) ($panelistProfile->is_external ?? false);
 @endphp
 
 <div class="row g-3 mb-3">
@@ -46,10 +48,21 @@
     </div>
 </div>
 
-<div class="row g-3 mb-3">
-    <div class="col-12">
-        <label class="form-label">College</label>
-        <input type="text" class="form-control" value="{{ $collegeName }}" disabled>
+<div class="row g-3 mb-3" data-affiliation-fields>
+    <div class="col-md-4">
+        <label for="{{ $idPrefix }}-affiliation" class="form-label">Panelist Type <span class="text-danger">*</span></label>
+        <select name="affiliation" id="{{ $idPrefix }}-affiliation" class="form-select" data-affiliation required>
+            <option value="INTERNAL" @selected(! $isExternal)>Internal</option>
+            <option value="EXTERNAL" @selected($isExternal)>External</option>
+        </select>
+    </div>
+    <div class="col-md-8" data-affiliation-internal @if ($isExternal) hidden @endif>
+        <label for="{{ $idPrefix }}-department-internal" class="form-label">Department</label>
+        <input type="text" id="{{ $idPrefix }}-department-internal" class="form-control" value="{{ $collegeName }}" disabled>
+    </div>
+    <div class="col-md-8" data-affiliation-external @unless ($isExternal) hidden @endunless>
+        <label for="{{ $idPrefix }}-external_department" class="form-label">Department <span class="text-danger">*</span></label>
+        <input type="text" name="external_department" id="{{ $idPrefix }}-external_department" class="form-control" maxlength="150" value="{{ $panelistProfile->external_department ?? '' }}" @if ($isExternal) required @else disabled @endif>
     </div>
 </div>
 
@@ -57,3 +70,26 @@
     <label for="{{ $idPrefix }}-specialization" class="form-label">Field of Specialization</label>
     <input type="text" name="specialization" id="{{ $idPrefix }}-specialization" class="form-control" value="{{ $panelistProfile->specialization ?? '' }}">
 </div>
+
+@once
+    @push('scripts')
+        <script>
+            // Internal shows the locked college; External shows the typed
+            // department, which is only submitted (and required) while shown.
+            document.addEventListener('change', function (event) {
+                const select = event.target.closest('[data-affiliation]');
+                if (! select) return;
+
+                const root = select.closest('[data-affiliation-fields]');
+                const external = select.value === 'EXTERNAL';
+                const typed = root.querySelector('[data-affiliation-external] input');
+
+                root.querySelector('[data-affiliation-internal]').hidden = external;
+                root.querySelector('[data-affiliation-external]').hidden = ! external;
+                typed.disabled = ! external;
+                typed.required = external;
+                if (external) typed.focus();
+            });
+        </script>
+    @endpush
+@endonce

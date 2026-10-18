@@ -2478,7 +2478,9 @@
                         var error = '';
 
                         for (var i = 0; i < memberSlots; i++) {
-                            var fields = form.querySelectorAll('[name^="members[' + i + ']["]');
+                            var fields = Array.prototype.filter.call(form.querySelectorAll('[name^="members[' + i + ']["]'), function (el) {
+                                return ! /\[middle_name\]$/.test(el.name);
+                            });
                             if (! fields.length) continue;
 
                             var filled = Array.prototype.filter.call(fields, function (el) { return el.value.trim() !== ''; });

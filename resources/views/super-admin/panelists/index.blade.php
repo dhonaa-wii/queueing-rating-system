@@ -48,7 +48,7 @@
                     <thead>
                         <tr>
                             <th class="ps-3">User</th>
-                            <th class="d-none d-sm-table-cell">College</th>
+                            <th class="d-none d-sm-table-cell">Department</th>
                             <th>Status</th>
                         </tr>
                     </thead>
@@ -77,7 +77,7 @@
                                         </div>
                                     </div>
                                 </td>
-                                <td class="d-none d-sm-table-cell pm-dept">{{ $panelist->panelistProfile->college->name ?? '—' }}</td>
+                                <td class="d-none d-sm-table-cell pm-dept">{{ $panelist->panelistProfile?->departmentName() ?? '—' }}@if ($panelist->panelistProfile?->is_external) <span class="badge badge-info-tint ms-1">External</span>@endif</td>
                                 <td>
                                     <span class="badge status-pill {{ $statusBadge }}">
                                         <span class="status-pill-dot"></span>{{ $panelist->accountStatus->name }}

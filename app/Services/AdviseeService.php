@@ -10,13 +10,12 @@ use Illuminate\Support\Collection;
  * Which groups a panelist advises — shared by My Advisees and the Panelist
  * Dashboard's advisee summary.
  *
- * research_groups.technical_adviser_name is stored by name, not by user id
- * (the registration dropdown lists the college's panelists by name), so a
- * group belongs to a panelist when that name matches them — the same test
- * the adviser-vs-panel conflict check uses
- * (PanelAssignmentService::nameMatchesPanelist(), either name order) —
- * within the panelist's own college, since the adviser list is
- * college-scoped and a namesake in another college is someone else.
+ * A group belongs to a panelist when research_groups.technical_adviser_user_id
+ * is theirs (set since 2026-10-19 from the adviser dropdown, backfilled for
+ * older groups). A group with no linked account falls back to the old name
+ * match (PanelAssignmentService::nameMatchesPanelist(), either name order)
+ * within the panelist's own college — name only, because a group linked to
+ * another account belongs to that account even if the names are the same.
  */
 class AdviseeService
 {
@@ -25,14 +24,14 @@ class AdviseeService
         $user->loadMissing(['profile', 'panelistProfile']);
 
         $variants = PanelAssignmentService::panelistNameVariants($user);
-        if ($variants === []) {
-            return collect();
-        }
+        $collegeId = $user->panelistProfile?->college_id ?? 0;
 
         return ResearchGroup::query()
-            ->whereNotNull('technical_adviser_name')
-            ->where('technical_adviser_name', '!=', '')
-            ->whereHas('category', fn ($q) => $q->where('college_id', $user->panelistProfile?->college_id ?? 0))
+            ->where(fn ($q) => $q->where('technical_adviser_user_id', $user->id)
+                ->orWhere(fn ($legacy) => $legacy->whereNull('technical_adviser_user_id')
+                    ->whereNotNull('technical_adviser_name')
+                    ->where('technical_adviser_name', '!=', '')
+                    ->whereHas('category', fn ($c) => $c->where('college_id', $collegeId))))
             ->with([
                 'category.academicYear',
                 'category.semester',
@@ -55,17 +54,18 @@ class AdviseeService
                 ),
             ])
             ->get()
-            ->filter(fn (ResearchGroup $group) => in_array(
-                PanelAssignmentService::normalizeName($group->technical_adviser_name),
-                $variants,
-                true
-            ))
+            ->filter(fn (ResearchGroup $group) => $group->technical_adviser_user_id === $user->id
+                || in_array(PanelAssignmentService::normalizeName((string) $group->technical_adviser_name), $variants, true))
             ->values();
     }
 
     public function advises(User $user, ResearchGroup $group): bool
     {
         $user->loadMissing(['profile', 'panelistProfile']);
+
+        if ($group->technical_adviser_user_id) {
+            return $group->technical_adviser_user_id === $user->id;
+        }
 
         return $group->category
             && $group->category->college_id === $user->panelistProfile?->college_id

@@ -56,7 +56,7 @@
             ['Start is refused: the track has no evaluation form.', 'With Track required on, every track needs its own form. Open Presentation Setup → Evaluation Configuration and Assign one to that track. The group\'s leader must also have a track from the list.'],
             ['Start Room is disabled.', 'The day\'s planned start has not arrived, the date is overdue (edit it), the room is already started or closed, or Panelists per Room is not set.'],
             ['End Room is refused.', 'A group is presenting or paused in that room. The Lead completes or defers it first.'],
-            ['I forgot to end the day.', 'It ends automatically after midnight, and unfinished groups carry over to the next day.'],
+            ['I forgot to end the day.', 'It ends automatically at 11:00 PM, and unfinished groups carry over to the next day.'],
             ['Can I change the presentation mode?', 'Only until the category\'s first day has started.'],
             ['Can I delete a date?', 'Yes, unless a presentation was completed on it. Its groups move to other open rooms.'],
             ['Can I edit a published evaluation form?', 'Yes — open it and press Edit Form. Criteria with recorded scores cannot be deleted, and changing weights does not re-score past evaluations.'],

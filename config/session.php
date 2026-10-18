@@ -34,6 +34,11 @@ return [
 
     'lifetime' => (int) env('SESSION_LIFETIME', 120),
 
+    // Idle minutes for a session with nobody signed in, above all a room
+    // session tablet claimed for the whole day. The Super Admin's session
+    // timeout never shortens it. See App\Session\DeviceAwareDatabaseSessionHandler.
+    'device_lifetime' => (int) env('SESSION_DEVICE_LIFETIME', 1440),
+
     'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', false),
 
     /*

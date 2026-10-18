@@ -13,6 +13,7 @@ class ResearchGroup extends Model
         'category_id',
         'current_project_title',
         'technical_adviser_name',
+        'technical_adviser_user_id',
         'registered_at',
     ];
 
@@ -26,6 +27,12 @@ class ResearchGroup extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(PresentationCategory::class, 'category_id');
+    }
+
+    /** The adviser's panelist account (2026-10-19); null for an adviser typed before advisers were picked from the registry. */
+    public function technicalAdviser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'technical_adviser_user_id')->withTrashed();
     }
 
     public function students(): HasMany

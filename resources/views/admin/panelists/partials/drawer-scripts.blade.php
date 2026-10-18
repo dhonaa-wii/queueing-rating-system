@@ -82,7 +82,7 @@
                 overlay.querySelector('[data-drawer-username]').textContent = data.username;
                 overlay.querySelector('[data-drawer-sex]').textContent = data.sex || '—';
                 overlay.querySelector('[data-drawer-contact]').textContent = data.contactNumber || '—';
-                overlay.querySelector('[data-drawer-college]').textContent = data.college || '—';
+                overlay.querySelector('[data-drawer-department]').textContent = (data.department || '—') + (data.isExternal ? ' (External)' : '');
                 overlay.querySelector('[data-drawer-specialization]').textContent = data.specialization || '—';
 
                 var initialsSource = (data.fullName || data.username || '').trim();

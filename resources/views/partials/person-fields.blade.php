@@ -54,14 +54,18 @@
         @endunless
 
         @foreach ($names as $field => $label)
-            @php $name = $nameFor($field); @endphp
+            @php
+                $name = $nameFor($field);
+                // Middle name is optional, even for the leader.
+                $fieldRequired = $required && $field !== 'middle_name';
+            @endphp
             <div class="person-cell person-{{ str_replace('_', '-', $field) }}">
                 @if ($labelled)
-                    <label for="{{ $idBase }}_{{ $field }}" class="{{ $labelClass }}">{!! $label.$star !!}</label>
+                    <label for="{{ $idBase }}_{{ $field }}" class="{{ $labelClass }}">{!! $label.($fieldRequired ? $star : '') !!}</label>
                 @endif
                 <input type="text" name="{{ $name }}" id="{{ $idBase }}_{{ $field }}" class="{{ $controlClass }}" maxlength="100" autocomplete="off" data-name-input
                        @unless ($labelled) placeholder="{{ $label }}" aria-label="{{ $label }}" @endunless
-                       @required($required) @disabled($disabled) value="{{ $values[$field] ?? '' }}">
+                       @required($fieldRequired) @disabled($disabled) value="{{ $values[$field] ?? '' }}">
                 @if ($showErrors)<div class="invalid-feedback" data-error-for="{{ $errorKey($name) }}"></div>@endif
             </div>
         @endforeach

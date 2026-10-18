@@ -173,6 +173,10 @@ class RoomSessionController extends Controller
      */
     public function status(Request $request, RoomQueuePreviewService $roomQueuePreviewService)
     {
+        // Ends the day at 11:00 PM even when no Admin page is open; the
+        // requireTerminal() below then signs this tablet out.
+        app(\App\Services\EventActivationService::class)->autoEndDueDaysThrottled();
+
         $terminal = $this->requireTerminal($request);
         $data = $this->buildHomeData($request, $terminal, $roomQueuePreviewService);
 
@@ -500,6 +504,16 @@ class RoomSessionController extends Controller
             // enforced server-side in PresentationControlService::start()
             // and mirrored here just to pre-emptively disable the button.
             'allTerminalsStaffed' => app(PresentationControlService::class)->allTerminalsStaffed($session),
+            // Also gates Start (2026-10-19): every connected panelist must
+            // hold an assigned seat on this group, or an approved replacement.
+            'unseatedReason' => $attempt
+                ? (function () use ($session, $attempt) {
+                    $service = app(PresentationControlService::class);
+                    $names = $service->unseatedConnectedPanelists($session, $attempt);
+
+                    return $names->isEmpty() ? null : $service->unseatedMessage($names);
+                })()
+                : null,
             // Also gates Start — user-directed 2026-09-13: a group whose
             // panel no longer matches its room's panelist_count (changed in
             // Presentation Setup after the panel was assigned) must be
@@ -724,19 +738,30 @@ class RoomSessionController extends Controller
 
     public function verifyPayment(Request $request, PresentationControlService $service)
     {
+        // Every payment type still to check is verified in one submission
+        // (2026-10-19); the service refuses a set with any field missing.
+        // "the field will hold number and letters" — a typical OR/reference
+        // number, alphanumeric with the punctuation a real receipt carries.
         $validated = $request->validate([
-            'category_payment_type_id' => ['required', 'integer'],
-            // "the field will hold number and letters" — a typical OR/
-            // reference number, alphanumeric with the punctuation a real
-            // receipt number tends to carry.
-            'reference_number' => ['required', 'string', 'max:100', 'regex:/^[A-Za-z0-9\-\/ ]+$/'],
+            'reference_numbers' => ['required', 'array'],
+            'reference_numbers.*' => ['required', 'string', 'max:100', 'regex:/^[A-Za-z0-9\-\/ ]+$/'],
+        ], [
+            'reference_numbers.required' => 'Enter the receipt number for every payment.',
+            'reference_numbers.*.required' => 'Enter the receipt number for every payment.',
+            'reference_numbers.*.regex' => 'Receipt numbers may only contain letters, numbers, spaces, - and /.',
         ]);
 
-        return $this->handleControlAction(
-            $request,
-            fn ($session, $connection) => $service->verifyPayment($session, $connection, (int) $validated['category_payment_type_id'], $validated['reference_number']),
-            'Payment verified.'
-        );
+        $terminal = $this->requireTerminal($request);
+        $connection = $this->requireLeadConnection($request, $terminal);
+
+        $result = $service->verifyPayment($terminal->roomSession, $connection, $validated['reference_numbers']);
+
+        // On a refusal (duplicate, missing) the typed numbers come back in
+        // their fields, so the Chair only fixes the one that was wrong
+        // (user-directed 2026-10-19).
+        return $result['ok']
+            ? redirect()->route('room-session.home')->with('status', 'Payment verified.')
+            : redirect()->route('room-session.home')->with('error', $result['error'])->withInput($request->only('reference_numbers'));
     }
 
     public function cancelBreak(Request $request, RoomBreakService $breaks)
@@ -1088,23 +1113,54 @@ class RoomSessionController extends Controller
         // another tablet claims it, this session no longer owns it and must
         // not keep showing (or acting as) whoever signs in on the new tablet.
         if ($terminal->device_identifier === null || ! hash_equals($terminal->device_identifier, (string) $deviceIdentifier)) {
-            $request->session()->forget(['room_login.room_terminal_id', 'room_login.account_id', 'room_login.device_identifier', 'room_login.qr_token']);
+            $this->signOutDevice($request, 'This device was released by an Administrator.');
+        }
 
-            // Flashed either way: a JSON caller (the 5s poll) navigates to the
-            // entry page itself, which then shows it in its error box.
-            $request->session()->flash('errors', (new \Illuminate\Support\ViewErrorBag)->put(
-                'default',
-                new \Illuminate\Support\MessageBag(['device' => 'This device was released by an Administrator.'])
-            ));
+        // The tablet is a whole-day login with no idle timeout (user-directed
+        // 2026-10-19): the one thing that signs it out on its own is its room
+        // ending — End Room, or the day's automatic end at 11:00 PM.
+        $session = $terminal->roomSession()->with('roomSessionStatus', 'presentationDateRoom')->first();
 
-            throw new \Illuminate\Http\Exceptions\HttpResponseException(
-                $request->expectsJson()
-                    ? response()->json(['released' => true, 'redirect' => route('room-session.entry')], 409)
-                    : redirect()->route('room-session.entry')
-            );
+        if (! $session || $session->ended_at || $session->roomSessionStatus?->code === 'CLOSED') {
+            TerminalConnection::where('room_terminal_id', $terminal->id)
+                ->whereNull('disconnected_at')
+                ->update([
+                    'disconnected_at' => now(),
+                    'connection_status_id' => ConnectionStatus::where('code', 'DISCONNECTED')->firstOrFail()->id,
+                ]);
+
+            RoomTerminal::where('id', $terminal->id)
+                ->where('device_identifier', $deviceIdentifier)
+                ->update(['device_identifier' => null]);
+
+            $roomName = $session?->presentationDateRoom?->room_name;
+
+            $this->signOutDevice($request, $roomName ? "{$roomName} has ended for the day." : 'This room has ended for the day.');
         }
 
         return $terminal;
+    }
+
+    /**
+     * Signs this tablet out of its room and sends it to the Room Session
+     * start page with the reason in its error box. The message is flashed
+     * either way: a JSON caller (the 5s poll) gets `released` and navigates
+     * to the entry page itself.
+     */
+    private function signOutDevice(Request $request, string $message): never
+    {
+        $request->session()->forget(['room_login.room_terminal_id', 'room_login.account_id', 'room_login.device_identifier', 'room_login.qr_token']);
+
+        $request->session()->flash('errors', (new \Illuminate\Support\ViewErrorBag)->put(
+            'default',
+            new \Illuminate\Support\MessageBag(['device' => $message])
+        ));
+
+        throw new \Illuminate\Http\Exceptions\HttpResponseException(
+            $request->expectsJson()
+                ? response()->json(['released' => true, 'redirect' => route('room-session.entry')], 409)
+                : redirect()->route('room-session.entry')
+        );
     }
 
     /**

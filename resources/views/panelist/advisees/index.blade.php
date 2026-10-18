@@ -396,22 +396,34 @@
                 max-width: 16rem;
             }
 
+            /* Stays on the right however the toolbar wraps. */
+            .assign-toolbar-right {
+                justify-content: flex-end;
+            }
+
             .advisee-rec-tools {
+                margin-left: auto;
                 display: flex;
                 flex-wrap: wrap;
                 align-items: center;
+                justify-content: flex-end;
                 gap: 0.4rem;
             }
 
             .advisee-rec-tools .btn {
-                height: 2.1rem;
+                height: 1.6rem;
+                padding: 0 0.4rem;
+                font-size: 0.78rem;
+                gap: 0.3rem;
             }
 
             .advisee-rec-label {
                 display: inline-flex;
                 align-items: center;
                 gap: 0.4rem;
-                margin-right: 0.15rem;
+                /* Its own line, the buttons below it, at every width. */
+                flex: 0 0 100%;
+                justify-content: flex-end;
                 font-size: 0.85rem;
                 font-weight: 600;
                 white-space: nowrap;
@@ -426,7 +438,7 @@
 
             @media (max-width: 575.98px) {
                 .assign-toolbar-right {
-                    margin-left: 0 !important;
+                    flex-basis: 100%;
                 }
             }
 

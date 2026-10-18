@@ -62,7 +62,7 @@ class AnalyticsController extends Controller
         return User::whereHas('userRoles.role', fn ($q) => $q->where('code', 'PANELIST'))
             ->whereHas('panelistProfile', fn ($q) => $q->where('college_id', AdminCollege::id() ?? 0))
             ->whereHas('accountStatus', fn ($q) => $q->where('code', 'ACTIVE'))
-            ->with(['profile', 'panelistProfile'])
+            ->with(['profile', 'panelistProfile.college'])
             ->withCount([
                 'attemptPanelAssignments as assigned_count' => fn ($q) => $seats($q),
                 'attemptPanelAssignments as upcoming_count' => fn ($q) => $seats($q, fn ($s) => $s->where('is_terminal', false)),
@@ -81,7 +81,7 @@ class AnalyticsController extends Controller
                 return [
                     'name' => $name !== '' ? $name : $user->username,
                     'username' => $user->username,
-                    'department' => $user->panelistProfile?->department_or_program,
+                    'department' => $user->panelistProfile?->departmentName(),
                     'assigned' => (int) $user->assigned_count,
                     'upcoming' => (int) $user->upcoming_count,
                     'completed' => (int) $user->completed_count,

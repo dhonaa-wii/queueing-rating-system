@@ -14,7 +14,7 @@
         <div class="hc-legend-row"><span class="hc-badge hc-badge-muted">Planned</span><span>Ahead; its start time has not come yet.</span></div>
         <div class="hc-legend-row"><span class="hc-badge hc-badge-brand">Standby</span><span>Its time has come; waiting for the first Start Room.</span></div>
         <div class="hc-legend-row"><span class="hc-badge hc-badge-success">Active</span><span>At least one room started; the day is running.</span></div>
-        <div class="hc-legend-row"><span class="hc-badge hc-badge-info">Completed</span><span>Every room ended (or it ended automatically after midnight).</span></div>
+        <div class="hc-legend-row"><span class="hc-badge hc-badge-info">Completed</span><span>Every room ended (or it ended automatically at 11:00 PM).</span></div>
         <div class="hc-legend-row"><span class="hc-badge hc-badge-danger">Cancelled</span><span>Passed without ever being started.</span></div>
         <div class="hc-legend-row"><span class="hc-badge hc-badge-danger">Overdue</span><span>Its window passed unstarted; edit the date to use it.</span></div>
 

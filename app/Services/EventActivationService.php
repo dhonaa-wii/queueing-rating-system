@@ -123,11 +123,35 @@ class EventActivationService
      * end() already produce) with a link to Live Monitoring for that
      * date; a later poll that succeeds clears it via markRelatedRead(),
      * same "resolved elsewhere" pattern as flagOverdueDates().
+     *
+     * Updated 2026-10-19 (user-directed): the cutoff is 11:00 PM on the day
+     * itself (AUTO_END_TIME), not midnight. Room session tablets have no
+     * idle timeout, so this end is what signs them out at night. Triggered
+     * by the admin sweep, the scheduler and the tablets' own poll
+     * (autoEndDueDaysThrottled()), so it fires with no Admin online.
      */
+    /** Time of day (24h) a still-running presentation day ends on its own. */
+    public const AUTO_END_TIME = '23:00';
+
+    /**
+     * autoEndPastDay() at most once a minute app-wide, for a caller that runs
+     * on every request (the room session tablets' 5s poll).
+     */
+    public function autoEndDueDaysThrottled(): void
+    {
+        if (\Illuminate\Support\Facades\Cache::add('auto-end-due-days:last-run', true, 60)) {
+            $this->autoEndPastDay();
+        }
+    }
+
     public function autoEndPastDay(): void
     {
+        $today = now()->toDateString();
+        $pastCutoff = now()->format('H:i') >= self::AUTO_END_TIME;
+
         $dates = PresentationDate::whereHas('eventDateStatus', fn ($q) => $q->where('code', 'ACTIVE'))
-            ->whereDate('presentation_date', '<', now()->toDateString())
+            ->where(fn ($q) => $q->whereDate('presentation_date', '<', $today)
+                ->when($pastCutoff, fn ($q) => $q->orWhereDate('presentation_date', $today)))
             ->with('presentationEvent')
             ->get();
 

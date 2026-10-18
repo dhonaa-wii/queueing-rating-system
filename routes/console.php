@@ -22,4 +22,11 @@ Schedule::call(fn () => Cache::forever(HealthService::HEARTBEAT_KEY, now()->time
     ->everyMinute()
     ->name('scheduler-heartbeat');
 
+// A presentation day still running at 11:00 PM ends on its own, which also
+// signs its room session tablets out.
+Schedule::call(fn () => app(\App\Services\EventActivationService::class)->autoEndPastDay())
+    ->everyMinute()
+    ->name('auto-end-presentation-days')
+    ->skip(fn () => MaintenanceMode::restoring());
+
 Schedule::command('maintenance:run')->dailyAt('03:00')->withoutOverlapping(30)->skip(fn () => MaintenanceMode::restoring());

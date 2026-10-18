@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\Backup;
 use App\Models\BackupRestore;
 use App\Models\MaintenanceSetting;
+use App\Support\SessionLifetimes;
 use Closure;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
@@ -83,8 +84,13 @@ class MaintenanceService
         return [
             [
                 'label' => 'Expired sign-in sessions',
+                // Same two lifetimes as DeviceAwareDatabaseSessionHandler: a
+                // room tablet's signed-out session lives the whole day.
                 'query' => fn () => DB::table('sessions')
-                    ->where('last_activity', '<', now()->subMinutes((int) config('session.lifetime'))->timestamp),
+                    ->where(fn ($q) => $q->whereNotNull('user_id')
+                        ->where('last_activity', '<', now()->subMinutes(SessionLifetimes::account())->timestamp))
+                    ->orWhere(fn ($q) => $q->whereNull('user_id')
+                        ->where('last_activity', '<', now()->subMinutes(SessionLifetimes::device())->timestamp)),
             ],
             [
                 'label' => 'Expired password reset tokens',

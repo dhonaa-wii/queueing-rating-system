@@ -46,7 +46,7 @@
     <p>Three cards, each saved on its own. Nothing is set until you set it; a blank field keeps the built-in behaviour.</p>
     <ul>
         <li><strong>Login Lockout</strong> — after the set number of wrong passwords in a row, the account cannot sign in for the set number of minutes, even with the right password. It unlocks by itself after that, or at once when an Administrator (or you, for an Administrator) uses <strong>Reset Password</strong>. Applies to Administrators and Panelists, including a panelist's sign-in on a room session device. Super Admin accounts are never locked. Blank = no lockout.</li>
-        <li><strong>Session Timeout</strong> — minutes without activity before a signed-in user is signed out. Blank = the server's default (usually 120). A page that refreshes itself in the background, such as a room session device or a panelist's open dashboard, counts as activity.</li>
+        <li><strong>Session Timeout</strong> — minutes without activity before a signed-in user is signed out. Blank = the server's default (usually 120). A page that refreshes itself in the background, such as a panelist's open dashboard, counts as activity. Room session devices are never signed out by this setting: a claimed tablet stays signed in, even when it sits idle or asleep for hours, until its room is ended (End Room, or the day ending on its own at 11:00 PM).</li>
         <li><strong>Password Rules</strong> — the minimum length and the characters a new password must contain (uppercase, lowercase, number, symbol), checked whenever someone changes their password; the Change Password page lists the current rules. <strong>Password expires after</strong> forces everyone whose password is older than that many days to choose a new one at their next sign-in. Blank = never expires. The default rule is 8+ characters with an uppercase letter, a lowercase letter and a number.</li>
     </ul>
     <p>Every change is recorded in the Audit Log as <code>SECURITY_SETTING_UPDATED</code>, with the old and new values.</p>
@@ -54,7 +54,7 @@
 
 <div class="hc-topic" id="sa-audit">
     <h3><x-icon name="file-text" /> Audit Log</h3>
-    <p>A read-only record of important actions — who did what, when, to which record, with the values before and after. Filter by text, user, action, record type and date range; expand a row to see the details. <strong>Export CSV</strong> downloads the filtered entries (the export itself is recorded). Old entries can be pruned automatically — see <a href="#sa-maintenance">Health and maintenance</a>.</p>
+    <p>A read-only record of important actions — who did what, when and to which record. Filter by text, user, action, record type and date range. <strong>Export CSV</strong> downloads the filtered entries, including the values before and after (the export itself is recorded). Old entries can be pruned automatically — see <a href="#sa-maintenance">Health and maintenance</a>.</p>
 </div>
 
 <div class="hc-topic" id="sa-backups">

@@ -895,9 +895,15 @@
             // (never toggled via d-none like defer-form,
             // so controlFormOpen()'s own selector doesn't cover them), and a
             // poll-driven innerHTML swap mid-type would wipe out whatever the
-            // Lead just typed.
+            // Lead just typed. All types are verified with one button now, so
+            // a filled-in field also holds the poll while the Lead looks for
+            // the next receipt (2026-10-19).
             function paymentInputFocused() {
-                return !!(controlPanel && document.activeElement && controlPanel.contains(document.activeElement) && document.activeElement.matches('[data-reference-number-input]'));
+                if (!controlPanel) return false;
+                if (document.activeElement && controlPanel.contains(document.activeElement) && document.activeElement.matches('[data-reference-number-input]')) return true;
+                return Array.prototype.some.call(controlPanel.querySelectorAll('[data-reference-number-input]'), function (input) {
+                    return !input.disabled && input.value.trim() !== '';
+                });
             }
 
             function viewAllOpen() {
@@ -998,7 +1004,12 @@
                 var revealKind = statusContent.dataset.classificationKind;
                 var revealKey = 'pqrs-reveal-' + statusContent.dataset.connectionId + '-' + revealKind;
 
-                if (!sessionStorage.getItem(revealKey)) {
+                // User-directed 2026-10-19: an Alternate or unassigned panelist
+                // gets the replacement/log-out modal on every load, so a reload
+                // can't get past it. Only the first load plays the checking beat.
+                if ((revealKind === 'backup' || revealKind === 'unassigned') && sessionStorage.getItem(revealKey)) {
+                    revealClassification(revealKind);
+                } else if (!sessionStorage.getItem(revealKey)) {
                     checkOverlay.classList.remove('d-none');
                     statusContent.style.visibility = 'hidden';
 

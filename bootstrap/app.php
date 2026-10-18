@@ -40,5 +40,23 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: ['restore/*/step']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // An expired form/session (CSRF mismatch, 419) never shows the error
+        // page: a page request goes back to the landing page, a background
+        // fetch gets a short JSON message instead (user-directed 2026-10-19).
+        // Laravel has already turned TokenMismatchException into a 419
+        // HttpException by the time render callbacks run.
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpException $e, \Illuminate\Http\Request $request) {
+            if ($e->getStatusCode() !== 419) {
+                return null;
+            }
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Your session has expired. Please reload the page.',
+                    'redirect' => route('landing'),
+                ], 419);
+            }
+
+            return redirect()->route('landing');
+        });
     })->create();

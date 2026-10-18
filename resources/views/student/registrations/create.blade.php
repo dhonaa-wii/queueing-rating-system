@@ -417,8 +417,10 @@
 
                 var leader = personAt(function (f) { return 'leader_' + f; });
 
+                var optional = ['middle_name'];
+
                 fields.forEach(function (f) {
-                    if (! leader[f]) {
+                    if (! leader[f] && optional.indexOf(f) === -1) {
                         showError('leader_' + f, labels[f] + ' is required.');
                         valid = false;
                     }
@@ -437,7 +439,7 @@
 
                     if (fields.every(function (f) { return ! member[f]; })) continue;
 
-                    var missing = fields.filter(function (f) { return ! member[f]; });
+                    var missing = fields.filter(function (f) { return ! member[f] && optional.indexOf(f) === -1; });
                     if (missing.length) {
                         missing.forEach(function (f) { showError('members[' + i + '][' + f + ']', labels[f] + ' is required.'); });
                         valid = false;
@@ -530,7 +532,7 @@
                 var rows = [];
 
                 function describe(p) {
-                    var parts = [p.last_name + ', ' + p.first_name + ' ' + p.middle_name.charAt(0).toUpperCase() + '.', p.sex, p.section];
+                    var parts = [p.last_name + ', ' + p.first_name + (p.middle_name ? ' ' + p.middle_name.charAt(0).toUpperCase() + '.' : ''), p.sex, p.section];
                     if (p.research_track_name) parts.push(p.research_track_name);
                     return parts.map(escapeHtml).join(' &middot; ');
                 }
