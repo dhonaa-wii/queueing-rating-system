@@ -46,6 +46,26 @@ return Application::configure(basePath: dirname(__DIR__))
         // Laravel has already turned TokenMismatchException into a 419
         // HttpException by the time render callbacks run.
         $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpException $e, \Illuminate\Http\Request $request) {
+            // A page request refused with 403 (e.g. coming back after the
+            // session ended, or an old tab of another role) never shows the
+            // Forbidden page either: a signed-in user goes to their own
+            // dashboard, a room tablet to the Room Session start page, anyone
+            // else to the login page (2026-10-19). Background fetches keep
+            // their 403 so their own handling (e.g. the restore token) holds.
+            if ($e->getStatusCode() === 403 && ! $request->expectsJson()) {
+                $user = $request->user();
+
+                if ($user && $user->dashboardRouteName() !== 'login') {
+                    return redirect()->route($user->dashboardRouteName());
+                }
+
+                if ($request->is('room-session', 'room-session/*')) {
+                    return redirect()->route('room-session.entry');
+                }
+
+                return $user ? redirect()->route('landing') : redirect()->route('login');
+            }
+
             if ($e->getStatusCode() !== 419) {
                 return null;
             }
@@ -57,6 +77,8 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], 419);
             }
 
-            return redirect()->route('landing');
+            return $request->is('room-session', 'room-session/*')
+                ? redirect()->route('room-session.entry')
+                : redirect()->route('landing');
         });
     })->create();

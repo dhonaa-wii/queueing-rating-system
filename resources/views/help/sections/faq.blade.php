@@ -29,7 +29,7 @@
         ]],
         'fq-panelists' => ['icon' => 'users', 'title' => 'Panelists and room devices', 'items' => [
             ['Call Next is disabled.', 'Every terminal in the room must have a panelist connected, the room must not be on a break, and nobody may already be called or presenting. Hover over the button to see which.'],
-            ['Start is disabled.', 'A group must be called first, and in a payment category every payment type must be verified.'],
+            ['Start is disabled.', 'A group must be called first. Then every payment type must be verified (in a payment category), every seat must have a panelist signed in, and every panelist signed in must be on this group\'s panel — an unassigned panelist must log out or have a replacement approved by an Administrator, and a backup must take a seat first. Start is also locked during a break. Point at the button to see the reason.'],
             ['Complete is disabled.', 'Every connected panelist must submit their evaluation first.'],
             ['I submitted my evaluation with a mistake.', 'Submitted evaluations are final. Tell your Administrator.'],
             ['I don\'t see the Presentation Controls.', 'Only the Lead Panelist (Chair) of the room\'s groups gets them, on whichever device they sign in to. Check your role in My Assignments.'],
@@ -38,7 +38,7 @@
             ['"You are already connected to another seat in this room."', 'Log out of your other terminal first; one panelist, one seat.'],
             ['The device asks for a room username, not mine.', 'It has not been set up yet (or was released). An Administrator signs it in with the room account — see Setting up a device.'],
             ['A panelist on my panel did not come. What do I do?', 'Their backup signs in to a terminal and picks the seat they are filling. Without a backup, another panelist can sign in and request the seat; an Administrator confirms it.'],
-            ['What does "Evaluated" on my dashboard mean?', 'How many evaluation sheets you submitted in the selected category, out of the groups on your panel that have already presented. Backup seats are not counted.'],
+            ['What does "Evaluated" on my dashboard mean?', 'How many evaluation sheets you submitted, across all your categories, out of the groups on your panel that have already presented. Backup seats are not counted.'],
             ['Where can I see the groups I advise?', 'In <strong>My Advisees</strong> — upcoming groups with their panel, and completed ones with the panel\'s evaluation sheets.'],
             ['I cannot attend one of my assigned groups.', 'Use <strong>Mark Unavailable</strong> in My Assignments, and tell your Administrator directly if it is today.'],
             ['The device warned "Scheduled break at …".', 'The next group would run into the room\'s break. If the current group is still on when the break comes, the Lead chooses Cancel Break or Finish Group, Then Break.'],

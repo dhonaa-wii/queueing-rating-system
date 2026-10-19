@@ -52,7 +52,7 @@
                 <div style="display:grid;grid-template-columns:1.2fr 1.2fr 1.2fr .5fr .5fr 1fr;gap:.35rem;">
                     <div class="m-field"><span>Last Name *</span><span class="m-input">Dela Cruz</span></div>
                     <div class="m-field"><span>First Name *</span><span class="m-input">Juan</span></div>
-                    <div class="m-field"><span>Middle Name *</span><span class="m-input">Santos</span></div>
+                    <div class="m-field"><span>Middle Name</span><span class="m-input">Santos</span></div>
                     <div class="m-field"><span>Sex *</span><span class="m-input">M</span></div>
                     <div class="m-field"><span>Section *</span><span class="m-input">4B</span></div>
                     <div class="m-field"><span>Track *</span><span class="m-input">Web ▾</span></div>
@@ -72,7 +72,7 @@
         <figcaption><strong>Figure 5.</strong> The registration form for a Standard category that requires a track and a technical adviser, and lets groups choose their panel.</figcaption>
     </figure>
     <ol class="hc-steps">
-        <li class="hc-step"><div class="hc-step-marker">1</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="user" /> Group Leader</div><p class="hc-step-text">Last, first and middle name, sex, section and — when the category asks for it — your research track. All required.</p></div></li>
+        <li class="hc-step"><div class="hc-step-marker">1</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="user" /> Group Leader</div><p class="hc-step-text">Last, first and middle name, sex, section and — when the category asks for it — your research track. All required except the middle name.</p></div></li>
         <li class="hc-step"><div class="hc-step-marker">2</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="users" /> Group Members</div><p class="hc-step-text">One row per member. The number of rows is the category's maximum group size minus the leader. Leave unused rows completely blank; a row you start must be filled in completely.</p></div></li>
         <li class="hc-step"><div class="hc-step-marker">3</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="file-text" /> Project Information</div><p class="hc-step-text">Standard: your <strong>Project Title</strong>. Title Proposal: exactly the required number of <strong>Proposed Titles</strong>. Plus your <strong>Technical Adviser</strong> if the category requires one — choose them from the list of your college's panelists.</p></div></li>
         <li class="hc-step"><div class="hc-step-marker">4</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="crown" /> Panel (only in some categories)</div><p class="hc-step-text">If the category lets groups choose their panel, pick one panelist for each seat: the <strong>Chair</strong> first, then each <strong>Member</strong>. Each person can be picked once, and your adviser is greyed out. See <a href="#st-choose-panel">Choosing your panel</a>.</p></div></li>

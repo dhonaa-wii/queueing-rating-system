@@ -202,7 +202,7 @@
                     <div class="d-flex align-items-center gap-2 mb-2">
                         <span class="small text-truncate" style="width: 7rem; flex-shrink: 0;" title="{{ $type->name }}">{{ $type->name }}</span>
                         @if ($typeSatisfied)
-                            <span class="badge badge-success-tint"><x-icon name="check" /> Verified</span>
+                            <span class="badge badge-success-tint"><x-icon name="check-circle" /> Verified</span>
                         @else
                             <input type="text" name="reference_numbers[{{ $type->id }}]" value="{{ old('reference_numbers.'.$type->id) }}" class="form-control form-control-sm" placeholder="Receipt #" maxlength="100"
                                    data-reference-number-input @disabled($breakLocked) required>
@@ -211,7 +211,7 @@
                 @endforeach
                 <button type="submit" class="btn btn-sm w-100 {{ $allPaymentsSatisfied ? 'btn-success-brand' : 'btn-outline-success-brand' }}" @disabled($allPaymentsSatisfied || $breakLocked)>
                     @if ($allPaymentsSatisfied)
-                        <x-icon name="check" /> Payment Verified
+                        <x-icon name="check-circle" /> Payment Verified
                     @else
                         <x-icon name="shield-check" /> Verify Payment
                     @endif

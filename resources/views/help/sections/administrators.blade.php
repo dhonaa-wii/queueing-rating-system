@@ -28,7 +28,7 @@
 
 <div class="hc-topic" id="ad-panelists">
     <h3><x-icon name="users" /> Panelist Management</h3>
-    <p>The list of your college's panelists, with search and filters. Click a row to open its details drawer (categories, assigned groups and evaluations done); its group list can be searched by group code or title.</p>
+    <p>The list of your college's panelists, with search and filters. Click a row to open its details drawer (categories, and assigned, upcoming and completed groups); its group list can be searched by group code or title.</p>
     <ol class="hc-steps">
         <li class="hc-step"><div class="hc-step-marker">1</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="user-plus" /> Add Panelist</div><p class="hc-step-text">Enter the name and choose the <strong>Panelist Type</strong>: <strong>Internal</strong> locks the Department to your college; <strong>External</strong> shows a Department field to type the panelist's own department. Either way the panelist is registered under your college and can sit on its panels. Edit changes the type the same way.</p></div></li>
         <li class="hc-step"><div class="hc-step-marker">2</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="key" /> Copy the credentials</div><p class="hc-step-text">The username and temporary password are shown <strong>once</strong>. Give them to the panelist; they must change the password on first sign-in.</p></div></li>

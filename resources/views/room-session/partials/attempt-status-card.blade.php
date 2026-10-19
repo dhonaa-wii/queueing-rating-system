@@ -151,7 +151,22 @@
                 @endif
                 <div class="text-brand-muted">Leader: {{ $lastAttempt->researchGroup->leader()?->full_name ?? '—' }}</div>
             </div>
-            <span class="badge {{ $lastOutcomeBadgeClass }}" style="font-size: 0.66rem;">{{ $lastAttempt->presentationStatus->name }}</span>
+            <div class="d-flex flex-column align-items-end gap-1">
+                @if ($lastOutcome['remark'] ?? null)
+                    @php
+                        $remarkBadgeClass = match ($lastOutcome['remark']->is_successful) {
+                            true => 'badge-success-tint',
+                            false => 'badge-danger-tint',
+                            default => 'badge-info-tint',
+                        };
+                    @endphp
+                    <span class="badge {{ $remarkBadgeClass }}" style="font-size: 0.66rem;">{{ $lastOutcome['remark']->name }}</span>
+                    @if ($lastOutcome['groupGrade'] !== null)
+                        <span class="text-brand-muted" style="font-size: 0.66rem;">Group Grade {{ number_format($lastOutcome['groupGrade'], 2) }}</span>
+                    @endif
+                @endif
+                <span class="badge {{ $lastOutcomeBadgeClass }}" style="font-size: 0.66rem;">{{ $lastAttempt->presentationStatus->name }}</span>
+            </div>
         </div>
 
         <div class="d-flex flex-wrap gap-3 mt-2" style="font-size: 0.7rem;">

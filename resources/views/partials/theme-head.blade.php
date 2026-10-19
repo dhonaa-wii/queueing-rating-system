@@ -128,6 +128,16 @@
         flex-shrink: 0;
     }
 
+    /* An icon inside a badge (e.g. the payment "Verified" badge) would
+       otherwise fall to the SVG default size of 300x150. */
+    .badge > svg {
+        width: 1.1em;
+        height: 1.1em;
+        flex-shrink: 0;
+        vertical-align: -0.2em;
+        margin-right: 0.15em;
+    }
+
     .btn-brand {
         --bs-btn-bg: var(--brand-accent);
         --bs-btn-color: var(--brand-accent-contrast);

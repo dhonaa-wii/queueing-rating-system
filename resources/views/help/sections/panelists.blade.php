@@ -26,7 +26,7 @@
                     <div class="m-body">
                         <div class="m-top"><span class="m-title">Dashboard</span><span class="m-btn is-ghost"><x-icon name="help-circle" /> Help Center</span><span class="m-icon-btn"><x-icon name="bell" /><span class="m-count">2</span></span><span class="m-pin">1</span><span class="m-icon-btn"><x-icon name="qr-code" /></span><span class="m-pin">2</span></div>
                         <div class="m-page">
-                            <div class="m-between"><span class="m-bold">Good morning, Maria</span><span class="m-row"><span class="m-btn is-soft"><x-icon name="list-check" /> Category ▾</span><span class="m-pin">3</span></span></div>
+                            <div class="m-between"><span class="m-bold">Good morning, Maria</span><span class="m-row"><span class="hc-badge hc-badge-muted">2 categories</span><span class="m-pin">3</span></span></div>
                             <div class="m-stats">
                                 <div class="m-stat"><div class="m-label">Assigned Groups <span class="m-pin">4</span></div><div class="m-stat-value">12</div></div>
                                 <div class="m-stat"><div class="m-label">Evaluated</div><div class="m-stat-value">7 <span class="m-small m-muted">/ 7</span></div></div>
@@ -45,7 +45,7 @@
     <ul class="hc-pins">
         <li><span class="m-pin">1</span><span><strong>Notifications</strong> — the number shows unread items.</span></li>
         <li><span class="m-pin">2</span><span><strong>Room Session</strong> — opens your phone camera to scan a room device's QR code.</span></li>
-        <li><span class="m-pin">3</span><span><strong>Category</strong> — shown when you serve on or advise groups in more than one category. Everything on the page follows it.</span></li>
+        <li><span class="m-pin">3</span><span><strong>Categories</strong> — the dashboard covers every category you serve on or advise in at once; point at the chip to see their names. Each row says which category it belongs to.</span></li>
         <li><span class="m-pin">4</span><span><strong>Summary</strong> — <strong>Assigned Groups</strong> (and how many are still to present), <strong>Evaluated</strong> (sheets you submitted out of groups that have presented), your <strong>Next Presentation</strong> with its room and group, and your <strong>Advisees</strong>.</span></li>
         <li><span class="m-pin">5</span><span><strong>Live Now</strong> — appears only while one of your rooms is running: who is presenting or called, and who is next.</span></li>
         <li><span class="m-pin">6</span><span><strong>Upcoming Assignments</strong> and <strong>My Advisees</strong> — the next few of each, nearest first; <strong>View all</strong> opens the full page.</span></li>
@@ -234,7 +234,7 @@
     <ol class="hc-steps">
         <li class="hc-step"><div class="hc-step-marker">1</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="megaphone" /> Call Next</div><p class="hc-step-text">Calls the next group in the queue. Locked until <strong>every terminal in the room has a panelist connected</strong>, and while the room is on a break.</p><div class="hc-result">Group <x-icon name="arrow-right" /> <span class="hc-badge hc-badge-brand">Called</span></div></div></li>
         <li class="hc-step"><div class="hc-step-marker">2</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="wallet" /> Verify payment (if required)</div><p class="hc-step-text">Type the reference number of every receipt (one field per payment type, all required), then press <strong>Verify Payment</strong> once. A number already used anywhere in the system is refused and the screen says which group holds it.</p></div></li>
-        <li class="hc-step"><div class="hc-step-marker">3</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="play" /> Start</div><p class="hc-step-text">Starts the presentation timer. Locked until every payment type is verified.</p><div class="hc-result">Group <x-icon name="arrow-right" /> <span class="hc-badge hc-badge-success">Ongoing</span></div></div></li>
+        <li class="hc-step"><div class="hc-step-marker">3</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="play" /> Start</div><p class="hc-step-text">Starts the presentation timer. Locked until every payment type is verified, every seat has a panelist signed in, and everyone signed in is on this group's panel (assigned, or swapped in as a replacement). Point at the button to see what is missing.</p><div class="hc-result">Group <x-icon name="arrow-right" /> <span class="hc-badge hc-badge-success">Ongoing</span></div></div></li>
         <li class="hc-step"><div class="hc-step-marker">4</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="pause" /> Pause / Resume</div><p class="hc-step-text">Stops the clock for an interruption; paused time does not count against the group. Going over the time limit is allowed — the timer turns red and shows the extra time.</p></div></li>
         <li class="hc-step"><div class="hc-step-marker">5</div><div class="hc-step-body"><div class="hc-step-head"><x-icon name="check" /> Complete</div><p class="hc-step-text">Ends the presentation. Locked until <strong>every panelist has submitted</strong> an evaluation. The official outcome is set from the Group Grade.</p><div class="hc-result">Group <x-icon name="arrow-right" /> <span class="hc-badge hc-badge-success">Completed</span></div></div></li>
     </ol>
@@ -261,4 +261,5 @@
         <div class="hc-or">or</div>
         <div class="hc-option"><div class="hc-option-icon"><x-icon name="user-check" /></div><div><div class="hc-option-title">You are not on this panel</div><p>Choose the panelist you are replacing. The device shows "Waiting for an Administrator to review your request…" until an Administrator confirms or rejects it.</p></div></div>
     </div>
+    <p>Until the swap is done, the group cannot be started: Start stays locked while anyone signed in to the room is not on its panel.</p>
 </div>

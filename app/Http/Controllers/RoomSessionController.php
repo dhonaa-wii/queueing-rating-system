@@ -57,6 +57,8 @@ use Illuminate\Support\Str;
  */
 class RoomSessionController extends Controller
 {
+    private const SESSION_LOST_MESSAGE = 'This device was signed out. Sign in to the room again.';
+
     public function login(Request $request)
     {
         if ($request->session()->has('room_login.room_terminal_id')) {
@@ -582,9 +584,23 @@ class RoomSessionController extends Controller
         $attempt = $latestSchedule->presentationAttempt;
         $action = $attempt->presentationRun?->presentationActions->first();
         $isDeferred = $attempt->presentationStatus->code === 'DEFERRED';
+        $isCompleted = $attempt->presentationStatus->code === 'COMPLETED';
+
+        // Group remarks, as Reports shows them: the attempt's official outcome
+        // (the Group Grade — every panelist's submitted sheet averaged — through
+        // the rubric, set at Complete), with that Group Grade beside it.
+        $groupGrade = null;
+        if ($isCompleted) {
+            $attempt->load(['finalOutcome', 'evaluationSubmissions' => fn ($query) => $query
+                ->whereHas('submissionStatus', fn ($subQuery) => $subQuery->whereIn('code', ['SUBMITTED', 'FINALIZED']))]);
+            $grades = $attempt->evaluationSubmissions->pluck('weighted_total_score')->filter(fn ($value) => $value !== null);
+            $groupGrade = $grades->isNotEmpty() ? round($grades->avg(), 2) : null;
+        }
 
         return [
             'attempt' => $attempt,
+            'remark' => $isCompleted ? $attempt->finalOutcome : null,
+            'groupGrade' => $groupGrade,
             'deferReason' => $isDeferred ? $action?->reason : null,
             'deferRemarks' => $isDeferred ? $action?->remarks : null,
             // Actual start/end for a resolved presentation, or the moment
@@ -1074,14 +1090,18 @@ class RoomSessionController extends Controller
 
     private function requireAccount(Request $request): RoomSessionAccount
     {
+        // A lost session (browser closed, long inactivity) goes back to the
+        // Room Session start page, never the Forbidden page (2026-10-19).
         $accountId = $request->session()->get('room_login.account_id');
-        abort_unless($accountId, 403);
+
+        if (! $accountId) {
+            $this->signOutDevice($request, self::SESSION_LOST_MESSAGE);
+        }
 
         $account = RoomSessionAccount::where('id', $accountId)->where('is_active', true)->first();
 
         if (! $account) {
-            $request->session()->forget('room_login.account_id');
-            abort(403);
+            $this->signOutDevice($request, self::SESSION_LOST_MESSAGE);
         }
 
         return $account;
@@ -1090,13 +1110,15 @@ class RoomSessionController extends Controller
     private function requireTerminal(Request $request): RoomTerminal
     {
         $terminalId = $request->session()->get('room_login.room_terminal_id');
-        abort_unless($terminalId, 403);
+
+        if (! $terminalId) {
+            $this->signOutDevice($request, self::SESSION_LOST_MESSAGE);
+        }
 
         $terminal = RoomTerminal::find($terminalId);
 
         if (! $terminal) {
-            $request->session()->forget('room_login.room_terminal_id');
-            abort(403);
+            $this->signOutDevice($request, self::SESSION_LOST_MESSAGE);
         }
 
         $deviceIdentifier = $request->session()->get('room_login.device_identifier');
