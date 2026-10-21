@@ -108,7 +108,7 @@
     @include('admin.panel-assignments.partials.assign-conflict-modal')
     @include('admin.panel-assignments.partials.reassign-confirm-modal')
 
-    @if ($roomGroups->isEmpty())
+    @if ($roomGroups->isEmpty() && $roomlessAttempts->isEmpty())
         <div class="card-brand p-5 text-center text-brand-muted">
             <p class="mb-0">{{ $search !== '' ? 'No groups match your search.' : 'No groups are queued in this category yet.' }}</p>
         </div>
@@ -177,7 +177,7 @@
             $currentRosterDate = null;
             $deferredRows = $deferredRows->sortByDesc(fn ($row) => $row['attempt']->attemptSchedule->queueEntry->removed_at)->values();
             $completedCount = $rosterRows->filter(fn ($row) => $row['attempt']->presentationStatus->is_terminal)->count();
-            $scheduledCount = $rosterRows->count() - $completedCount;
+            $scheduledCount = $rosterRows->count() - $completedCount + $roomlessAttempts->count();
         @endphp
 
         <form method="POST" action="{{ route('admin.panel-assignments.assign', $category) }}" id="assign-form">
@@ -200,7 +200,7 @@
                     </div>
 
                     <div data-tab-pane="all">
-                        @if ($rosterRows->isEmpty())
+                        @if ($rosterRows->isEmpty() && $roomlessAttempts->isEmpty())
                             <p class="text-brand-muted small">No registered groups in this category yet.</p>
                         @else
                             <div class="table-responsive roster-scroll">
@@ -461,6 +461,51 @@
                                                 </td>
                                             </tr>
                                         @endforeach
+                                        {{-- Queued while the category had no date or room yet
+                                           (user-directed 2026-10-21): their queue number, no room
+                                           and no time. They move into rooms, in this order, as
+                                           soon as rooms exist. --}}
+                                        @if ($roomlessAttempts->isNotEmpty())
+                                            <tr class="roster-date-row" data-date-header="unqueued">
+                                                <td colspan="9">{{ \App\Models\AttemptSchedule::AWAITING_SHORT }}</td>
+                                            </tr>
+                                            @foreach ($roomlessAttempts as $roomlessAttempt)
+                                                @php $unqueued = $roomlessAttempt->researchGroup; @endphp
+                                                <tr data-row-status="active" data-room-row="" data-focus="attempt-{{ $roomlessAttempt->id }}">
+                                                    <td></td>
+                                                    <td><span class="text-brand-muted">{{ \App\Models\AttemptSchedule::AWAITING_SHORT }}</span></td>
+                                                    <td>—</td>
+                                                    <td>{{ $roomlessAttempt->attemptSchedule->queueEntry?->queue_number }}</td>
+                                                    <td>{{ $unqueued->technical_adviser_name ?: '—' }}</td>
+                                                    <td>
+                                                        <div class="fw-semibold">{{ $unqueued->group_reference }}</div>
+                                                        @if ($isTitleProposal)
+                                                            @foreach ($unqueued->proposedTitles as $title)
+                                                                <div>{{ $loop->iteration }}. {{ $title->title_text }}</div>
+                                                            @endforeach
+                                                        @else
+                                                            <div>{{ $unqueued->current_project_title ?: '—' }}</div>
+                                                        @endif
+                                                    </td>
+                                                    <td>
+                                                        @foreach ($unqueued->students->sortByDesc('is_leader') as $student)
+                                                            <div>{{ $student->full_name }}@if ($student->is_leader) <span class="badge badge-muted-tint">Leader</span>@endif</div>
+                                                        @endforeach
+                                                    </td>
+                                                    <td><span class="text-brand-muted">—</span></td>
+                                                    <td class="text-end">
+                                                        <div class="dropdown">
+                                                            <button type="button" class="row-actions-btn" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" aria-label="Row actions">
+                                                                <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.75"></circle><circle cx="12" cy="12" r="1.75"></circle><circle cx="12" cy="19" r="1.75"></circle></svg>
+                                                            </button>
+                                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                                <li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#edit-group-modal-{{ $unqueued->id }}">Edit</button></li>
+                                                            </ul>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        @endif
                                     </tbody>
                                 </table>
                             </div>
@@ -614,7 +659,7 @@
                                                                                 data-url="{{ route('admin.reports.evaluation-sheet', [$category, $attempt->id]) }}"
                                                                                 data-group="{{ $group->group_reference }} (Attempt {{ $attempt->attempt_number }})"
                                                                                 @disabled($submitted->isEmpty())
-                                                                                title="{{ $submitted->isEmpty() ? 'No submitted evaluations for this attempt' : '' }}"><x-icon name="eye" /> View Evaluation</button>
+                                                                                title="{{ $submitted->isEmpty() ? 'No submitted evaluations for this attempt' : '' }}">View Evaluation</button>
                                                                     </td>
                                                                 </tr>
                                                             @endforeach
@@ -625,7 +670,7 @@
                                                     <button type="button" class="btn btn-sm btn-brand" data-bs-toggle="modal"
                                                             data-bs-target="#redefense-modal-{{ $latest->id }}"
                                                             @disabled($reDefenseTargetRoom === null)
-                                                            title="{{ $reDefenseTargetRoom === null ? 'No ongoing or upcoming presentation date is configured' : '' }}"><x-icon name="repeat" /> Reinsert for Another Attempt</button>
+                                                            title="{{ $reDefenseTargetRoom === null ? 'No ongoing or upcoming presentation date is configured' : '' }}"><x-icon name="repeat" /> Reinsert</button>
                                                 </td>
                                             </tr>
                                         @endforeach
@@ -1142,7 +1187,10 @@
         @endpush
 
         {{-- Row-action modals: kept outside the assign form above (a <form> cannot nest another <form>) --}}
-        @php $renderedGroupEditModals = []; @endphp
+        @php $renderedGroupEditModals = $roomlessAttempts->pluck("research_group_id")->all(); @endphp
+        @foreach ($roomlessAttempts as $roomlessAttempt)
+            @include('admin.panel-assignments.partials.edit-group-modal', ['editGroup' => $roomlessAttempt->researchGroup])
+        @endforeach
         @foreach ($roomGroups as $group)
             @foreach ($group['active'] as $attempt)
                 @php
@@ -1751,10 +1799,12 @@
                     <form method="POST" action="{{ route('admin.panel-assignments.re-defense', [$category, $latest]) }}">
                         @csrf
                         <div class="modal-header">
-                            <h5 class="modal-title">Re-Defense for {{ $row['group']->group_reference }}</h5>
+                            <h5 class="modal-title">Reinsert {{ $row['group']->group_reference }}?</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
+                            <p class="mb-2">{{ $row['group']->group_reference }} will present again as Attempt {{ $latest->attempt_number + 1 }}.</p>
+                            <p class="mb-3">This attempt takes place only after every other group has finished presenting.</p>
                             <dl class="row small mb-0">
                                 <dt class="col-5 text-brand-muted fw-normal">Next attempt</dt>
                                 <dd class="col-7 mb-2">Attempt {{ $latest->attempt_number + 1 }}</dd>
@@ -1781,7 +1831,7 @@
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-outline-brand" data-bs-dismiss="modal">Cancel</button>
-                            <button type="submit" class="btn btn-brand"><x-icon name="repeat" /> Schedule Re-Defense</button>
+                            <button type="submit" class="btn btn-brand"><x-icon name="repeat" /> Reinsert</button>
                         </div>
                     </form>
                 </div>

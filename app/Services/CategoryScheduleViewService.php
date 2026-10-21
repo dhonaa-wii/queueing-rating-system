@@ -119,6 +119,27 @@ class CategoryScheduleViewService
 
         $awaitingScheduleIds = $awaitingRows->pluck('id')->flip();
 
+        // Groups queued while the category had no date or room yet have no
+        // room at all, so no date-room above reaches them. They are listed
+        // with the rest, in their queue order (the strategy order) —
+        // user-directed 2026-10-21.
+        $awaitingRows = $awaitingRows->concat(
+            AttemptSchedule::whereNull('presentation_date_room_id')
+                ->whereHas('presentationAttempt.researchGroup', fn ($q) => $q->where('category_id', $category->id))
+                ->whereHas('presentationAttempt.presentationStatus', fn ($q) => $q->where('is_terminal', false))
+                ->whereHas('queueEntry', fn ($q) => $q->whereNull('removed_at'))
+                ->with([
+                    'queueEntry',
+                    'presentationAttempt.presentationStatus',
+                    'presentationAttempt.researchGroup.students',
+                    'presentationAttempt.researchGroup.proposedTitles' => fn ($query) => $query->orderBy('sort_order'),
+                    'presentationAttempt.attemptPanelAssignments.assignmentKind',
+                    'presentationAttempt.attemptPanelAssignments.panelist.profile',
+                ])
+                ->get()
+                ->sortBy(fn ($schedule) => $schedule->queueEntry->queue_number)
+        )->values();
+
         // Deferred groups sitting in a room that no longer has a tab would
         // otherwise be listed nowhere at all once every day is finished, so
         // they are carried alongside the awaiting list. Their own rows are

@@ -159,7 +159,9 @@
                         // that is over, so neither is shown: the card says
                         // what is actually true, that a new date has to be
                         // set before this group has a schedule again.
-                        $isAwaitingSchedule = (bool) $selectedSchedule?->isAwaitingReschedule($selectedAttempt);
+                        // A group not in the queue yet (no date, room or slot for
+                        // it so far) is "to be scheduled" too (2026-10-21).
+                        $isAwaitingSchedule = ! $selectedAttempt || (bool) $selectedSchedule?->isAwaitingReschedule($selectedAttempt);
 
                         $scheduleTimeLabel = $isCompleted ? 'Completed Date & Time'
                             : ($isDeferred ? 'Deferred Date & Time'
@@ -189,7 +191,7 @@
                                 </div>
                             </div>
                             <span class="badge {{ $isDeferred ? 'badge-danger-tint' : ($selectedAttempt ? 'badge-info-tint' : 'badge-muted-tint') }}">
-                                {{ $isDeferred ? 'Deferred' : ($selectedAttempt?->presentationStatus->name ?? 'Not yet queued') }}
+                                {{ $isDeferred ? 'Deferred' : ($selectedAttempt?->presentationStatus->name ?? \App\Models\AttemptSchedule::AWAITING_SHORT) }}
                             </span>
                         </div>
 

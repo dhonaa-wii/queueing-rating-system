@@ -18,7 +18,7 @@
         @if ($leader)
             <a href="{{ route('admin.reports.grades', [$category, 'top' => 'groups']) }}"
                class="btn rp-best-view {{ $top === 'groups' ? 'btn-brand' : 'btn-outline-brand' }}">
-                <x-icon name="eye" /> View
+                View
             </a>
         @endif
     </div>

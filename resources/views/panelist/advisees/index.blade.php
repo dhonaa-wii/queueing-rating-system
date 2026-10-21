@@ -79,7 +79,7 @@
                     <div class="advisee-rec-tools">
                         <span class="advisee-rec-label"><x-icon name="file-text" /> Recommendations Summary</span>
                         <button type="button" class="btn btn-sm btn-outline-brand" data-recommendations-open>
-                            <x-icon name="eye" /> View
+                            View
                         </button>
                         <a href="{{ route('panelist.advisees.recommendations.export-pdf') }}" class="btn btn-sm btn-outline-brand">
                             <x-icon name="file-text" /> Export to PDF
@@ -170,7 +170,7 @@
                                             <ul class="dropdown-menu dropdown-menu-end">
                                                 <li>
                                                     <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#advisee-modal-{{ $index }}">
-                                                        <x-icon name="eye" /> View
+                                                        View
                                                     </button>
                                                 </li>
                                             </ul>
@@ -254,7 +254,7 @@
                                                                 data-view-sheet
                                                                 data-url="{{ route('panelist.advisees.evaluation-sheet', $attempt) }}"
                                                                 data-group="{{ $group->group_reference }}">
-                                                            <x-icon name="eye" /> View Evaluation
+                                                            View Evaluation
                                                         </button>
                                                     </li>
                                                 </ul>

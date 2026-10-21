@@ -82,7 +82,7 @@
                                             <ul class="dropdown-menu dropdown-menu-end">
                                                 <li>
                                                     <button type="button" class="dropdown-item d-flex align-items-center gap-2 w-100" data-bs-toggle="modal" data-bs-target="#view-{{ $type }}-{{ $row->id }}">
-                                                        <x-icon name="eye" class="dropdown-item-icon" /> View
+                                                        View
                                                     </button>
                                                 </li>
                                                 <li>

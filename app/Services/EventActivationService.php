@@ -279,7 +279,9 @@ class EventActivationService
         // groups, and so can a schedule that is simply too small for them.
         $categoryIds = PresentationDate::distinct()->pluck('category_id');
 
-        $categories = PresentationCategory::whereIn('id', $categoryIds)
+        // …and every category with a registered group, which may be queued
+        // before any date exists (roomless "to be scheduled").
+        $categories = PresentationCategory::where(fn ($q) => $q->whereIn('id', $categoryIds)->orWhereHas('researchGroups'))
             ->whereHas('categoryStatus', fn ($q) => $q->where('code', '!=', 'ARCHIVED'))
             ->get();
 
@@ -322,6 +324,11 @@ class EventActivationService
             ->exists();
 
         if ($onFinishedDay) {
+            return true;
+        }
+
+        // …or queued before the category had any date or room…
+        if (app(QueueGenerationService::class)->roomlessEntries($category)->isNotEmpty()) {
             return true;
         }
 

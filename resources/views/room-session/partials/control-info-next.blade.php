@@ -17,7 +17,7 @@
 <div class="p-2 rounded-3" style="background-color: var(--brand-surface-alt); font-size: 0.7rem;">
     <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
         <div class="text-brand-muted" style="font-size: 0.62rem;">Next</div>
-        <button type="button" class="btn btn-sm btn-outline-brand" style="font-size: 0.68rem; padding: 0.15rem 0.5rem;" data-view-all-toggle><x-icon name="eye" /> View All</button>
+        <button type="button" class="btn btn-sm btn-outline-brand" style="font-size: 0.68rem; padding: 0.15rem 0.5rem;" data-view-all-toggle>View All</button>
     </div>
 
     @if ($nextThree->isNotEmpty())

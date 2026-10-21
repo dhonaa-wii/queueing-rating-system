@@ -189,7 +189,7 @@
                                                 <ul class="dropdown-menu dropdown-menu-end">
                                                     <li>
                                                         <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#view-modal-{{ $assignment->id }}">
-                                                            <x-icon name="eye" /> View
+                                                            View
                                                         </button>
                                                     </li>
                                                     @if (! $isPending && $canMarkUnavailable)
@@ -273,7 +273,7 @@
                                             <ul class="dropdown-menu dropdown-menu-end">
                                                 <li>
                                                     <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#view-modal-{{ $assignment->id }}">
-                                                        <x-icon name="eye" /> View
+                                                        View
                                                     </button>
                                                 </li>
                                             </ul>
@@ -364,7 +364,7 @@
                                                                 data-view-sheet
                                                                 data-url="{{ route('panelist.assignments.evaluation-sheet', $assignment) }}"
                                                                 data-group="{{ $group->group_reference }}">
-                                                            <x-icon name="eye" /> View Evaluation
+                                                            View Evaluation
                                                         </button>
                                                     </li>
                                                 </ul>

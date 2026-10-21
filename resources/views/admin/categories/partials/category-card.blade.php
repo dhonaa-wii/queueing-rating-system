@@ -146,7 +146,6 @@
             <div class="category-card-actions mt-auto">
                 @if ($category->isEnded())
                     <a href="{{ route('admin.categories.show', $category) }}" class="btn-card-action btn-card-solid">
-                        <x-icon name="eye" />
                         View Setup
                     </a>
                 @else

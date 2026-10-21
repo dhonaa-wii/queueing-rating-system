@@ -286,7 +286,9 @@ class PanelAssignmentService
         $attempts = PresentationAttempt::whereHas('researchGroup', fn ($q) => $q->where('category_id', $category->id)->whereHas('panelistChoices'))
             ->where('attempt_number', 1)
             ->whereHas('presentationStatus', fn ($q) => $q->where('is_terminal', false)->whereNotIn('code', ['ONGOING', 'PAUSED']))
-            ->whereHas('attemptSchedule')
+            // Only once the group has a room: a group still waiting for a date
+            // and room has no time to check its panel against.
+            ->whereHas('attemptSchedule', fn ($q) => $q->whereNotNull('presentation_date_room_id'))
             ->whereDoesntHave('attemptPanelAssignments')
             ->with(['researchGroup.panelistChoices', 'attemptSchedule.presentationDateRoom'])
             ->get();

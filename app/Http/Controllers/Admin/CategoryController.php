@@ -81,6 +81,15 @@ class CategoryController extends Controller
             'category_status_id' => $draftStatus->id,
         ]);
 
+        // FIFO until the Admin picks another strategy (user-directed 2026-10-21).
+        $category->categoryQueueSetting()->create([
+            'queue_strategy_id' => QueueStrategy::where('code', 'FIFO')->firstOrFail()->id,
+            'called_waiting_minutes' => 5,
+            'allow_same_day_reinsertion' => true,
+            'late_defer_enabled' => true,
+            'unresolved_absent_end_of_day' => true,
+        ]);
+
         if ($request->wantsJson()) {
             return response()->json([
                 'message' => 'Category created. The rest of the setup is now unlocked.',
@@ -436,6 +445,11 @@ class CategoryController extends Controller
         $regenOutcome = $orderChanged
             ? app(QueueGenerationService::class)->regenerateIfStrategyChanged($category->fresh(), auth()->id())
             : ['state' => 'unchanged'];
+
+        // Groups queued before any room existed follow the new order too.
+        if ($orderChanged) {
+            app(QueueGenerationService::class)->renumberRoomless($category->fresh());
+        }
 
         $message = match ($regenOutcome['state']) {
             'regenerated' => 'Queue configuration saved. The queue was automatically regenerated to match.',

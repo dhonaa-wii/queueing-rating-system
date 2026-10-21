@@ -66,7 +66,9 @@ class PanelAssignmentController extends Controller
         // this picker and stays reachable through Reports and Presentation
         // Setup's category list instead. Same two codes Event Control's own
         // openCategories() excludes, kept consistent with it.
-        return PresentationCategory::forAdminCollege()->whereHas('researchGroups.presentationAttempts')
+        // Any category with a registered group (user-directed 2026-10-21):
+        // groups show as "to be scheduled" before a date or room exists.
+        return PresentationCategory::forAdminCollege()->whereHas('researchGroups')
             ->whereHas('categoryStatus', fn ($query) => $query->whereNotIn('code', ['COMPLETED', 'ARCHIVED']))
             ->with(['academicYear', 'semester', 'presentationDates.eventDateStatus'])
             ->orderByDesc('created_at')
@@ -130,6 +132,18 @@ class PanelAssignmentController extends Controller
         }
 
         $attempts = $attemptsQuery->get()->filter(fn ($attempt) => $attempt->attemptSchedule !== null);
+
+        // Groups queued while the category had no date or room yet: queued,
+        // with no room, "to be scheduled" (user-directed 2026-10-21). Listed
+        // in their queue order at the end of the roster; everything below
+        // works on groups that have a room.
+        $roomlessAttempts = $attempts
+            ->filter(fn ($attempt) => $attempt->attemptSchedule->presentation_date_room_id === null
+                && $attempt->attemptSchedule->queueEntry?->removed_at === null
+                && ! $attempt->presentationStatus?->is_terminal)
+            ->sortBy(fn ($attempt) => $attempt->attemptSchedule->queueEntry?->queue_number)
+            ->values();
+        $attempts = $attempts->filter(fn ($attempt) => $attempt->attemptSchedule->presentation_date_room_id !== null);
 
         $roomGroups = $rooms->map(function (PresentationDateRoom $room) use ($attempts) {
             $roomAttempts = $attempts->filter(fn ($attempt) => $attempt->attemptSchedule->presentation_date_room_id === $room->id);
@@ -216,7 +230,8 @@ class PanelAssignmentController extends Controller
         // Groups the configured dates and rooms have no time for
         // (AttemptSchedule::hasNoSlot()) — one item for the lot, since the
         // remedy (another date or room) is the same for all of them.
-        $unscheduledCount = $attempts->filter(fn (PresentationAttempt $attempt) => $attempt->attemptSchedule->hasNoSlot($attempt))->count();
+        $unscheduledCount = $attempts->filter(fn (PresentationAttempt $attempt) => $attempt->attemptSchedule->hasNoSlot($attempt))->count()
+            + $roomlessAttempts->count();
         $unscheduledAttention = $unscheduledCount > 0
             ? collect([['type' => 'unscheduled', 'attentionAt' => now(), 'count' => $unscheduledCount]])
             : collect();
@@ -388,6 +403,7 @@ class PanelAssignmentController extends Controller
             // to go back to.
             'pickerCategories' => DefaultCategoryPicker::withCurrent($this->queuedCategories(), $category),
             'roomGroups' => $roomGroups,
+            'roomlessAttempts' => $roomlessAttempts,
             'needsAttention' => $needsAttention,
             'deferredCount' => $deferredCount,
             'unavailabilityReportsByAttempt' => $unavailabilityReportsByAttempt,

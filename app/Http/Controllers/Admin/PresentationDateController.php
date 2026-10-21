@@ -307,19 +307,22 @@ class PresentationDateController extends Controller
         // (user-directed 2026-09-25) — the confirmation modal warns instead.
         // A completed/cancelled/passed day stays locked by the guard above.
 
-        $stranded = $room->attemptSchedules()
-            ->whereHas('queueEntry', fn ($query) => $query->whereNull('removed_at'))
-            ->whereHas('presentationAttempt.presentationStatus', fn ($query) => $query->where('is_terminal', false))
-            ->count();
+        $deleted = $room->removeFromDay($request->user()->id);
 
-        $room->removeFromDay($request->user()->id);
+        // Groups still queued in the removed room move to the rooms the
+        // category still uses (user-directed 2026-10-21).
+        $result = $deleted ? ['moved' => 0, 'unqueued' => 0] : app(QueueAdjustmentService::class)->evacuateRemovedRoom($room->fresh(), $request->user()->id);
 
         $category->refreshStatus();
 
         $message = "\"{$room->room_name}\" removed from this date.";
 
-        if ($stranded > 0) {
-            $message .= " {$stranded} unfinished group(s) are still queued in it — transfer them from Group & Panel Assignment.";
+        if ($result['moved'] > 0) {
+            $message .= " {$result['moved']} group(s) queued in it were moved to the other rooms.";
+        }
+
+        if ($result['unqueued'] > 0) {
+            $message .= " {$result['unqueued']} group(s) are to be scheduled — add a room on their track.";
         }
 
         return back()->with('status', $message);

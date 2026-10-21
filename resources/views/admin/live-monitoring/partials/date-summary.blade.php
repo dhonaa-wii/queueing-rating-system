@@ -35,7 +35,7 @@
 
             @include('admin.live-monitoring.partials.event-date-status-badge', ['status' => $date->eventDateStatus, 'overdue' => $summaryOverdue])
 
-            <a href="{{ route('admin.live-monitoring.show', $category) }}?date={{ $date->id }}" class="btn btn-sm btn-outline-brand"><x-icon name="eye" /> View</a>
+            <a href="{{ route('admin.live-monitoring.show', $category) }}?date={{ $date->id }}" class="btn btn-sm btn-outline-brand">View</a>
         </div>
     </div>
 

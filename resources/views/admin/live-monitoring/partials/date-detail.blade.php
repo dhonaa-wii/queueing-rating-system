@@ -285,7 +285,7 @@
                     <div class="col-xl-7">
                         @php
                             $roomPanelSource = $panel->queue['current'] ?? $panel->queue['called'] ?? collect($panel->queue['upcoming'] ?? [])->first();
-                            $roomPanelLabel = ($panel->queue['current'] || $panel->queue['called']) ? 'Panelist' : 'Panelist (Next to Call)';
+                            $roomPanelIsLive = (bool) ($panel->queue['current'] || $panel->queue['called']);
                             $roomAssignedPanel = $roomPanelSource?->presentationAttempt->attemptPanelAssignments->where('assignmentKind.code', 'ASSIGNED_PANELIST') ?? collect();
                             $roomBackupPanel = $roomPanelSource?->presentationAttempt->attemptPanelAssignments->where('assignmentKind.code', 'BACKUP_PANELIST') ?? collect();
                             $roomUpcomingThree = collect($panel->queue['upcoming'] ?? [])->take(3);
@@ -368,12 +368,17 @@
 
                             @if ($roomPanelSource)
                                 <div class="room-data-section mb-2">
-                                    <div class="room-data-label mb-1">{{ $roomPanelLabel }}</div>
-                                    <div class="room-data-body mb-2">
-                                        {{ $roomPanelSource->presentationAttempt->researchGroup->group_reference }}
-                                        &mdash;
-                                        {{ $roomPanelSource->presentationAttempt->researchGroup->current_project_title ?? $roomPanelSource->presentationAttempt->researchGroup->leader()?->full_name }}
-                                    </div>
+                                    {{-- A called/presenting group is already shown just above, so
+                                         only the next-to-call group is named here. --}}
+                                    @unless ($roomPanelIsLive)
+                                        <div class="room-data-label mb-1">Next to Call</div>
+                                        <div class="room-data-body mb-2">
+                                            {{ $roomPanelSource->presentationAttempt->researchGroup->group_reference }}
+                                            &mdash;
+                                            {{ $roomPanelSource->presentationAttempt->researchGroup->current_project_title ?? $roomPanelSource->presentationAttempt->researchGroup->leader()?->full_name }}
+                                        </div>
+                                    @endunless
+                                    <div class="room-data-label mb-1">Panelist</div>
                                     @php $roomMemberNumbers = \App\Models\AttemptPanelAssignment::memberNumbers($roomAssignedPanel); @endphp
                                     @forelse ($roomAssignedPanel as $pa)
                                         @php $paJoined = in_array($pa->panelist_user_id, $connectedPanelistIds); @endphp
@@ -391,7 +396,7 @@
                             <div class="room-data-section">
                                 <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                                     <div class="room-data-label">Next</div>
-                                    <button type="button" class="btn btn-sm btn-outline-brand room-data-btn" data-room-view-all-toggle="{{ $panel->room->id }}"><x-icon name="eye" /> View All</button>
+                                    <button type="button" class="btn btn-sm btn-outline-brand room-data-btn" data-room-view-all-toggle="{{ $panel->room->id }}">View All</button>
                                 </div>
 
                                 @if ($roomUpcomingThree->isNotEmpty())

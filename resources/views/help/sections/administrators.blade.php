@@ -35,7 +35,7 @@
     </ol>
     <div class="hc-panel">
         <div class="hc-legend-group">Row actions (⋮)</div>
-        <div class="hc-legend-row"><span class="m-btn is-ghost"><x-icon name="eye" /> View / Edit</span><span>See or correct the panelist's profile.</span></div>
+        <div class="hc-legend-row"><span class="m-btn is-ghost">View / Edit</span><span>See or correct the panelist's profile.</span></div>
         <div class="hc-legend-row"><span class="m-btn is-ghost"><x-icon name="key" /> Reset Password</span><span>Issues a new temporary password, shown once. Use it when a panelist forgets theirs.</span></div>
         <div class="hc-legend-row"><span class="m-btn is-ghost"><x-icon name="power" /> Deactivate / Activate</span><span>Blocks or restores sign-in without deleting history.</span></div>
         <div class="hc-legend-row"><span class="m-btn is-danger"><x-icon name="trash" /> Delete</span><span>Removes the panelist. Prefer Deactivate for anyone who has served on a panel.</span></div>
@@ -202,6 +202,7 @@
     <ul class="hc-list">
         <li><strong>Edit</strong> a day's date and times, including a day that came and went without starting (<span class="hc-badge hc-badge-danger">Overdue</span>) — it cannot be started until you move it.</li>
         <li><strong>Remove Date</strong> moves that day's groups to another open room on their track; a date with a completed presentation on it cannot be removed.</li>
+        <li><strong>Removing a room</strong> from a day (or deleting it from the room list) moves the groups queued in it to the rooms still in use: the same day first, then the next day with time, in queue order. A group you placed by hand keeps its time.</li>
         <li>A finished day can take a <strong>second session</strong>: if every room ended early, add a new date range for the same day.</li>
         <li>When you add a date earlier than the one groups are waiting on, they are pulled forward to the nearest open day.</li>
     </ul>
@@ -326,7 +327,7 @@
 
 <div class="hc-topic" id="ad-redefense">
     <h3><x-icon name="repeat" /> Re-defense</h3>
-    <p>When a group's official outcome is <span class="hc-badge hc-badge-info">Re-Defense</span>, it appears under the <strong>Re-Defense</strong> tab with every attempt, its date, outcome and <strong>View Evaluation</strong>. Press <strong>Reinsert for Another Attempt</strong> to schedule the next attempt.</p>
+    <p>When a group's official outcome is <span class="hc-badge hc-badge-info">Re-Defense</span>, it appears under the <strong>Re-Defense</strong> tab with every attempt, its date, outcome and <strong>View Evaluation</strong>. Press <strong>Reinsert</strong> and confirm to schedule the next attempt. A re-defense always presents after every group still waiting for its first attempt, including groups that register after it was reinserted; if there is no time left after them, it waits as <span class="hc-badge hc-badge-warn">To be scheduled</span>.</p>
     <ul class="hc-list">
         <li>The new attempt goes to the <strong>last open day</strong>, in the room that finishes last, at the <strong>end of the queue</strong> — and stays last even when other groups are added.</li>
         <li>It starts <strong>without a panel</strong>; assign one as usual. The earlier attempt's panel and scores are kept as history.</li>
@@ -384,7 +385,7 @@
     <h3><x-icon name="calendar-copy" /> How a day and a category end</h3>
     <ul class="hc-list">
         <li>A day ends when <strong>every room</strong> on it has been started and ended. If you forget, it ends automatically at 11:00 PM.</li>
-        <li>At the end of a day, unfinished groups move to the <strong>front</strong> of the next day's matching room, and deferred groups go to the <strong>end</strong> of the category's queue. With no later day they wait as "To be scheduled" — add a date.</li>
+        <li>At the end of a day, unfinished groups move to the <strong>front</strong> of the next day, in the same room if it is used that day, otherwise shared out over the rooms the next day uses, in the order they had, and deferred groups go to the <strong>end</strong> of the category's queue. With no later day they wait as "To be scheduled" — add a date.</li>
         <li>A day that was never started is <strong>cancelled</strong> after it passes, and its groups move on the same way.</li>
         <li><strong>End Category</strong> (Event Control) closes the category once no group still has to present (a pending re-defense blocks it). Nothing is deleted; registration and new dates stop.</li>
         <li>An ended category can then be archived in Presentation Setup, or deleted from Event Control.</li>

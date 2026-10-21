@@ -208,7 +208,12 @@ class PresentationAttemptAdminActionService
                 $registrationDeleted = true;
             }
 
-            $this->queueAdjustmentService->renumberRoom($room);
+            // A group queued before any room existed has no room to renumber.
+            if ($room) {
+                $this->queueAdjustmentService->renumberRoom($room);
+            } elseif ($group) {
+                app(QueueGenerationService::class)->renumberRoomless($group->category);
+            }
         });
 
         return ['ok' => true, 'registrationDeleted' => $registrationDeleted];

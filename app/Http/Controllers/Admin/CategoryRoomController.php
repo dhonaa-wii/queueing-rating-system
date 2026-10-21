@@ -180,12 +180,21 @@ class CategoryRoomController extends Controller
 
         [$openRooms, $closedRooms] = $rooms->partition(fn ($dateRoom) => $dateRoom->presentationDate->isOpenForScheduling());
 
-        foreach ($openRooms as $dateRoom) {
-            $dateRoom->removeFromDay($request->user()->id);
-        }
+        $kept = $openRooms->reject(fn ($dateRoom) => $dateRoom->removeFromDay($request->user()->id));
 
         $room->update(['is_active' => false]);
         TrackRouting::forget($category->id);
+
+        // Every day loses the room first, so its groups only move to rooms
+        // that remain (user-directed 2026-10-21).
+        $movedGroups = 0;
+        $unqueuedGroups = 0;
+
+        foreach ($kept as $dateRoom) {
+            $result = app(QueueAdjustmentService::class)->evacuateRemovedRoom($dateRoom->fresh(), $request->user()->id);
+            $movedGroups += $result['moved'];
+            $unqueuedGroups += $result['unqueued'];
+        }
 
         $category->refreshStatus();
 
@@ -197,6 +206,14 @@ class CategoryRoomController extends Controller
 
         if ($closedRooms->isNotEmpty()) {
             $message .= " {$closedRooms->count()} finished/past day(s) were left unchanged.";
+        }
+
+        if ($movedGroups > 0) {
+            $message .= " {$movedGroups} group(s) queued in it were moved to the other rooms.";
+        }
+
+        if ($unqueuedGroups > 0) {
+            $message .= " {$unqueuedGroups} group(s) are to be scheduled — add a room on their track.";
         }
 
         return back()->with('status', $message);

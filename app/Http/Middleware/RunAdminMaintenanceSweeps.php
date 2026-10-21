@@ -88,6 +88,12 @@ class RunAdminMaintenanceSweeps
 
         PresentationCategory::whereNull('archived_at')->get()
             ->each(function (PresentationCategory $category) use ($queueAdjustments, $userId) {
+                // Groups left in a room that was taken off a day (before that
+                // moved them on its own) go to the rooms still in use.
+                $queueAdjustments->evacuateRemovedRooms($category, $userId);
+                // Registered groups not in the queue yet join it as soon as
+                // there is a room for them.
+                app(\App\Services\QueueGenerationService::class)->syncAfterRegistrationChange($category, $userId);
                 // Groups carried past a follow-up session return to it, even if
                 // it was set up before that rule existed.
                 $queueAdjustments->pullBackToEarlierSession($category, $userId);

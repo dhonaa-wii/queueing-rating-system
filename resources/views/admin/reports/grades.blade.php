@@ -67,7 +67,7 @@
 
                                 <div class="d-flex gap-2">
                                     <button type="button" class="btn btn-sm btn-outline-brand" data-recommendations-open>
-                                        <x-icon name="eye" /> View
+                                        View
                                     </button>
                                     <a href="{{ route('admin.reports.recommendations.export-pdf', $category) }}" class="btn btn-sm btn-outline-brand">
                                         <x-icon name="file-text" /> Export to PDF
@@ -80,7 +80,7 @@
 
                                 <div class="d-flex gap-2">
                                     <button type="button" class="btn btn-sm btn-outline-brand" data-sheet-open>
-                                        <x-icon name="eye" /> View
+                                        View
                                     </button>
                                     <a href="{{ route('admin.reports.panelist-sheet.export-pdf', $category) }}" class="btn btn-sm btn-outline-brand">
                                         <x-icon name="file-text" /> Export to PDF
@@ -299,7 +299,7 @@
                                             data-url="{{ route('admin.reports.evaluation-sheet', [$category, $row['attempt_id']]) }}"
                                             data-group="{{ $row['group_reference'] }}"
                                             @disabled($row['submission_count'] === 0)
-                                            title="{{ $row['submission_count'] === 0 ? 'No submitted evaluations yet' : '' }}"><x-icon name="eye" /> View</button>
+                                            title="{{ $row['submission_count'] === 0 ? 'No submitted evaluations yet' : '' }}">View</button>
                                 </td>
                             </tr>
                         @empty

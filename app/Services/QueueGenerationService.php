@@ -274,21 +274,57 @@ class QueueGenerationService
     public function autoGenerateIfEligible(PresentationCategory $category, int $performedByUserId): array
     {
         if ($category->queueGenerationStatus() === 'Generated') {
-            return ['state' => 'generated'];
-        }
+            if (! $this->roomlessEntries($category)->isNotEmpty()) {
+                return ['state' => 'generated'];
+            }
 
-        if (! $category->isEventConfigured()) {
-            return ['state' => 'not_eligible'];
+            // Groups were queued before any room existed (parkRoomless()).
+            // While none of them has a room yet, the queue is laid out from
+            // scratch, exactly as a first generation would; otherwise they
+            // are placed into the queue as it stands.
+            // Only while nothing has happened to them yet (no run, no
+            // adjustment): a rebuild starts every attempt afresh.
+            $allRoomless = ! AttemptSchedule::whereNotNull('presentation_date_room_id')
+                ->whereHas('presentationAttempt.researchGroup', fn ($q) => $q->where('category_id', $category->id))
+                ->exists()
+                && ! PresentationAttempt::whereHas('researchGroup', fn ($q) => $q->where('category_id', $category->id))
+                    ->where(fn ($q) => $q->whereHas('presentationRun')->orWhereHas('attemptSchedule.queueEntry.queueAdjustments'))
+                    ->exists();
+
+            if ($allRoomless && $category->isEventConfigured()) {
+                $plan = $this->plan($category);
+
+                if ($plan['ok']) {
+                    $result = $this->persist($category, $plan['assignments'], $performedByUserId, wipeExisting: true);
+
+                    if ($result['ok']) {
+                        return ['state' => 'generated', 'count' => $result['count'], 'unscheduled' => $result['unscheduled']];
+                    }
+                }
+            }
+
+            return $this->appendUnqueuedGroups($category, $performedByUserId);
         }
 
         if (! $category->researchGroups()->exists()) {
             return ['state' => 'not_eligible', 'reason' => 'No groups are registered in this category yet.'];
         }
 
+        // No date, room or duration yet: the groups are still queued, in
+        // strategy order, as "to be scheduled" (user-directed 2026-10-21).
+        if (! $category->isEventConfigured()) {
+            $parked = $this->parkRoomless($category, $performedByUserId);
+
+            return ['state' => 'generated', 'count' => $parked, 'unscheduled' => $parked];
+        }
+
         $plan = $this->plan($category);
 
         if (! $plan['ok']) {
-            return ['state' => 'blocked', 'reason' => $plan['error']];
+            // Still queued, waiting for what the plan is missing.
+            $parked = $this->parkRoomless($category, $performedByUserId);
+
+            return ['state' => 'blocked', 'reason' => $plan['error'], 'count' => $parked, 'unscheduled' => $parked];
         }
 
         $result = $this->persist($category, $plan['assignments'], $performedByUserId, wipeExisting: false);
@@ -343,23 +379,35 @@ class QueueGenerationService
      */
     public function appendUnqueuedGroups(PresentationCategory $category, int $performedByUserId): array
     {
+        $adjustments = app(QueueAdjustmentService::class);
+        $rooms = $adjustments->openRoomsInOrder($category);
+
+        // No room to place anyone in: they are queued with no room, in
+        // strategy order, "to be scheduled" (user-directed 2026-10-21).
+        if ($rooms->isEmpty()) {
+            $parked = $this->parkRoomless($category, $performedByUserId);
+
+            return ['state' => 'generated', 'count' => $parked, 'unscheduled' => $this->roomlessEntries($category)->count()];
+        }
+
+        // Groups queued before a room existed go first, in their queue order
+        // (already the strategy order), then groups not queued at all.
         $groups = ResearchGroup::where('category_id', $category->id)
             ->whereDoesntHave('presentationAttempts')
             ->with('students')
             ->orderBy('registered_at')->orderBy('id')
             ->get();
 
-        if ($groups->isEmpty()) {
+        $items = $this->roomlessEntries($category)
+            ->map(fn (QueueEntry $entry) => ['group' => $entry->attemptSchedule->presentationAttempt->researchGroup, 'entry' => $entry])
+            ->concat($groups->map(fn (ResearchGroup $group) => ['group' => $group, 'entry' => null]))
+            ->values();
+
+        if ($items->isEmpty()) {
             return ['state' => 'generated', 'count' => 0, 'unscheduled' => 0];
         }
 
-        $adjustments = app(QueueAdjustmentService::class);
         $ordering = app(QueueOrdering::class);
-        $rooms = $adjustments->openRoomsInOrder($category);
-
-        if ($rooms->isEmpty()) {
-            return ['state' => 'blocked', 'reason' => 'no ongoing or upcoming date with a room is open for this category — add one in Presentation Setup'];
-        }
 
         $initialType = AttemptType::where('code', 'INITIAL')->firstOrFail();
         $scheduledStatus = PresentationStatus::where('code', 'SCHEDULED')->firstOrFail();
@@ -368,14 +416,18 @@ class QueueGenerationService
         $category->loadMissing('categoryQueueSetting.queueStrategy');
         $random = $category->categoryQueueSetting?->queueStrategy?->code === 'RANDOM_DRAW';
 
-        foreach ($groups as $group) {
+        foreach ($items as $item) {
+            $group = $item['group'];
+            $existing = $item['entry'];
             QueueOrdering::forget($category->id);
 
             $accepting = $rooms->filter(fn ($candidate) => $routing->accepts($candidate, $group))->values();
             $notStarted = $accepting->filter(fn ($candidate) => $candidate->presentationDate->activated_at === null)->values();
             $rank = $ordering->groupRank($category, $group);
 
-            [$room, $index] = $random
+            // A group queued before a room existed already has its drawn
+            // place, so it keeps that order instead of a new random one.
+            [$room, $index] = $random && ! $existing
                 ? $this->randomPlace($adjustments, $notStarted)
                 : $this->rankedPlace($adjustments, $ordering, $category, $notStarted, $rank);
 
@@ -388,6 +440,15 @@ class QueueGenerationService
                 $room = $notStarted->last() ?? $accepting->last() ?? $rooms->last();
                 $index = $adjustments->insertIndexFor($room, $rank, 'after');
                 $unscheduled++;
+            }
+
+            if ($existing) {
+                DB::transaction(function () use ($existing, $room, $index, $adjustments) {
+                    $existing->attemptSchedule->update(['presentation_date_room_id' => $room->id]);
+                    $adjustments->placeEntryAt($room, $existing->id, $index);
+                });
+
+                continue;
             }
 
             DB::transaction(function () use ($group, $room, $index, $adjustments, $initialType, $scheduledStatus, $performedByUserId) {
@@ -437,7 +498,105 @@ class QueueGenerationService
         app(PanelAssignmentService::class)->applyGroupChoices($category, $performedByUserId);
         app(PanelistConflictService::class)->syncNotifications(app(NotificationService::class));
 
-        return ['state' => 'generated', 'count' => $groups->count(), 'unscheduled' => $unscheduled];
+        return ['state' => 'generated', 'count' => $items->count(), 'unscheduled' => $unscheduled];
+    }
+
+    /**
+     * Active queue entries of the category that have no room yet — queued
+     * while there was no date or room (parkRoomless()) — in queue order.
+     */
+    public function roomlessEntries(PresentationCategory $category): Collection
+    {
+        return QueueEntry::whereNull('removed_at')
+            ->whereHas('attemptSchedule', fn ($q) => $q->whereNull('presentation_date_room_id'))
+            ->whereHas('attemptSchedule.presentationAttempt.researchGroup', fn ($q) => $q->where('category_id', $category->id))
+            ->whereHas('attemptSchedule.presentationAttempt.presentationStatus', fn ($q) => $q->where('is_terminal', false))
+            ->with('attemptSchedule.presentationAttempt.presentationStatus', 'attemptSchedule.presentationAttempt.researchGroup.students')
+            ->orderBy('queue_number')
+            ->get();
+    }
+
+    /**
+     * Queues every registered group that has no attempt yet, with no room and
+     * no time, "to be scheduled" (user-directed 2026-10-21: a group that
+     * registers before the category has a date or room is still placed in
+     * the queue). The room-less queue is numbered 1..N in strategy order;
+     * appendUnqueuedGroups() / autoGenerateIfEligible() move the groups into
+     * rooms, in that order, once rooms exist. Returns how many were queued.
+     */
+    public function parkRoomless(PresentationCategory $category, int $performedByUserId): int
+    {
+        $groups = ResearchGroup::where('category_id', $category->id)
+            ->whereDoesntHave('presentationAttempts')
+            ->get();
+
+        if ($groups->isNotEmpty()) {
+            $initialType = AttemptType::where('code', 'INITIAL')->firstOrFail();
+            $scheduledStatus = PresentationStatus::where('code', 'SCHEDULED')->firstOrFail();
+
+            DB::transaction(function () use ($groups, $initialType, $scheduledStatus, $performedByUserId) {
+                foreach ($groups as $group) {
+                    $attempt = PresentationAttempt::create([
+                        'research_group_id' => $group->id,
+                        'attempt_number' => 1,
+                        'attempt_type_id' => $initialType->id,
+                        'previous_attempt_id' => null,
+                        'presentation_status_id' => $scheduledStatus->id,
+                        'final_outcome_id' => null,
+                        'created_by' => $performedByUserId,
+                    ]);
+
+                    $schedule = AttemptSchedule::create([
+                        'presentation_attempt_id' => $attempt->id,
+                        'presentation_date_room_id' => null,
+                        'scheduled_by' => $performedByUserId,
+                        'scheduled_at' => now(),
+                    ]);
+
+                    QueueEntry::create([
+                        'attempt_schedule_id' => $schedule->id,
+                        'queue_number' => 0,
+                        'inserted_at' => now(),
+                        'removed_at' => null,
+                    ]);
+                }
+            });
+        }
+
+        $this->renumberRoomless($category);
+
+        return $groups->count();
+    }
+
+    /** Numbers the room-less queue 1..N in the category's strategy order. */
+    public function renumberRoomless(PresentationCategory $category): void
+    {
+        $entries = $this->roomlessEntries($category);
+
+        if ($entries->isEmpty()) {
+            return;
+        }
+
+        $category->loadMissing('categoryQueueSetting.queueStrategy');
+        $setting = $category->categoryQueueSetting;
+        $strategy = $setting?->queueStrategy?->code;
+        $seed = $setting?->randomDrawSeed();
+        $byGroup = $entries->keyBy(fn (QueueEntry $entry) => $entry->attemptSchedule->presentationAttempt->research_group_id);
+
+        $ordered = $this->orderByStrategy(
+            $entries->map(fn (QueueEntry $entry) => $entry->attemptSchedule->presentationAttempt->researchGroup),
+            $strategy === 'RANDOM_DRAW' && $seed === null ? 'FIFO' : $strategy,
+            $seed,
+            $setting?->sectionOrder() ?? []
+        )->values();
+
+        foreach ($ordered as $index => $group) {
+            $entry = $byGroup[$group->id];
+
+            if ($entry->queue_number !== $index + 1) {
+                $entry->update(['queue_number' => $index + 1]);
+            }
+        }
     }
 
     /**
@@ -545,6 +704,18 @@ class QueueGenerationService
         $plan = $this->plan($category);
 
         if (! $plan['ok']) {
+            // Nothing has a room yet: the room-less queue simply takes the
+            // new order.
+            $placed = AttemptSchedule::whereNotNull('presentation_date_room_id')
+                ->whereHas('presentationAttempt.researchGroup', fn ($q) => $q->where('category_id', $category->id))
+                ->exists();
+
+            if (! $placed) {
+                $this->renumberRoomless($category);
+
+                return ['state' => 'regenerated', 'count' => $this->roomlessEntries($category)->count(), 'unscheduled' => 0];
+            }
+
             return ['state' => 'blocked', 'reason' => $plan['error']];
         }
 

@@ -31,6 +31,9 @@ use Illuminate\Support\Facades\DB;
  */
 class QueueAdjustmentService
 {
+    /** Adjustments that mean an Administrator chose the group's place. */
+    private const MANUAL_TYPES = ['REORDER', 'TRANSFER_ROOM', 'CHANGE_DATE', 'DEFER', 'REINSERT'];
+
     public function __construct(
         private NotificationService $notifications,
         private PanelistConflictService $conflicts,
@@ -889,6 +892,184 @@ class QueueAdjustmentService
         return ['ok' => true, 'relocated' => $relocated - $unscheduled, 'unscheduled' => $unscheduled, 'unqueued' => $unqueued];
     }
 
+    /**
+     * A room taken off a day (PresentationDateRoom::removeFromDay() keeps a
+     * used room as REMOVED) no longer runs, so the groups still queued in it
+     * move to the rooms the category does use (user-directed 2026-10-21).
+     * Before, they stayed in the removed room and dropped off every schedule
+     * list. In their queue order, each goes to the room on the same day where
+     * its turn comes first, else to the next day that has time, only ever into
+     * a room that takes its track. A group with no other room at all goes back
+     * to registered-but-not-queued ("to be scheduled") and is queued again as
+     * soon as a room exists. Deferred groups follow the room too, still
+     * deferred. A group presenting right now stays until it completes or is
+     * deferred. The move is automatic (not an Admin Transfer), so the queue
+     * strategy then puts the groups back in their order (enforceFifoOrder()).
+     *
+     * @return array{moved: int, unqueued: int}
+     */
+    public function evacuateRemovedRoom(PresentationDateRoom $room, int $performedByUserId): array
+    {
+        $room->loadMissing('presentationDate.category');
+        $category = $room->presentationDate->category;
+
+        $entries = QueueEntry::whereHas('attemptSchedule', fn ($q) => $q->where('presentation_date_room_id', $room->id))
+            ->whereHas('attemptSchedule.presentationAttempt.presentationStatus', fn ($q) => $q
+                ->where('is_terminal', false)
+                ->whereNotIn('code', ['ONGOING', 'PAUSED']))
+            ->orderByRaw('removed_at is not null')
+            ->orderBy('queue_number')
+            ->with('attemptSchedule.presentationAttempt.presentationStatus', 'attemptSchedule.presentationAttempt.researchGroup.students')
+            ->get();
+
+        if ($entries->isEmpty()) {
+            return ['moved' => 0, 'unqueued' => 0];
+        }
+
+        $candidates = $this->openRoomsInOrder($category)
+            ->reject(fn (PresentationDateRoom $candidate) => $candidate->id === $room->id)
+            ->reject(fn (PresentationDateRoom $candidate) => $candidate->hasClosedForDay())
+            ->values();
+
+        $moved = 0;
+        $unqueued = 0;
+
+        foreach ($entries as $entry) {
+            $schedule = $entry->attemptSchedule;
+            $group = $schedule->presentationAttempt->researchGroup;
+            $accepting = $candidates->filter(fn ($candidate) => $this->tracks->accepts($candidate, $group))->values();
+
+            if ($accepting->isEmpty()) {
+                $result = app(PresentationAttemptAdminActionService::class)->delete($schedule, $performedByUserId);
+
+                if ($result['ok']) {
+                    $unqueued++;
+                }
+
+                continue;
+            }
+
+            // A deferred group only needs a room that still runs; it keeps its
+            // deferral and is placed when it is reinserted.
+            if ($entry->removed_at !== null) {
+                $target = $accepting->first(fn ($candidate) => $candidate->presentation_date_id === $room->presentation_date_id) ?? $accepting->first();
+                $schedule->update(['presentation_date_room_id' => $target->id]);
+                $moved++;
+
+                continue;
+            }
+
+            // A group an Administrator placed by hand keeps its time: it goes
+            // in the same-day room whose turn at that time is free soonest,
+            // ahead of whoever starts at or after it. Everyone else goes where
+            // the strategy puts them.
+            $manual = $entry->queueAdjustments()->whereHas('adjustmentType', fn ($q) => $q->whereIn('code', self::MANUAL_TYPES))->exists();
+            $position = null;
+
+            if ($manual && $schedule->planned_start_at) {
+                $sameDay = $accepting->where('presentation_date_id', $room->presentation_date_id)->values();
+                $target = null;
+
+                foreach ($sameDay as $candidate) {
+                    $ids = $this->activeEntryIdsForRoom($candidate->id);
+                    $index = $ids->search(fn ($id) => ($start = QueueEntry::find($id)?->attemptSchedule?->planned_start_at) === null || $start->gte($schedule->planned_start_at));
+                    $index = $index === false ? $ids->count() : $index;
+                    $time = $this->slotTimeAt($candidate, $index);
+
+                    if ($time && (! $target || $time->lt($target[2]))) {
+                        $target = [$candidate, $index, $time];
+                    }
+                }
+
+                [$target, $position] = $target ? [$target[0], $target[1] + 1] : [$this->roomWhereTurnComesFirst($category, $entry, $accepting, $room->presentationDate), null];
+            } else {
+                $target = $this->roomWhereTurnComesFirst($category, $entry, $accepting, $room->presentationDate);
+            }
+
+            DB::transaction(function () use ($entry, $schedule, $target, $position, $performedByUserId) {
+                $this->releaseCalledAttempt($schedule, 'TRANSFERRED', $performedByUserId, $target, false);
+                $this->relocateEntryToRoom($entry, $target, $position, 'CARRY_OVER_NEXT_DAY', 'ROOM_REMOVED', $performedByUserId);
+            });
+            $moved++;
+        }
+
+        // Groups with no other room still keep a place in the queue, with no
+        // room: "to be scheduled" until one exists.
+        if ($unqueued > 0) {
+            app(QueueGenerationService::class)->parkRoomless($category, $performedByUserId);
+        }
+
+        $this->spillOverflow($category, $performedByUserId);
+        $this->conflicts->syncNotifications($this->notifications);
+
+        return ['moved' => $moved, 'unqueued' => $unqueued];
+    }
+
+    /**
+     * evacuateRemovedRoom() for every removed room on an ongoing or upcoming
+     * day that still has unfinished groups in it — rooms removed before
+     * removal moved groups on its own. Cheap no-op otherwise.
+     */
+    public function evacuateRemovedRooms(PresentationCategory $category, int $performedByUserId): int
+    {
+        $moved = 0;
+
+        PresentationDateRoom::whereHas('presentationDate', fn ($q) => $q->where('category_id', $category->id)->whereNull('completed_at'))
+            ->whereHas('roomUseStatus', fn ($q) => $q->where('code', 'REMOVED'))
+            ->whereHas('attemptSchedules', fn ($q) => $q
+                ->whereHas('queueEntry')
+                ->whereHas('presentationAttempt.presentationStatus', fn ($s) => $s
+                    ->where('is_terminal', false)
+                    ->whereNotIn('code', ['ONGOING', 'PAUSED'])))
+            ->with('presentationDate.eventDateStatus')
+            ->get()
+            ->filter(fn (PresentationDateRoom $room) => $room->presentationDate->isOpenForScheduling())
+            ->each(function (PresentationDateRoom $room) use ($performedByUserId, &$moved) {
+                $moved += $this->evacuateRemovedRoom($room, $performedByUserId)['moved'];
+            });
+
+        return $moved;
+    }
+
+    /**
+     * Of $rooms (already filtered to ones that take the group), the room
+     * where $entry's turn would come earliest: the same day as $fromDate
+     * first, else the earliest later day, else any day, by the start of the
+     * slot its rank would get. Falls back to the first room on that order
+     * when none has a slot (it then waits "to be scheduled" there and the
+     * sweeps place it).
+     */
+    private function roomWhereTurnComesFirst(PresentationCategory $category, QueueEntry $entry, \Illuminate\Support\Collection $rooms, PresentationDate $fromDate): PresentationDateRoom
+    {
+        $rank = $this->rankOf($category, $entry);
+        $fromKey = $fromDate->presentation_date->format('Y-m-d');
+
+        $ordered = $rooms->sortBy(function (PresentationDateRoom $candidate) use ($fromDate, $fromKey) {
+            $key = $candidate->presentationDate->presentation_date->format('Y-m-d');
+            $bucket = $candidate->presentation_date_id === $fromDate->id ? 0 : ($key >= $fromKey ? 1 : 2);
+
+            return $bucket . '|' . $key . '|' . $candidate->room_name;
+        })->values();
+
+        foreach ($ordered->groupBy('presentation_date_id') as $dayRooms) {
+            $best = null;
+
+            foreach ($dayRooms as $candidate) {
+                $time = $this->slotTimeAt($candidate, $this->insertIndexFor($candidate, $rank, 'after', [], $entry->id));
+
+                if ($time && (! $best || $time->lt($best[1]))) {
+                    $best = [$candidate, $time];
+                }
+            }
+
+            if ($best) {
+                return $best[0];
+            }
+        }
+
+        return $ordered->first();
+    }
+
     private function carryOverUnfinishedToNextDay(PresentationDate $date, PresentationCategory $category, int $performedByUserId, ?int $onlyRoomId = null): array
     {
         $moved = 0;
@@ -936,14 +1117,22 @@ class QueueAdjustmentService
                 ->orderBy('room_name')
                 ->get();
 
-            // Same-named room first; otherwise the day's first room that takes
-            // the group's track (TrackRouting).
+            // Same-named room first. When the next day doesn't use that room,
+            // the groups are shared out over the rooms it does use, in the
+            // order they had (user-directed 2026-10-21) — one per room in
+            // turn, each only into a room that takes its track
+            // (TrackRouting), the way plan() fills a day.
             $byTarget = [];
+            $turn = 0;
 
             foreach ($unfinishedEntries as $entry) {
                 $group = $entry->attemptSchedule->presentationAttempt->researchGroup;
-                $target = $nextRooms->first(fn ($room) => $room->room_name === $originRoom->room_name && $this->tracks->accepts($room, $group))
-                    ?? $nextRooms->first(fn ($room) => $this->tracks->accepts($room, $group));
+                $target = $nextRooms->first(fn ($room) => $room->room_name === $originRoom->room_name && $this->tracks->accepts($room, $group));
+
+                if (! $target) {
+                    $accepting = $nextRooms->filter(fn ($room) => $this->tracks->accepts($room, $group))->values();
+                    $target = $accepting->isEmpty() ? null : $accepting[$turn++ % $accepting->count()];
+                }
 
                 if (! $target) {
                     $unmoved++;
@@ -1180,7 +1369,7 @@ class QueueAdjustmentService
             return "{$reference} is presenting right now and can't be changed — wait until it is completed or deferred.";
         }
 
-        if (! $allowClosedDay && ! $schedule->presentationDateRoom->presentationDate->isOpenForScheduling()) {
+        if (! $allowClosedDay && $schedule->presentationDateRoom && ! $schedule->presentationDateRoom->presentationDate->isOpenForScheduling()) {
             return "{$reference} is on a presentation date that is over — only ongoing and upcoming schedules can be changed. Transfer it to an open date first.";
         }
 
@@ -1470,7 +1659,7 @@ class QueueAdjustmentService
      * requeue-deferred, a manual transfer) appended without checking, which
      * is how a 10:47-17:46 day ended up with groups running to 21:57.
      */
-    public function roomHasRemainingCapacity(PresentationDateRoom $room): bool
+    public function roomHasRemainingCapacity(PresentationDateRoom $room, bool $forReDefense = false): bool
     {
         $room->loadMissing('presentationDate.category.categoryScheduleSetting');
 
@@ -1492,6 +1681,10 @@ class QueueAdjustmentService
             ->whereHas('presentationAttempt.presentationStatus', fn ($q) => $q
                 ->where('is_terminal', false)
                 ->whereNotIn('code', ['CALLED', 'ONGOING', 'PAUSED']))
+            // A regular group goes ahead of a pending re-defense, so one
+            // waiting for a slot doesn't make the room full for it
+            // (user-directed 2026-10-21: re-defense always presents last).
+            ->when(! $forReDefense, fn ($q) => $this->exceptPendingReDefense($q))
             ->with('presentationAttempt.researchGroup.students')
             ->get()
             ->contains(fn (AttemptSchedule $schedule) => $this->tracks->accepts($room, $schedule->presentationAttempt->researchGroup)
@@ -1503,6 +1696,7 @@ class QueueAdjustmentService
 
         $lastEnd = AttemptSchedule::where('presentation_date_room_id', $room->id)
             ->whereHas('queueEntry', fn ($q) => $q->whereNull('removed_at'))
+            ->when(! $forReDefense, fn ($q) => $this->exceptPendingReDefense($q))
             ->orderByDesc('planned_end_at')
             ->value('planned_end_at');
 
@@ -1609,6 +1803,12 @@ class QueueAdjustmentService
             }
 
             foreach ($overflow as $entry) {
+                // A pending re-defense is placed by keepReDefenseLast() below,
+                // never pulled onto an earlier room ahead of other groups.
+                if ($this->isPendingReDefense($entry)) {
+                    continue;
+                }
+
                 // A group that ran past the close time moves on to a later
                 // room; one with no slot at all takes the earliest room in the
                 // category that has time for it.
@@ -1651,11 +1851,150 @@ class QueueAdjustmentService
             $this->renumberRoom($room);
         }
 
+        // A re-defense presents after every group still waiting for its
+        // first attempt, across the whole category.
+        $moved += $this->keepReDefenseLast($category, $performedByUserId);
+
         // Every automatic placement ends here, so this is where FIFO and
         // Section Based get their registration order back.
         $this->enforceFifoOrder($category);
 
         return ['moved' => $moved, 'unmoved' => $unmoved];
+    }
+
+    private function isPendingReDefense(QueueEntry $entry): bool
+    {
+        $entry->loadMissing('attemptSchedule.presentationAttempt.attemptType', 'attemptSchedule.presentationAttempt.presentationStatus');
+        $attempt = $entry->attemptSchedule?->presentationAttempt;
+
+        return $attempt?->attemptType?->code === 'RE_DEFENSE' && ! $attempt->presentationStatus?->is_terminal;
+    }
+
+    /**
+     * A re-defense (attempt 2 or later) presents only after every group still
+     * to present its first attempt (user-directed 2026-10-21: "dapat matapos
+     * muna yung new group and laging napupush sa last yung attempt 2"). Within
+     * a room applyOrder() already keeps it last; this keeps it last across
+     * rooms and days, so a group registering after the re-defense was
+     * reinserted still presents first:
+     *
+     *  - A group still to present with no slot takes the slot of a re-defense
+     *    in a room that takes its track, pushing the re-defense to "to be
+     *    scheduled" until there is time for it again.
+     *  - Each re-defense sits in the room where the other groups' queue ends
+     *    last: the last open day that has a room on its track, the room on it
+     *    whose regular groups finish latest (its current room on a tie).
+     *
+     * Left alone: a re-defense already called or presenting, and one an
+     * Administrator transferred by hand. Returns how many groups moved.
+     */
+    public function keepReDefenseLast(PresentationCategory $category, int $performedByUserId): int
+    {
+        $rooms = $this->openRoomsInOrder($category)
+            ->reject(fn (PresentationDateRoom $room) => $room->hasClosedForDay())
+            ->values();
+
+        if ($rooms->isEmpty()) {
+            return 0;
+        }
+
+        $roomIds = $rooms->pluck('id');
+        $manualTypeIds = QueueAdjustmentType::whereIn('code', ['TRANSFER_ROOM', 'CHANGE_DATE'])->pluck('id');
+        $moved = 0;
+
+        $pendingReDefense = fn () => QueueEntry::whereNull('removed_at')
+            ->whereHas('attemptSchedule', fn ($q) => $q->whereIn('presentation_date_room_id', $roomIds))
+            ->whereHas('attemptSchedule.presentationAttempt.attemptType', fn ($q) => $q->where('code', 'RE_DEFENSE'))
+            ->whereHas('attemptSchedule.presentationAttempt.presentationStatus', fn ($q) => $q
+                ->where('is_terminal', false)
+                ->whereNotIn('code', ['CALLED', 'ONGOING', 'PAUSED']))
+            ->whereDoesntHave('queueAdjustments', fn ($q) => $q->whereIn('adjustment_type_id', $manualTypeIds))
+            ->with('attemptSchedule.presentationDateRoom', 'attemptSchedule.presentationAttempt.researchGroup.students')
+            ->get();
+
+        if ($pendingReDefense()->isEmpty()) {
+            return 0;
+        }
+
+        // 1. Groups waiting for a slot go ahead of a re-defense that has one.
+        $waiting = QueueEntry::whereNull('removed_at')
+            ->whereHas('attemptSchedule', fn ($q) => $q->whereIn('presentation_date_room_id', $roomIds)->whereNull('planned_start_at'))
+            ->whereHas('attemptSchedule.presentationAttempt.presentationStatus', fn ($q) => $q
+                ->where('is_terminal', false)
+                ->whereNotIn('code', ['CALLED', 'ONGOING', 'PAUSED']))
+            ->whereDoesntHave('attemptSchedule.presentationAttempt.attemptType', fn ($q) => $q->where('code', 'RE_DEFENSE'))
+            ->with('attemptSchedule.presentationDateRoom.presentationDate', 'attemptSchedule.presentationAttempt.researchGroup.students')
+            ->get()
+            ->sortBy(fn (QueueEntry $entry) => sprintf(
+                '%s|%010d',
+                $entry->attemptSchedule->presentationAttempt->researchGroup->registered_at?->format('Y-m-d H:i:s') ?? '0000',
+                $entry->attemptSchedule->presentationAttempt->researchGroup->id
+            ))
+            ->values();
+
+        foreach ($waiting as $entry) {
+            $group = $entry->attemptSchedule->presentationAttempt->researchGroup;
+
+            $holder = $pendingReDefense()
+                ->filter(fn (QueueEntry $reDefense) => $reDefense->attemptSchedule->planned_start_at !== null)
+                ->filter(fn (QueueEntry $reDefense) => $this->tracks->accepts($reDefense->attemptSchedule->presentationDateRoom, $group))
+                ->reject(fn (QueueEntry $reDefense) => $this->joinedAfterStart($entry, $reDefense->attemptSchedule->presentationDateRoom->loadMissing('presentationDate')->presentationDate))
+                ->sortBy(fn (QueueEntry $reDefense) => $reDefense->attemptSchedule->planned_start_at->format('Y-m-d H:i:s'))
+                ->first();
+
+            if (! $holder) {
+                continue;
+            }
+
+            $target = $holder->attemptSchedule->presentationDateRoom;
+            $origin = $entry->attemptSchedule->presentationDateRoom;
+
+            DB::transaction(function () use ($entry, $target, $origin, $performedByUserId) {
+                if ($origin->id !== $target->id) {
+                    $this->relocateEntryToRoom($entry, $target, null, 'CARRY_OVER_NEXT_DAY', 'LIVE_CAPACITY_ADJUSTMENT', $performedByUserId);
+                    $this->renumberRoom($origin);
+                }
+            });
+
+            if ($origin->id !== $target->id) {
+                $moved++;
+            }
+        }
+
+        // 2. Each re-defense sits where the other groups' queue ends last.
+        $regularEnd = fn (PresentationDateRoom $room) => $this->exceptPendingReDefense(
+            AttemptSchedule::where('presentation_date_room_id', $room->id)
+                ->whereHas('queueEntry', fn ($q) => $q->whereNull('removed_at'))
+        )->max('planned_end_at') ?? $room->presentationDate->presentation_date->format('Y-m-d') . ' 00:00:00';
+
+        foreach ($pendingReDefense() as $entry) {
+            $current = $entry->attemptSchedule->presentationDateRoom;
+            $group = $entry->attemptSchedule->presentationAttempt->researchGroup;
+            $accepting = $rooms->filter(fn ($room) => $this->tracks->accepts($room, $group))->values();
+
+            if ($accepting->isEmpty()) {
+                continue;
+            }
+
+            $lastDateId = $accepting->last()->presentation_date_id;
+            $onLastDate = $accepting->where('presentation_date_id', $lastDateId)->values();
+            $ends = $onLastDate->mapWithKeys(fn ($room) => [$room->id => (string) $regularEnd($room)]);
+            $latest = $ends->max();
+            $latestRooms = $onLastDate->filter(fn ($room) => $ends[$room->id] === $latest);
+            $target = $latestRooms->firstWhere('id', $current->id) ?? $latestRooms->first();
+
+            if ($target->id === $current->id) {
+                continue;
+            }
+
+            DB::transaction(function () use ($entry, $target, $current, $performedByUserId) {
+                $this->relocateEntryToRoom($entry, $target, null, 'MOVE_TO_END', 'RE_DEFENSE_LAST', $performedByUserId);
+                $this->renumberRoom($current);
+            });
+            $moved++;
+        }
+
+        return $moved;
     }
 
     /**
@@ -1681,7 +2020,9 @@ class QueueAdjustmentService
     {
         $category->loadMissing('categoryQueueSetting.queueStrategy');
 
-        if (! in_array($category->categoryQueueSetting?->queueStrategy?->code, ['FIFO', 'SECTION_BASED'], true)) {
+        // No strategy saved yet means FIFO (user-directed 2026-10-21), the
+        // same default plan() and appendUnqueuedGroups() already use.
+        if (! in_array($category->categoryQueueSetting?->queueStrategy?->code ?? 'FIFO', ['FIFO', 'SECTION_BASED'], true)) {
             return 0;
         }
 
@@ -1694,7 +2035,7 @@ class QueueAdjustmentService
         }
 
         $dateIndex = $dates->pluck('id')->flip();
-        $manualTypeIds = QueueAdjustmentType::whereIn('code', ['REORDER', 'TRANSFER_ROOM', 'CHANGE_DATE', 'DEFER', 'REINSERT'])->pluck('id');
+        $manualTypeIds = QueueAdjustmentType::whereIn('code', self::MANUAL_TYPES)->pluck('id');
 
         $entries = QueueEntry::whereNull('removed_at')
             ->whereHas('attemptSchedule.presentationDateRoom', fn ($q) => $q->whereIn('presentation_date_id', $dates->pluck('id')))
@@ -1952,6 +2293,14 @@ class QueueAdjustmentService
         return max($floor, min($index, $ids->count()));
     }
 
+    /** Leaves pending re-defense attempts out of an AttemptSchedule query. */
+    private function exceptPendingReDefense($query)
+    {
+        return $query->whereDoesntHave('presentationAttempt', fn ($a) => $a
+            ->whereHas('attemptType', fn ($t) => $t->where('code', 'RE_DEFENSE'))
+            ->whereHas('presentationStatus', fn ($s) => $s->where('is_terminal', false)));
+    }
+
     /** Puts a (new) entry at $index of $room's active order and re-lays the room. */
     public function placeEntryAt(PresentationDateRoom $room, int $entryId, int $index): void
     {
@@ -1973,15 +2322,20 @@ class QueueAdjustmentService
         if ($index < $ids->count()) {
             $start = QueueEntry::find($ids[$index])?->attemptSchedule?->planned_start_at;
 
-            return $start?->copy();
+            // Going ahead of a group that has no slot itself (typically a
+            // re-defense waiting at the end): the time is the room's next
+            // free slot, worked out below.
+            if ($start) {
+                return $start->copy();
+            }
         }
 
         if (! $this->roomHasRemainingCapacity($room)) {
             return null;
         }
 
-        $lastEnd = AttemptSchedule::where('presentation_date_room_id', $room->id)
-            ->whereHas('queueEntry', fn ($q) => $q->whereNull('removed_at'))
+        $lastEnd = $this->exceptPendingReDefense(AttemptSchedule::where('presentation_date_room_id', $room->id)
+            ->whereHas('queueEntry', fn ($q) => $q->whereNull('removed_at')))
             ->max('planned_end_at');
 
         return $lastEnd

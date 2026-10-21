@@ -94,7 +94,8 @@
                             ?? $schedule->adjusted_expected_at
                             ?? $schedule->planned_start_at,
                     };
-                    $rowDateAt = $rowActualAt ?? $schedule->presentationDateRoom->presentationDate->presentation_date;
+                    // A group not in the queue yet has no room at all.
+                    $rowDateAt = $rowActualAt ?? $schedule->presentationDateRoom?->presentationDate?->presentation_date;
                     // Belt and braces: the awaiting rows are handed to this
                     // partial under their own variant, but a row that is
                     // awaiting a new date must never print a date whichever
@@ -107,8 +108,10 @@
                     @include('partials.past-session-divider', ['colspan' => 7, 'sessionEnd' => $schedule->session_end_at, 'forStudents' => $pastSessionForStudents])
                 @endif
                 @php $pastSessionPrev = $isPastSessionRow; @endphp
-                <tr id="queue-row-{{ $schedule->id }}" class="{{ $isSelectedRow ? 'table-active' : '' }} {{ $isPastSessionRow ? 'past-session-row' : '' }}">
-                    <td>{{ $isAwaitingRow ? '—' : $schedule->queueEntry->queue_number }}</td>
+                <tr id="queue-row-{{ $schedule->id ?? 'g' . $rowGroup->id }}" class="{{ $isSelectedRow ? 'table-active' : '' }} {{ $isPastSessionRow ? 'past-session-row' : '' }}">
+                    {{-- A group queued before any room existed keeps its queue
+                       number; one parked on a finished day has none to show. --}}
+                    <td>{{ $isAwaitingRow && $schedule->presentation_date_room_id !== null ? '—' : $schedule->queueEntry?->queue_number }}</td>
                     <td class="text-nowrap">
                         @if ($isAwaitingRow)
                             <span class="text-brand-muted">{{ \App\Models\AttemptSchedule::AWAITING_SHORT }}</span>

@@ -223,7 +223,7 @@ class ReDefenseService
             return $this->failure('No ongoing or upcoming presentation date is configured for this category — add one in Presentation Setup before scheduling a re-defense.');
         }
 
-        if (! $this->queueAdjustments->roomHasRemainingCapacity($room)) {
+        if (! $this->queueAdjustments->roomHasRemainingCapacity($room, forReDefense: true)) {
             $day = $room->presentationDate->presentation_date->format('M j, Y');
 
             return $this->failure("\"{$room->room_name}\" on {$day} has no time left in its window — extend that day or add another date before scheduling this re-defense.");
