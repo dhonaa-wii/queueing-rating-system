@@ -371,6 +371,46 @@ class PanelSubstitutionService
     }
 
     /**
+     * Closes PENDING requests nobody has to act on any more, so they leave
+     * Needs Attention: the presentation finished (or is gone), or the
+     * requesting panelist no longer holds a seat on it (the Admin already
+     * changed the panel, e.g. Edit Panel or Replace). Marked CANCELLED with
+     * no reviewer, since nobody approved or rejected it.
+     */
+    public function cancelResolvedRequests(): int
+    {
+        $pending = PanelSubstitutionRequest::whereHas('status', fn ($query) => $query->where('code', 'PENDING'))
+            ->with(['presentationAttempt.presentationStatus', 'presentationAttempt.attemptPanelAssignments.assignmentStatus'])
+            ->get();
+
+        $resolved = $pending->filter(function (PanelSubstitutionRequest $substitutionRequest) {
+            $attempt = $substitutionRequest->presentationAttempt;
+
+            if (! $attempt || $attempt->presentationStatus?->is_terminal) {
+                return true;
+            }
+
+            return ! $attempt->attemptPanelAssignments->contains(
+                fn ($pa) => $pa->panelist_user_id === $substitutionRequest->original_panelist_user_id
+                    && ! in_array($pa->assignmentStatus?->code, ['REPLACED', 'WITHDRAWN'], true)
+            );
+        });
+
+        if ($resolved->isEmpty()) {
+            return 0;
+        }
+
+        $cancelledId = SubstitutionStatus::where('code', 'CANCELLED')->firstOrFail()->id;
+
+        $resolved->each(function (PanelSubstitutionRequest $substitutionRequest) use ($cancelledId) {
+            $substitutionRequest->update(['status_id' => $cancelledId, 'reviewed_at' => now()]);
+            $this->notifications->markRelatedRead($substitutionRequest);
+        });
+
+        return $resolved->count();
+    }
+
+    /**
      * If the panelist being replaced was the room's designated Lead
      * (attempt_panel_assignments.is_lead, user-directed 2026-09-07), the
      * substitute inherits Lead status too — otherwise flow-control would

@@ -77,6 +77,10 @@ class RunAdminMaintenanceSweeps
 
         app(PanelistConflictService::class)->syncNotifications(app(NotificationService::class));
 
+        // Requests and notices whose issue is already gone leave Needs Attention.
+        app(\App\Services\PanelSubstitutionService::class)->cancelResolvedRequests();
+        app(NotificationService::class)->clearResolved();
+
         // A room whose groups run past its close time is evened out onto the
         // next open room/day on its own (user-directed 2026-09-13). No-ops
         // cheaply when nothing overflows.

@@ -77,6 +77,10 @@ class PanelAssignmentController extends Controller
 
     public function show(Request $request, PresentationCategory $category, CapacityAnalysisService $capacityService, PanelistConflictService $conflictService, PanelAssignmentService $panelService, ReDefenseService $reDefenseService, RoomQueuePreviewService $roomQueuePreview, PaymentVerificationService $paymentService)
     {
+        // Needs Attention lists only what is still unresolved.
+        app(\App\Services\PanelSubstitutionService::class)->cancelResolvedRequests();
+        app(\App\Services\NotificationService::class)->clearResolved();
+
         $category->load(['academicYear', 'semester', 'college', 'categoryStatus', 'presentationMode', 'categoryPaymentSetting', 'categoryPaymentTypes']);
 
         $rooms = PresentationDateRoom::whereHas('presentationDate', fn ($q) => $q->where('category_id', $category->id))

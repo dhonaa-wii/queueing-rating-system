@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Notification;
+use App\Models\QueueEntry;
 use App\Models\User;
 use App\Support\AdminCollege;
 use Illuminate\Database\Eloquent\Collection;
@@ -61,6 +62,46 @@ class NotificationService
     {
         if (! $notification->read_at) {
             $notification->update(['read_at' => now()]);
+        }
+    }
+
+    /**
+     * Marks read the unread notifications whose issue is already gone, so
+     * Needs Attention only lists what still needs doing: anything about a
+     * record that no longer exists, and a deferred-group notice once that
+     * group is back in the queue or has a recorded outcome. The other types
+     * clear themselves in the sweeps that raise them.
+     */
+    public function clearResolved(): void
+    {
+        $unread = Notification::whereNull('read_at')->whereNotNull('related_type')->get(['id', 'notification_type', 'related_type', 'related_id']);
+        $staleIds = [];
+
+        foreach ($unread->groupBy('related_type') as $class => $items) {
+            if (! class_exists($class)) {
+                continue;
+            }
+
+            $query = $class::query();
+            if ($class === QueueEntry::class) {
+                $query->with('attemptSchedule.presentationAttempt.presentationStatus');
+            }
+            $existing = $query->whereKey($items->pluck('related_id')->unique()->all())->get()->keyBy(fn ($model) => $model->getKey());
+
+            foreach ($items as $item) {
+                $related = $existing->get($item->related_id);
+
+                if (! $related) {
+                    $staleIds[] = $item->id;
+                } elseif ($item->notification_type === 'GROUP_DEFERRED' && $related instanceof QueueEntry
+                    && ($related->removed_at === null || $related->attemptSchedule?->presentationAttempt?->presentationStatus?->is_terminal)) {
+                    $staleIds[] = $item->id;
+                }
+            }
+        }
+
+        if ($staleIds !== []) {
+            Notification::whereIn('id', $staleIds)->update(['read_at' => now()]);
         }
     }
 

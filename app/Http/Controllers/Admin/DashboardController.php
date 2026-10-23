@@ -52,6 +52,10 @@ class DashboardController extends Controller
         $now = now();
         $today = $now->copy()->startOfDay();
 
+        // Needs Attention lists only what is still unresolved.
+        app(\App\Services\PanelSubstitutionService::class)->cancelResolvedRequests();
+        $notifications->clearResolved();
+
         // ---- Categories (status recomputed live — no scheduler exists in
         // this app, so every page load refreshes derived status). ----
         $categories = PresentationCategory::forAdminCollege()->with(['categoryStatus', 'presentationMode', 'presentationDates'])
