@@ -160,17 +160,17 @@ class GradePdfExporter
     }
 
     /**
-     * The panelist sign-off sheet (see PanelistDaySheetService::sheet()) under
+     * The Panel Participation Summary (see PanelParticipationService::sheet()) under
      * the same letterhead and footer.
      */
-    public function renderPanelistSheet(
+    public function renderPanelParticipation(
         PresentationCategory $category,
         object $sheet,
         ?EvaluationLetterhead $letterhead,
     ): string {
         $showLetterhead = $letterhead && $letterhead->hasContent();
 
-        $html = view('admin.reports.panelist-sheet-pdf', [
+        $html = view('admin.reports.panel-participation-pdf', [
             'category' => $category,
             'sheet' => $sheet,
             'letterhead' => $showLetterhead ? $letterhead : null,
@@ -206,6 +206,7 @@ class GradePdfExporter
             'logo' => $showLetterhead ? $this->logoDataUri($letterhead->logo_path) : null,
             'secondaryLogo' => $showLetterhead ? $this->logoDataUri($letterhead->secondary_logo_path) : null,
             'footerText' => $this->footerText($category),
+            'generatedAt' => now()->format('M j, Y g:i A'),
         ])->render();
 
         return $this->toPdf($html, 'portrait');

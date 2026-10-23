@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <title>{{ $attempt->researchGroup->group_reference }} — Evaluation Sheets</title>
     {{-- Rendered by Dompdf (CSS 2.1 only), same conventions as
-         panelist-sheet-pdf.blade.php: tables and literal colours, a fixed
+         panel-participation-pdf.blade.php: tables and literal colours, a fixed
          footer repeating on every page. One sheet per submitted evaluation,
          each starting on a fresh page. Mirrors partials/evaluation-sheets
          (the HTML viewer) — keep the two in step. --}}
@@ -19,7 +19,7 @@
             color: #1F1D1A;
         }
 
-        .footer { position: fixed; left: 0; right: 0; bottom: -9mm; text-align: center; font-size: 8px; color: #9A948E; }
+        .footer { position: fixed; left: 0; right: 0; bottom: -11mm; font-size: 8px; color: #9A948E; }
 
         table { width: 100%; border-collapse: collapse; }
 
@@ -69,7 +69,7 @@
     </style>
 </head>
 <body>
-    <div class="footer">{{ $footerText }}</div>
+    <div class="footer">@include('admin.reports.partials.pdf-footer')</div>
 
     @forelse ($submissions as $submission)
         @php

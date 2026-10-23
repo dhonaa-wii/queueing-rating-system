@@ -24,7 +24,8 @@ use App\Models\ResearchGroup;
  * Nothing here knows any particular section: the order is built from the
  * category's own Section Order and the sections its groups registered with,
  * at any year level (1A–9Z), and any number of them.
- *  - A pending re-defense presents after everyone (ReDefenseService).
+ *  - A pending re-defense presents after everyone (ReDefenseService), unless
+ *    an Administrator moved or transferred it (QueueEntry::adminPlacedIds()).
  *
  * Used for a late registration's place (QueueGenerationService::
  * appendUnqueuedGroups()), for keeping order when groups spill or carry over
@@ -110,13 +111,16 @@ class QueueOrdering
             ->get();
 
         $tailIds = $this->tailEntryIds($ids);
+        $adminPlaced = QueueEntry::adminPlacedIds($ids);
         $ranks = [];
 
         foreach ($entries as $entry) {
             $attempt = $entry->attemptSchedule?->presentationAttempt;
 
             $ranks[$entry->id] = match (true) {
-                $attempt?->attemptType?->code === 'RE_DEFENSE' && ! $attempt->presentationStatus?->is_terminal => self::RE_DEFENSE,
+                // A re-defense an Administrator moved or transferred ranks like
+                // the group it is, so later insertions don't jump ahead of it.
+                $attempt?->attemptType?->code === 'RE_DEFENSE' && ! $attempt->presentationStatus?->is_terminal && ! isset($adminPlaced[$entry->id]) => self::RE_DEFENSE,
                 isset($tailIds[$entry->id]) => self::TAIL,
                 default => $this->groupRank($category, $attempt?->researchGroup),
             };

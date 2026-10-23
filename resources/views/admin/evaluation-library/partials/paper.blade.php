@@ -67,7 +67,7 @@
                                     <span class="eval-checkbox-glyph">&#9633;</span> {{ $outcome->name }}
                                 </div>
                             @empty
-                                <span class="text-brand-muted small">No remarks selected yet &mdash; choose some in the tools panel.</span>
+                                <span class="text-brand-muted small">&mdash;</span>
                             @endforelse
                         </td>
                     @endif

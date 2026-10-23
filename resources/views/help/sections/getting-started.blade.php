@@ -6,7 +6,7 @@
         <div class="hc-option"><div class="hc-option-icon"><x-icon name="calendar" /></div><div><div class="hc-option-title">Automatic scheduling</div><p>Groups are placed into rooms, days and time slots automatically once registration closes.</p></div></div>
         <div class="hc-option"><div class="hc-option-icon"><x-icon name="list-check" /></div><div><div class="hc-option-title">Live queue</div><p>Everyone sees who is presenting, who is next and the expected time of every group.</p></div></div>
         <div class="hc-option"><div class="hc-option-icon"><x-icon name="clipboard-check" /></div><div><div class="hc-option-title">Digital evaluation</div><p>Panelists rate each group on a room device; scores and outcomes are computed instantly.</p></div></div>
-        <div class="hc-option"><div class="hc-option-icon"><x-icon name="bar-chart" /></div><div><div class="hc-option-title">Reports and analytics</div><p>Grades, sign-off sheets, recommendations and schedule analytics, exportable to Excel and PDF.</p></div></div>
+        <div class="hc-option"><div class="hc-option-icon"><x-icon name="bar-chart" /></div><div><div class="hc-option-title">Reports and analytics</div><p>Grades, panel participation, recommendations and schedule analytics, exportable to Excel and PDF.</p></div></div>
         <div class="hc-option"><div class="hc-option-icon"><x-icon name="shield-check" /></div><div><div class="hc-option-title">Accountability</div><p>Every important action is recorded, and data is protected by backups.</p></div></div>
     </div>
 </div>

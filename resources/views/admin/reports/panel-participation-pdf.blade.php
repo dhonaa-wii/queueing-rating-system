@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>{{ $category->name }} — Panelist Sign-off Sheet</title>
+    <title>{{ $category->name }} — Panel Participation Summary</title>
     {{-- Rendered by Dompdf (CSS 2.1 only), same conventions as
          recommendations-pdf.blade.php: tables and literal colours, a fixed
          footer that repeats on every page. --}}
@@ -21,8 +21,7 @@
             position: fixed;
             left: 0;
             right: 0;
-            bottom: -12mm;
-            text-align: center;
+            bottom: -15mm;
             font-size: 8px;
             color: #9A948E;
         }
@@ -65,12 +64,11 @@
         .seq { text-align: center; font-weight: bold; }
         .name { font-weight: bold; }
         .groups { text-align: center; font-weight: bold; font-size: 10px; }
-        .sign { height: 20px; border-bottom: 1px solid #1F1D1A; }
         .empty { text-align: center; padding: 22px 6px; color: #6B6560; }
     </style>
 </head>
 <body>
-    <div class="footer">{{ $footerText }}</div>
+    <div class="footer">@include('admin.reports.partials.pdf-footer')</div>
 
     @if ($letterhead)
         <table class="letterhead">
@@ -87,10 +85,9 @@
     @endif
 
     <div class="heading">
-        <div class="eyebrow">Panelist Sign-off Sheet</div>
+        <div class="eyebrow">Panel Participation Summary</div>
         <h1>{{ $category->name }}</h1>
         <div class="sub">{{ $category->academicYear->name ?? '—' }} &middot; {{ $category->semester->name ?? '—' }} &middot; {{ $category->college->name ?? '—' }}</div>
-        <div class="filters">Generated {{ $generatedAt }}</div>
     </div>
 
     @php
@@ -115,9 +112,10 @@
         <thead>
             <tr>
                 <th style="width: 5%; text-align: center;">#</th>
-                <th>Panelist</th>
-                <th style="width: 14%; text-align: center;">Groups</th>
-                <th style="width: 34%;">Signature</th>
+                <th>Name of Panel</th>
+                <th style="width: 15%; text-align: center;">As Adviser</th>
+                <th style="width: 15%; text-align: center;">As Chair</th>
+                <th style="width: 15%; text-align: center;">As Member</th>
             </tr>
         </thead>
         <tbody>
@@ -125,12 +123,13 @@
                 <tr>
                     <td class="seq">{{ $loop->iteration }}</td>
                     <td class="name">{{ $row->name }}</td>
-                    <td class="groups">{{ $row->group_count }}</td>
-                    <td><div class="sign"></div></td>
+                    <td class="groups">{{ $row->adviser_count }}</td>
+                    <td class="groups">{{ $row->chair_count }}</td>
+                    <td class="groups">{{ $row->member_count }}</td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="4" class="empty">No evaluations have been submitted yet.</td>
+                    <td colspan="5" class="empty">No evaluations have been submitted yet.</td>
                 </tr>
             @endforelse
         </tbody>

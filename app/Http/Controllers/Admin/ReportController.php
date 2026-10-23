@@ -14,7 +14,7 @@ use App\Services\EvaluationSubmissionService;
 use App\Services\GradePdfExporter;
 use App\Services\GradeReportService;
 use App\Services\GradeSpreadsheetExporter;
-use App\Services\PanelistDaySheetService;
+use App\Services\PanelParticipationService;
 use App\Services\PaymentVerificationService;
 use App\Services\RecommendationSummaryService;
 use App\Support\DefaultCategoryPicker;
@@ -425,18 +425,18 @@ class ReportController extends Controller
     }
 
     /**
-     * The running panelist sign-off sheet for the whole category — available
+     * The running Panel Participation Summary for the whole category — available
      * at any point, it simply contains whatever has been evaluated so far.
      * `?embed=1` drops the page's own toolbar, for the iframe the Reports page
      * shows it in; without it, it is a standalone printable page.
      */
-    public function panelistSheet(Request $request, PresentationCategory $category, PanelistDaySheetService $daySheetService)
+    public function panelParticipation(Request $request, PresentationCategory $category, PanelParticipationService $participationService)
     {
         $category->load(['academicYear', 'semester', 'college']);
 
-        return view('admin.reports.panelist-sheet', [
+        return view('admin.reports.panel-participation', [
             'category' => $category,
-            'sheet' => $daySheetService->sheet($category),
+            'sheet' => $participationService->sheet($category),
             'letterhead' => EvaluationLetterhead::forCollege($category->college_id),
             'embed' => $request->boolean('embed'),
         ]);
@@ -445,19 +445,19 @@ class ReportController extends Controller
     /**
      * PDF of the same sheet, under the college's letterhead.
      */
-    public function exportPanelistSheetPdf(PresentationCategory $category, PanelistDaySheetService $daySheetService, GradePdfExporter $exporter)
+    public function exportPanelParticipationPdf(PresentationCategory $category, PanelParticipationService $participationService, GradePdfExporter $exporter)
     {
         $category->load(['academicYear', 'semester', 'college']);
 
-        $pdf = $exporter->renderPanelistSheet(
+        $pdf = $exporter->renderPanelParticipation(
             $category,
-            $daySheetService->sheet($category),
+            $participationService->sheet($category),
             EvaluationLetterhead::forCollege($category->college_id),
         );
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="' . Str::slug($category->name) . '-panelist-signoff-' . now()->format('Y-m-d') . '.pdf"',
+            'Content-Disposition' => 'attachment; filename="' . Str::slug($category->name) . '-panel-participation-' . now()->format('Y-m-d') . '.pdf"',
         ]);
     }
 

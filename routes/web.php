@@ -287,8 +287,8 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::get('/{category}/recommendations/export-pdf', [ReportController::class, 'exportRecommendationsPdf'])->name('recommendations.export-pdf');
         Route::get('/{category}/attempts/{attempt}/recommendation-form', [ReportController::class, 'recommendationForm'])->name('recommendation-form');
         Route::get('/{category}/attempts/{attempt}/recommendation-form/export-pdf', [ReportController::class, 'exportRecommendationForm'])->name('recommendation-form.export-pdf');
-        Route::get('/{category}/panelist-sheet', [ReportController::class, 'panelistSheet'])->name('panelist-sheet');
-        Route::get('/{category}/panelist-sheet/export-pdf', [ReportController::class, 'exportPanelistSheetPdf'])->name('panelist-sheet.export-pdf');
+        Route::get('/{category}/panel-participation', [ReportController::class, 'panelParticipation'])->name('panel-participation');
+        Route::get('/{category}/panel-participation/export-pdf', [ReportController::class, 'exportPanelParticipationPdf'])->name('panel-participation.export-pdf');
         Route::get('/{category}/attempts/{attempt}/evaluation-sheet', [ReportController::class, 'evaluationSheet'])->name('evaluation-sheet');
         Route::get('/{category}/attempts/{attempt}/evaluation-sheet/export-pdf', [ReportController::class, 'exportEvaluationSheetPdf'])->name('evaluation-sheet.export-pdf');
         Route::get('/{category}/attempts/{attempt}/evaluations/{submission}/edit', [ReportController::class, 'editEvaluationSubmission'])->name('evaluation-sheet.edit');

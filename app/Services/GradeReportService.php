@@ -202,7 +202,7 @@ class GradeReportService
             // later was carried to a later day's room in between — so its
             // current placement can name a room it never presented in. The
             // schedule is the fallback for an Admin "Mark Complete" override,
-            // which records no run. Same rule as PanelistDaySheetService and
+            // which records no run. Same rule as PanelParticipationService and
             // ScheduleAnalyticsService.
             $room = $gradedAttempt->presentationRun?->roomSession?->presentationDateRoom
                 ?? $gradedAttempt->attemptSchedule?->presentationDateRoom;

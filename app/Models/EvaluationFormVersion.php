@@ -100,13 +100,19 @@ class EvaluationFormVersion extends Model
      */
     public function remarkBands(): array
     {
-        $this->loadMissing('applicablePresentationModes');
+        $this->loadMissing('applicablePresentationModes', 'presentationOutcomes');
 
         if ($this->applicablePresentationModes->first()?->code === 'TITLE_PROPOSAL') {
             return [];
         }
 
-        return PresentationOutcome::rubricLegend();
+        // Only the remarks this form prints (they are optional per form).
+        $names = $this->presentationOutcomes->pluck('name')->all();
+
+        return array_values(array_filter(
+            PresentationOutcome::rubricLegend(),
+            fn ($band) => in_array($band['name'], $names, true)
+        ));
     }
 
     public function isDraft(): bool

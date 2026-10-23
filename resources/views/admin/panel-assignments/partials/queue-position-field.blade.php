@@ -16,19 +16,22 @@
       $currentAttemptId — the attempt being moved, marked in the list (Move
                           only; null for Reinsert, which isn't in the list yet)
 
-    A pending re-defense is held at the end of its room by
-    QueueAdjustmentService::applyOrder(), so the ceiling drops below it here
-    too — offering a number that the group could not actually be given would
-    only look like the save had failed.
+    A pending re-defense the system holds at the end of its room
+    ($reDefenseHeldLast, from the controller) keeps the ceiling below it —
+    offering a number the group could not actually be given would only look
+    like the save had failed. One an Administrator moved or transferred holds
+    its place instead and is not counted; nor is the group being moved, so a
+    re-defense can itself be moved to any position.
 
     Optional (Section Based):
       $sectionLabels — section per queue entry id, shown beside each row
 --}}
 @php
     $sectionLabels = $sectionLabels ?? [];
+    $reDefenseHeldLast = $reDefenseHeldLast ?? [];
 
     $pinnedLastCount = $rows->filter(
-        fn ($queued) => $queued->attemptType?->code === 'RE_DEFENSE' && ! $queued->presentationStatus?->is_terminal
+        fn ($queued) => isset($reDefenseHeldLast[$queued->id]) && $queued->id !== $currentAttemptId
     )->count();
 
     $maxPosition = max($minPosition, $maxPosition - $pinnedLastCount);
@@ -45,7 +48,7 @@
                         $queuedStatus = $queued->presentationStatus;
                         $queuedLocked = $queuedStatus?->is_terminal || in_array($queuedStatus?->code, ['ONGOING', 'PAUSED'], true);
                         $isSelf = $currentAttemptId !== null && $queued->id === $currentAttemptId;
-                        $isPinnedLast = $queued->attemptType?->code === 'RE_DEFENSE' && ! $queuedLocked;
+                        $isPinnedLast = isset($reDefenseHeldLast[$queued->id]) && ! $queuedLocked;
                     @endphp
                     <tr class="{{ $queuedLocked ? 'text-brand-muted' : '' }}">
                         <td class="ps-0" style="width: 2.5rem;">{{ $queued->attemptSchedule->queueEntry->queue_number }}</td>

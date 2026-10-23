@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Panelist Sign-off Sheet &middot; {{ $category->name }}</title>
+    <title>Panel Participation Summary &middot; {{ $category->name }}</title>
     {{-- Standalone print page (not the admin layout) so the sheet prints as
          plain paper — always light, no navigation chrome. Reports embeds this
          same page in an iframe (?embed=1) for its preview modal, which drops
@@ -73,7 +73,9 @@
             width: 210mm;
             min-height: 297mm;
             margin: 24px auto 48px;
-            padding: 16mm 14mm;
+            padding: 16mm 14mm 6mm;
+            display: flex;
+            flex-direction: column;
             background: var(--paper);
             box-shadow: 0 2px 6px rgba(43, 41, 38, 0.06), 0 16px 40px rgba(43, 41, 38, 0.10);
             border-radius: 4px;
@@ -167,34 +169,36 @@
 
         .groups-count { font-size: 15px; font-weight: 700; }
 
-        .col-groups { width: 90px; }
-
-        .col-signature { width: 34%; }
+        .col-groups { width: 100px; }
 
         /* Same bordered grid as the recommendations summary. */
         table.grid { border: 1px solid var(--rule); }
         table.grid thead th { background: #F3EEE8; border: 1px solid var(--rule); }
         table.grid tbody td { border: 1px solid var(--rule); }
 
-        .signature-line { height: 30px; border-bottom: 1px solid var(--ink); }
-
         .empty-row { text-align: center; color: var(--muted); padding: 28px 10px; }
 
+        /* Same footer line as the other exported sheets (GradePdfExporter::
+           footerText()): gray, centered, repeated on every printed page. */
         .sheet-footer {
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-            margin-top: 18px;
-            font-size: 11px;
-            color: var(--muted);
+            margin-top: auto;
+            padding-top: 18px;
+            font-size: 10px;
+            color: #9A948E;
         }
 
-        @page { size: A4 portrait; margin: 14mm 12mm; }
+        .sheet-footer-stamp { text-align: left; margin-bottom: 2px; }
+
+        .sheet-footer-mark { text-align: center; }
+
+        @page { size: A4 portrait; margin: 14mm 12mm 20mm 12mm; }
 
         @media print {
             body { background: var(--paper); font-size: 12px; }
             .toolbar { display: none; }
             .sheet { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; border-radius: 0; }
+            .sheet { display: block; }
+            .sheet-footer { position: fixed; left: 0; right: 0; bottom: -15mm; margin: 0; padding: 0; }
         }
 
         @media (max-width: 860px) {
@@ -209,7 +213,7 @@
 <body>
     @unless ($embed ?? false)
         <div class="toolbar">
-            <span class="toolbar-title">Panelist Sign-off Sheet</span>
+            <span class="toolbar-title">Panel Participation Summary</span>
             <div class="toolbar-actions">
                 <a href="{{ route('admin.reports.grades', $category) }}" class="btn">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"></path></svg>
@@ -243,7 +247,7 @@
         @endif
 
         <section class="sheet-heading">
-            <div class="eyebrow">Panelist Sign-off Sheet</div>
+            <div class="eyebrow">Panel Participation Summary</div>
             <h1>{{ $category->name }}</h1>
             <p>{{ $category->academicYear->name ?? '—' }} &middot; {{ $category->semester->name ?? '—' }} &middot; {{ $category->college->name ?? '—' }}</p>
         </section>
@@ -278,9 +282,10 @@
                 <thead>
                     <tr>
                         <th class="col-num col-center">#</th>
-                        <th>Panelist</th>
-                        <th class="col-center col-groups">Groups</th>
-                        <th class="col-signature">Signature</th>
+                        <th>Name of Panel</th>
+                        <th class="col-center col-groups">As Adviser</th>
+                        <th class="col-center col-groups">As Chair</th>
+                        <th class="col-center col-groups">As Member</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -288,12 +293,13 @@
                         <tr>
                             <td class="col-num col-center">{{ $loop->iteration }}</td>
                             <td class="panelist-name">{{ $row->name }}</td>
-                            <td class="col-center"><span class="groups-count">{{ $row->group_count }}</span></td>
-                            <td class="col-signature"><div class="signature-line"></div></td>
+                            <td class="col-center"><span class="groups-count">{{ $row->adviser_count }}</span></td>
+                            <td class="col-center"><span class="groups-count">{{ $row->chair_count }}</span></td>
+                            <td class="col-center"><span class="groups-count">{{ $row->member_count }}</span></td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4" class="empty-row">No evaluations have been submitted yet.</td>
+                            <td colspan="5" class="empty-row">No evaluations have been submitted yet.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -301,8 +307,8 @@
         </div>
 
         <footer class="sheet-footer">
-            <span>{{ $category->name }}</span>
-            <span>Generated {{ now()->format('M j, Y g:i A') }}</span>
+            <div class="sheet-footer-stamp">Generated {{ now()->format('M j, Y g:i A') }}</div>
+            <div class="sheet-footer-mark">{{ \App\Services\GradePdfExporter::footerText($category) }}</div>
         </footer>
     </main>
 </body>

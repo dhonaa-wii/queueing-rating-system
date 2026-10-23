@@ -215,7 +215,7 @@
                 <tr><td><span class="hc-badge hc-badge-success">Passed with No Revision</span></td><td>Done. Your grade is final.</td></tr>
                 <tr><td><span class="hc-badge hc-badge-success">Passed with Minor Revision</span></td><td>Done. Make the minor revisions the panel asked for.</td></tr>
                 <tr><td><span class="hc-badge hc-badge-success">Passed with Major Revision</span></td><td>Done. Make the major revisions the panel asked for.</td></tr>
-                <tr><td><span class="hc-badge hc-badge-info">Re-Defense</span></td><td>You present again. The Administrator re-inserts your group; a re-defense always goes <strong>after every other group</strong>, on the last open date, with a new panel.</td></tr>
+                <tr><td><span class="hc-badge hc-badge-info">Re-Defense</span></td><td>You present again. The Administrator re-inserts your group; a re-defense is placed <strong>after every other group</strong>, on the last open date, with a new panel, unless the Administrator moves it earlier.</td></tr>
                 <tr><td><span class="hc-badge hc-badge-danger">Failed</span></td><td>Final for this registration. To present again you must <strong>register again</strong> as a new group (the old registration does not block you).</td></tr>
             </tbody>
         </table>

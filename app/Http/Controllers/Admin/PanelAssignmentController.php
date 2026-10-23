@@ -145,7 +145,19 @@ class PanelAssignmentController extends Controller
             ->values();
         $attempts = $attempts->filter(fn ($attempt) => $attempt->attemptSchedule->presentation_date_room_id !== null);
 
-        $roomGroups = $rooms->map(function (PresentationDateRoom $room) use ($attempts) {
+        // Pending re-defense attempts the system holds at the end of their
+        // room — not one an Administrator moved or transferred, which keeps
+        // its place (user-directed 2026-10-23). Keyed by attempt id.
+        $pendingReDefense = $attempts->filter(fn ($attempt) => $attempt->attemptType?->code === 'RE_DEFENSE'
+            && ! $attempt->presentationStatus?->is_terminal
+            && $attempt->attemptSchedule->queueEntry);
+        $adminPlaced = QueueEntry::adminPlacedIds($pendingReDefense->map(fn ($attempt) => $attempt->attemptSchedule->queueEntry->id));
+        $reDefenseHeldLast = $pendingReDefense
+            ->reject(fn ($attempt) => isset($adminPlaced[$attempt->attemptSchedule->queueEntry->id]))
+            ->mapWithKeys(fn ($attempt) => [$attempt->id => true])
+            ->all();
+
+        $roomGroups =$rooms->map(function (PresentationDateRoom $room) use ($attempts) {
             $roomAttempts = $attempts->filter(fn ($attempt) => $attempt->attemptSchedule->presentation_date_room_id === $room->id);
 
             $active = $roomAttempts->filter(fn ($attempt) => $attempt->attemptSchedule->queueEntry?->removed_at === null)
@@ -385,7 +397,7 @@ class PanelAssignmentController extends Controller
                     'status' => $attempt->presentationStatus?->name,
                     'locked' => (bool) ($attempt->presentationStatus?->is_terminal
                         || in_array($attempt->presentationStatus?->code, ['ONGOING', 'PAUSED'], true)),
-                    'reDefense' => $attempt->attemptType?->code === 'RE_DEFENSE' && ! $attempt->presentationStatus?->is_terminal,
+                    'reDefense' => isset($reDefenseHeldLast[$attempt->id]),
                 ])
                 ->values()
                 ->all(),
@@ -395,6 +407,7 @@ class PanelAssignmentController extends Controller
             // Section Based only: each group's section label (null otherwise).
             'sectionGuide' => $sectionGuide,
             'transferRoomQueues' => $transferRoomQueues,
+            'reDefenseHeldLast' => $reDefenseHeldLast,
             'expectedTimes' => $expectedTimes,
             'pastSessionEnd' => $pastSessionEnd,
             'category' => $category,

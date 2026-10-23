@@ -327,7 +327,7 @@
 
 <div class="hc-topic" id="ad-redefense">
     <h3><x-icon name="repeat" /> Re-defense</h3>
-    <p>When a group's official outcome is <span class="hc-badge hc-badge-info">Re-Defense</span>, it appears under the <strong>Re-Defense</strong> tab with every attempt, its date, outcome and <strong>View Evaluation</strong>. Press <strong>Reinsert</strong> and confirm to schedule the next attempt. A re-defense always presents after every group still waiting for its first attempt, including groups that register after it was reinserted; if there is no time left after them, it waits as <span class="hc-badge hc-badge-warn">To be scheduled</span>.</p>
+    <p>When a group's official outcome is <span class="hc-badge hc-badge-info">Re-Defense</span>, it appears under the <strong>Re-Defense</strong> tab with every attempt, its date, outcome and <strong>View Evaluation</strong>. Press <strong>Reinsert</strong> and confirm to schedule the next attempt. A re-defense is placed after every group still waiting for its first attempt, including groups that register after it was reinserted; if there is no time left after them, it waits as <span class="hc-badge hc-badge-warn">To be scheduled</span>. To let it present earlier, use <strong>Move</strong> or <strong>Transfer</strong> on its row: it then keeps the place you gave it. Deferring and reinserting it puts it last again.</p>
     <ul class="hc-list">
         <li>The new attempt goes to the <strong>last open day</strong>, in the room that finishes last, at the <strong>end of the queue</strong> — and stays last even when other groups are added.</li>
         <li>It starts <strong>without a panel</strong>; assign one as usual. The earlier attempt's panel and scores are kept as history.</li>
@@ -420,7 +420,7 @@
         <li><strong>Export to Excel / PDF</strong> — opens a list of columns to tick. Name, Section and Track are always included; everything else (group, grades, remarks, attempt, each payment) is ticked by default and can be left out.</li>
         <li><strong>Evaluation</strong> — view the evaluation sheets the panel submitted for a group.</li>
         <li><strong>Best Group</strong> (Group Grade × 70% + the members' average Individual Grade × 30%) and <strong>Best Presenter</strong> (Group Grade × 30% + their own Individual Grade × 70%) — the category's leaders; <strong>View</strong> shows the top five, one per row, with its own <strong>Track</strong> and <strong>Section</strong> dropdowns (default: all) and exportable to PDF. The grades filters are hidden while it is open.</li>
-        <li><strong>Panelist Sign-off Sheet</strong> — every panelist and how many groups they evaluated, with signature lines. View, print or export to PDF at any time.</li>
+        <li><strong>Panel Participation Summary</strong> — every panelist and how many evaluated groups they served as Technical Adviser, as Chair and as Member. Alternate seats are not counted, and only groups that were actually evaluated count. View, print or export to PDF at any time.</li>
         <li><strong>Recommendations Summary</strong> — the panel's remarks and comments per group, viewable and exportable. Each group in the list has <strong>Print</strong> and <strong>Export to PDF</strong> for its own Recommendation Form (title, researchers, defense date, numbered recommendations and the panel's sign-off).</li>
         <li>Groups awaiting a re-defense are left out until their final attempt; Failed groups appear, marked in red.</li>
     </ul>

@@ -21,7 +21,7 @@
             position: fixed;
             left: 0;
             right: 0;
-            bottom: -12mm;
+            bottom: -15mm;
             text-align: center;
             font-size: 8px;
             color: #9A948E;
@@ -70,7 +70,7 @@
     </style>
 </head>
 <body>
-    <div class="footer">{{ $footerText }}</div>
+    <div class="footer">@include('admin.reports.partials.pdf-footer')</div>
 
     @if ($letterhead)
         <table class="letterhead">
@@ -90,7 +90,6 @@
         <div class="eyebrow">Summary of Recommendations &amp; Comments</div>
         <h1>{{ $heading }}</h1>
         <div class="sub">{{ $subheading }}</div>
-        <div class="filters">Generated {{ $generatedAt }}</div>
     </div>
 
     <div class="count">{{ $rows->count() }} {{ \Illuminate\Support\Str::plural('group', $rows->count()) }} completed</div>

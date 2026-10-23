@@ -23,7 +23,7 @@
             position: fixed;
             left: 0;
             right: 0;
-            bottom: -12mm;
+            bottom: -15mm;
             text-align: center;
             font-size: 8px;
             color: #9A948E;
@@ -67,7 +67,7 @@
     </style>
 </head>
 <body>
-    <div class="footer">{{ $footerText }}</div>
+    <div class="footer">@include('admin.reports.partials.pdf-footer')</div>
 
     @if ($letterhead)
         <table class="letterhead">
@@ -87,7 +87,7 @@
         <div class="eyebrow">{{ $isGroups ? 'Ranked by Group Grade' : 'Ranked by Individual Grade Avg.' }}</div>
         <h1>{{ $heading }}</h1>
         <div class="sub">{{ $category->name }} &middot; {{ $category->academicYear->name ?? '—' }} &middot; {{ $category->semester->name ?? '—' }}</div>
-        <div class="filters">@if ($filterLabel !== ''){{ $filterLabel }} &middot; @endif Generated {{ $generatedAt }}</div>
+        @if ($filterLabel !== '')<div class="filters">{{ $filterLabel }}</div>@endif
     </div>
 
     <table class="top">

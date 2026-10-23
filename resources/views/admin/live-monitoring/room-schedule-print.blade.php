@@ -133,11 +133,14 @@
             color: #9A948E;
         }
 
+        .system-footer-stamp { text-align: left; margin-bottom: 2px; }
+
         /* A zero page margin is what stops the browser printing its own
            header/footer (page title, date, URL). The page's real margins come
            from the side padding and the spacer rows in <thead>/<tfoot>, which
            repeat on every page. */
         .page-spacer td, .page-spacer th { height: 9mm; padding: 0; border: 0; }
+        .page-spacer-foot td { height: 4mm; }
 
         @page { size: A4 landscape; margin: 0; }
 
@@ -205,12 +208,11 @@
                 <td colspan="7" class="note-cell">
                     <div class="note">
                         <span>Times on this schedule are live estimates and may change as the day runs. View the latest schedule at <a href="https://{{ $siteUrl }}">{{ $siteUrl }}</a>.</span>
-                        <span>Printed {{ now()->format('M j, Y g:i A') }}</span>
                     </div>
-                    <div class="system-footer">{{ $footerText }}</div>
+                    <div class="system-footer"><div class="system-footer-stamp">Generated {{ now()->format('M j, Y g:i A') }}</div><div>{{ $footerText }}</div></div>
                 </td>
             </tr>
-            <tr class="page-spacer"><td colspan="7"></td></tr>
+            <tr class="page-spacer page-spacer-foot"><td colspan="7"></td></tr>
         </tfoot>
         <tbody>
             @forelse (\App\Support\ScheduleBreakRows::interleave($schedules, fn ($s) => $room, fn ($s) => $s->expected_start_at ?? $s->planned_start_at) as $schedule)

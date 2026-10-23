@@ -265,10 +265,6 @@
                                                 // Non-null when this group's panel no longer matches what its
                                                 // room requires — the same rule that blocks Start on the tablet.
                                                 $panelIssue = $isTerminal ? null : ($panelIssueByAttempt[$attempt->id] ?? null);
-                                                // A pending re-defense is pinned to the end of its room's
-                                                // queue, so it is shown as such and its Move action is not
-                                                // offered (see the dropdown below).
-                                                $isReDefense = $attempt->attemptType?->code === 'RE_DEFENSE';
                                                 // A panelist has already scored this group — it can no longer
                                                 // be sent back to the queue (user-directed 2026-09-17), matching
                                                 // QueueAdjustmentService::defer()'s own server-side guard.
@@ -429,14 +425,10 @@
                                                             @if (! $isTerminal && ! $isPresenting && $attempt->attemptSchedule?->presentationDateRoom?->panelist_count)
                                                                 <li><button type="button" class="dropdown-item" data-edit-panel-for="{{ $attempt->id }}">Edit Panel</button></li>
                                                             @endif
-                                                            @if ($canChange && $isReDefense)
-                                                                {{-- Its position is not the admin's to pick: a pending
-                                                                   re-defense is held at the end of its room by
-                                                                   QueueAdjustmentService::applyOrder(), so a Move here
-                                                                   would simply undo itself. Transfer still works — that
-                                                                   chooses the room, and it goes last in whichever one. --}}
-                                                                <li><span class="dropdown-item disabled" title="A re-defense always presents last in its room. Use Transfer to move it to another room or day.">Move</span></li>
-                                                            @elseif ($canChange)
+                                                            {{-- A re-defense can be moved too: it then keeps the
+                                                               place it was given instead of being held last
+                                                               (user-directed 2026-10-23). --}}
+                                                            @if ($canChange)
                                                                 <li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#reorder-modal-{{ $attempt->id }}">Move</button></li>
                                                             @endif
                                                             @if ($canTransfer)
@@ -1217,9 +1209,6 @@
                    carry four unreachable modals. Edit above stays: a completed
                    group's registration details are still editable. --}}
                 @unless ($attempt->presentationStatus?->is_terminal)
-                {{-- A pending re-defense has no Move trigger (its position is
-                   fixed at the end of the room), so it needs no Move modal. --}}
-                @unless ($attempt->attemptType?->code === 'RE_DEFENSE')
                 <div class="modal fade" id="reorder-modal-{{ $attempt->id }}" tabindex="-1" aria-hidden="true">
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
@@ -1262,7 +1251,6 @@
                         </div>
                     </div>
                 </div>
-                @endunless
 
                 <div class="modal fade" id="transfer-modal-{{ $attempt->id }}" tabindex="-1" aria-hidden="true">
                     <div class="modal-dialog modal-dialog-centered">

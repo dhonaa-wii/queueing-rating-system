@@ -76,13 +76,13 @@
                             </div>
 
                             <div class="rp-sheets">
-                                <span class="rp-sheets-label"><x-icon name="printer" /> Panelist Sign-off Sheets</span>
+                                <span class="rp-sheets-label"><x-icon name="printer" /> Panel Participation Summary</span>
 
                                 <div class="d-flex gap-2">
                                     <button type="button" class="btn btn-sm btn-outline-brand" data-sheet-open>
                                         View
                                     </button>
-                                    <a href="{{ route('admin.reports.panelist-sheet.export-pdf', $category) }}" class="btn btn-sm btn-outline-brand">
+                                    <a href="{{ route('admin.reports.panel-participation.export-pdf', $category) }}" class="btn btn-sm btn-outline-brand">
                                         <x-icon name="file-text" /> Export to PDF
                                     </a>
                                 </div>
@@ -342,7 +342,7 @@
             'pdfUrl' => route('admin.reports.recommendations.export-pdf', $category),
         ])
 
-        {{-- The running sign-off sheet, embedded from its own standalone route
+        {{-- The running Panel Participation Summary, embedded from its own standalone route
              (?embed=1 drops that page's toolbar) so there is exactly one copy
              of the paper. Loaded fresh on each open, and Print goes through
              the frame, so what prints is the sheet and not this page. --}}
@@ -350,15 +350,15 @@
             <div class="modal-dialog modal-xl modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title" id="panelist-sheet-modal-label">Panelist Sign-off Sheet</h5>
+                        <h5 class="modal-title" id="panelist-sheet-modal-label">Panel Participation Summary</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body p-0">
-                        <iframe class="rp-sheet-frame" title="Panelist sign-off sheet" data-sheet-frame></iframe>
+                        <iframe class="rp-sheet-frame" title="Panel Participation Summary" data-sheet-frame></iframe>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-brand" data-bs-dismiss="modal">Close</button>
-                        <a href="{{ route('admin.reports.panelist-sheet.export-pdf', $category) }}" class="btn btn-outline-brand"><x-icon name="file-text" /> Export to PDF</a>
+                        <a href="{{ route('admin.reports.panel-participation.export-pdf', $category) }}" class="btn btn-outline-brand"><x-icon name="file-text" /> Export to PDF</a>
                         <button type="button" class="btn btn-brand" data-sheet-print><x-icon name="printer" /> Print</button>
                     </div>
                 </div>
@@ -1176,7 +1176,7 @@
             if (! modalEl) return;
 
             var frame = modalEl.querySelector('[data-sheet-frame]');
-            var sheetUrl = @json(route('admin.reports.panelist-sheet', [$category, 'embed' => 1]));
+            var sheetUrl = @json(route('admin.reports.panel-participation', [$category, 'embed' => 1]));
 
             document.querySelectorAll('[data-sheet-open]').forEach(function (item) {
                 item.addEventListener('click', function () {

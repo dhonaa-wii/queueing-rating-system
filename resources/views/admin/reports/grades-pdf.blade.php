@@ -22,7 +22,7 @@
             position: fixed;
             left: 0;
             right: 0;
-            bottom: -12mm;
+            bottom: -15mm;
             text-align: center;
             font-size: 8px;
             color: #9A948E;
@@ -70,7 +70,7 @@
     </style>
 </head>
 <body>
-    <div class="footer">{{ $footerText }}</div>
+    <div class="footer">@include('admin.reports.partials.pdf-footer')</div>
 
     @if ($letterhead)
         <table class="letterhead">
@@ -90,7 +90,7 @@
         <div class="eyebrow">Generated Grades</div>
         <h1>{{ $category->name }}</h1>
         <div class="sub">{{ $category->academicYear->name ?? '—' }} &middot; {{ $category->semester->name ?? '—' }} &middot; {{ $category->college->name ?? '—' }}</div>
-        <div class="filters">{{ trim(($filterLabel ? $filterLabel . '   ·   ' : '') . 'Generated ' . $generatedAt) }}</div>
+        @if ($filterLabel)<div class="filters">{{ $filterLabel }}</div>@endif
     </div>
 
     <div class="count">{{ $rows->count() }} {{ \Illuminate\Support\Str::plural('student', $rows->count()) }}</div>

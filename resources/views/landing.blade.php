@@ -1084,7 +1084,7 @@
                     </div>
                     <div>
                         <div class="bento-title">Reports &amp; Analytics</div>
-                        <p class="bento-text">Grades, sign-off sheets, and planned-versus-actual timing, exportable to PDF and Excel.</p>
+                        <p class="bento-text">Grades, panel participation, and planned-versus-actual timing, exportable to PDF and Excel.</p>
                     </div>
                     <div class="bento-visual mini-bars">
                         <span class="mini-bar" style="height: 45%;"></span>

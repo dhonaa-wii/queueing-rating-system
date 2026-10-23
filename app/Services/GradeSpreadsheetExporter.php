@@ -74,7 +74,7 @@ class GradeSpreadsheetExporter
             $category->semester->name ?? null,
             $category->college->name ?? null,
         ])));
-        $sheet->setCellValue('A3', trim(($filterLabel ? $filterLabel . '   ·   ' : '') . 'Generated ' . now()->format('M j, Y g:i A')));
+        $sheet->setCellValue('A3', (string) $filterLabel);
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
         $sheet->getStyle('A2:A3')->getFont()->setSize(10)->getColor()->setRGB('6B6560');
 
@@ -111,6 +111,22 @@ class GradeSpreadsheetExporter
             $sheet->getStyle("A{$headerRow}:{$lastColumn}{$row}")->getBorders()->getAllBorders()
                 ->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('E8E1D9');
         }
+
+        // Same footer as the PDF exports: the timestamp on the left, and under
+        // it the ARPQRS line centered — below the table and on every printed
+        // page.
+        $generated = 'Generated ' . now()->format('M j, Y g:i A');
+        $footerText = GradePdfExporter::footerText($category);
+        $stampRow = max($row, $headerRow) + 2;
+        $markRow = $stampRow + 1;
+        $sheet->setCellValue("A{$stampRow}", $generated);
+        $sheet->mergeCells("A{$markRow}:{$lastColumn}{$markRow}");
+        $sheet->setCellValue("A{$markRow}", $footerText);
+        $sheet->getStyle("A{$markRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle("A{$stampRow}:{$lastColumn}{$markRow}")->getFont()->setSize(9)->getColor()->setRGB('9A948E');
+        $sheet->getHeaderFooter()->setOddFooter(
+            '&L&8' . str_replace('&', '&&', $generated) . "\n" . '&C&8' . "\n" . str_replace('&', '&&', $footerText)
+        );
 
         $sheet->setAutoFilter("A{$headerRow}:{$lastColumn}" . max($row, $headerRow));
         $sheet->freezePane('A' . ($headerRow + 1));

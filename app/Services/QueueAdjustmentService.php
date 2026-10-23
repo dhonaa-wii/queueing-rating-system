@@ -70,8 +70,8 @@ class QueueAdjustmentService
             $clamped = max($this->firstOpenPosition($ids), min($newPosition, $ids->count() + 1));
             $ids->splice($clamped - 1, 0, [$entry->id]);
 
-            $this->applyOrder($room, $ids);
-
+            // Recorded before the room is re-laid: a re-defense moved by the
+            // Admin keeps the place it was given (reDefenseLast()).
             QueueAdjustment::create([
                 'queue_entry_id' => $entry->id,
                 'adjustment_type_id' => QueueAdjustmentType::where('code', 'REORDER')->firstOrFail()->id,
@@ -82,6 +82,8 @@ class QueueAdjustmentService
                 'approved_by' => $performedByUserId,
                 'adjusted_at' => now(),
             ]);
+
+            $this->applyOrder($room, $ids);
 
             return $this->conflicts->conflictsInRoom($room);
         });
@@ -182,21 +184,25 @@ class QueueAdjustmentService
 
             $schedule->update(['presentation_date_room_id' => $targetRoom->id]);
 
-            $this->applyOrder($originRoom, $this->activeEntryIdsForRoom($originRoom->id));
-
-            $targetIds->splice($index, 0, [$entry->id]);
-            $this->applyOrder($targetRoom, $targetIds);
-
-            QueueAdjustment::create([
+            // Recorded before the target room is re-laid: a re-defense the
+            // Admin transferred keeps the place it was given (reDefenseLast()).
+            $adjustment = QueueAdjustment::create([
                 'queue_entry_id' => $entry->id,
                 'adjustment_type_id' => QueueAdjustmentType::where('code', $adjustmentTypeCode)->firstOrFail()->id,
                 'old_position' => $oldPosition,
-                'new_position' => $entry->fresh()->queue_number,
+                'new_position' => null,
                 'reason_id' => $reasonId,
                 'remarks' => $remarks,
                 'approved_by' => $performedByUserId,
                 'adjusted_at' => now(),
             ]);
+
+            $this->applyOrder($originRoom, $this->activeEntryIdsForRoom($originRoom->id));
+
+            $targetIds->splice($index, 0, [$entry->id]);
+            $this->applyOrder($targetRoom, $targetIds);
+
+            $adjustment->update(['new_position' => $entry->fresh()->queue_number]);
 
             return $this->conflicts->conflictsInRoom($originRoom)->merge($this->conflicts->conflictsInRoom($targetRoom));
         });
@@ -1613,7 +1619,10 @@ class QueueAdjustmentService
      * one room keep their own order among themselves. Only a *pending*
      * re-defense moves — one that has already presented is terminal and
      * never moves at all, which is the same rule firstOpenPosition()
-     * protects at the front of the queue.
+     * protects at the front of the queue. Nor does one an Administrator moved
+     * or transferred (QueueEntry::adminPlacedIds()): the Admin may let a
+     * re-defense present before everyone else is done (user-directed
+     * 2026-10-23).
      */
     private function reDefenseLast(\Illuminate\Support\Collection $orderedEntryIds): \Illuminate\Support\Collection
     {
@@ -1626,6 +1635,10 @@ class QueueAdjustmentService
             ->whereHas('attemptSchedule.presentationAttempt.presentationStatus', fn ($q) => $q->where('is_terminal', false))
             ->pluck('id')
             ->flip();
+
+        // One an Administrator moved or transferred keeps the place it was
+        // given (user-directed 2026-10-23).
+        $pendingReDefenseIds = $pendingReDefenseIds->diffKeys(QueueEntry::adminPlacedIds($pendingReDefenseIds->keys()));
 
         if ($pendingReDefenseIds->isEmpty()) {
             return $orderedEntryIds;
@@ -1862,12 +1875,14 @@ class QueueAdjustmentService
         return ['moved' => $moved, 'unmoved' => $unmoved];
     }
 
+    /** A pending re-defense the system keeps last (not one an Admin placed). */
     private function isPendingReDefense(QueueEntry $entry): bool
     {
         $entry->loadMissing('attemptSchedule.presentationAttempt.attemptType', 'attemptSchedule.presentationAttempt.presentationStatus');
         $attempt = $entry->attemptSchedule?->presentationAttempt;
 
-        return $attempt?->attemptType?->code === 'RE_DEFENSE' && ! $attempt->presentationStatus?->is_terminal;
+        return $attempt?->attemptType?->code === 'RE_DEFENSE' && ! $attempt->presentationStatus?->is_terminal
+            && ! isset(QueueEntry::adminPlacedIds([$entry->id])[$entry->id]);
     }
 
     /**
@@ -1886,7 +1901,8 @@ class QueueAdjustmentService
      *    whose regular groups finish latest (its current room on a tie).
      *
      * Left alone: a re-defense already called or presenting, and one an
-     * Administrator transferred by hand. Returns how many groups moved.
+     * Administrator moved or transferred by hand (QueueEntry::adminPlacedIds()).
+     * Returns how many groups moved.
      */
     public function keepReDefenseLast(PresentationCategory $category, int $performedByUserId): int
     {
@@ -1899,7 +1915,6 @@ class QueueAdjustmentService
         }
 
         $roomIds = $rooms->pluck('id');
-        $manualTypeIds = QueueAdjustmentType::whereIn('code', ['TRANSFER_ROOM', 'CHANGE_DATE'])->pluck('id');
         $moved = 0;
 
         $pendingReDefense = fn () => QueueEntry::whereNull('removed_at')
@@ -1908,9 +1923,13 @@ class QueueAdjustmentService
             ->whereHas('attemptSchedule.presentationAttempt.presentationStatus', fn ($q) => $q
                 ->where('is_terminal', false)
                 ->whereNotIn('code', ['CALLED', 'ONGOING', 'PAUSED']))
-            ->whereDoesntHave('queueAdjustments', fn ($q) => $q->whereIn('adjustment_type_id', $manualTypeIds))
             ->with('attemptSchedule.presentationDateRoom', 'attemptSchedule.presentationAttempt.researchGroup.students')
-            ->get();
+            ->get()
+            ->pipe(function ($entries) {
+                $placed = QueueEntry::adminPlacedIds($entries->pluck('id'));
+
+                return $entries->reject(fn (QueueEntry $entry) => isset($placed[$entry->id]))->values();
+            });
 
         if ($pendingReDefense()->isEmpty()) {
             return 0;
@@ -2293,12 +2312,24 @@ class QueueAdjustmentService
         return max($floor, min($index, $ids->count()));
     }
 
-    /** Leaves pending re-defense attempts out of an AttemptSchedule query. */
+    /**
+     * Leaves pending re-defense attempts out of an AttemptSchedule query,
+     * except one an Administrator moved or transferred: that one holds its
+     * slot like any other group.
+     */
     private function exceptPendingReDefense($query)
     {
-        return $query->whereDoesntHave('presentationAttempt', fn ($a) => $a
-            ->whereHas('attemptType', fn ($t) => $t->where('code', 'RE_DEFENSE'))
-            ->whereHas('presentationStatus', fn ($s) => $s->where('is_terminal', false)));
+        $pending = (clone $query)
+            ->whereHas('presentationAttempt', fn ($a) => $a
+                ->whereHas('attemptType', fn ($t) => $t->where('code', 'RE_DEFENSE'))
+                ->whereHas('presentationStatus', fn ($s) => $s->where('is_terminal', false)))
+            ->with('queueEntry:id,attempt_schedule_id')
+            ->get(['id']);
+
+        $placed = QueueEntry::adminPlacedIds($pending->pluck('queueEntry.id'));
+        $excluded = $pending->reject(fn ($schedule) => isset($placed[$schedule->queueEntry?->id]))->pluck('id');
+
+        return $query->whereNotIn('id', $excluded);
     }
 
     /** Puts a (new) entry at $index of $room's active order and re-lays the room. */
