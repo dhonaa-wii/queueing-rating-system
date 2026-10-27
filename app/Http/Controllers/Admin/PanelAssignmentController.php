@@ -14,6 +14,7 @@ use App\Models\PresentationDateRoom;
 use App\Models\QueueEntry;
 use App\Models\ResearchGroup;
 use App\Models\User;
+use App\Services\AdviseeService;
 use App\Services\CapacityAnalysisService;
 use App\Services\NotificationService;
 use App\Services\PanelAssignmentService;
@@ -290,19 +291,22 @@ class PanelAssignmentController extends Controller
                 'backup' => $rows->where('assignmentKind.code', 'BACKUP_PANELIST')->count(),
             ]);
 
-        // Name matching for the Assign Panel picker's adviser muting is done
-        // client-side on already-normalized strings, so the browser never
-        // re-implements PanelAssignmentService's normalization (which the
-        // server-side guard also uses) and the two can't drift apart.
-        $panelistNameVariants = $panelists->mapWithKeys(
-            fn (User $panelist) => [$panelist->id => PanelAssignmentService::panelistNameVariants($panelist)]
-        );
+        $adviserCandidates = app(AdviseeService::class)->panelistsInCollege((int) $category->college_id);
+        $adviserUserIdsByAttempt = $attempts->mapWithKeys(function (PresentationAttempt $attempt) use ($adviserCandidates) {
+            $group = $attempt->researchGroup;
+            $adviserIds = $group->technical_adviser_user_id !== null
+                ? [(int) $group->technical_adviser_user_id]
+                : $adviserCandidates
+                    ->filter(fn (User $panelist) => PanelAssignmentService::nameMatchesPanelist(
+                        (string) $group->technical_adviser_name,
+                        $panelist,
+                    ))
+                    ->pluck('id')
+                    ->map(fn ($id) => (int) $id)
+                    ->all();
 
-        $adviserNameByAttempt = $attempts->mapWithKeys(
-            fn (PresentationAttempt $attempt) => [
-                $attempt->id => PanelAssignmentService::normalizeName((string) $attempt->researchGroup->technical_adviser_name),
-            ]
-        );
+            return [$attempt->id => $adviserIds];
+        });
 
         // Panel-vs-room-requirement mismatch per attempt, for the roster's
         // Panel column. A room's panelist_count can be raised or lowered in
@@ -432,8 +436,7 @@ class PanelAssignmentController extends Controller
             'roomDayCapacities' => $roomDayCapacities,
             'panelists' => $panelists,
             'panelistAssignmentCounts' => $panelistAssignmentCounts,
-            'panelistNameVariants' => $panelistNameVariants,
-            'adviserNameByAttempt' => $adviserNameByAttempt,
+            'adviserUserIdsByAttempt' => $adviserUserIdsByAttempt,
             'panelIssueByAttempt' => $panelIssueByAttempt,
             'conflictsByAttempt' => $conflictsByAttempt,
             'hasSubmittedEvaluationByAttempt' => $hasSubmittedEvaluationByAttempt,
@@ -501,7 +504,13 @@ class PanelAssignmentController extends Controller
         $isTitleProposal = $category->presentationMode->code === 'TITLE_PROPOSAL';
 
         try {
-            $data = $registrationService->validate($request, $category, $isTitleProposal, withPanelistChoices: false, keepAdviser: $group->technical_adviser_name);
+            $data = $registrationService->validate(
+                $request,
+                $category,
+                $isTitleProposal,
+                withPanelistChoices: false,
+                keepAdviserUserId: $group->technical_adviser_user_id,
+            );
             $registrationService->guardAgainstDuplicate($category, $data['leader'], $data['project_title'], $isTitleProposal, $group->id);
         } catch (ValidationException $e) {
             return back()->with('error', collect($e->errors())->flatten()->first());
@@ -511,7 +520,11 @@ class PanelAssignmentController extends Controller
         // would be evaluating their own advisee — the Admin has to change
         // the panel first (user-directed); the edit is refused rather than
         // quietly dropping that panelist's assignment.
-        $adviserConflict = $panelService->findAssignedPanelConflictForAdviser($group, $data['technical_adviser_name'] ?? null);
+        $adviserConflict = $panelService->findAssignedPanelConflictForAdviser(
+            $group,
+            $data['technical_adviser_user_id'] ?? null,
+            $data['technical_adviser_name'] ?? null,
+        );
 
         if ($adviserConflict) {
             return back()->with('error', $adviserConflict);

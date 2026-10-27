@@ -8,6 +8,7 @@ use App\Models\ProposedTitle;
 use App\Models\ResearchGroup;
 use App\Models\ResearchGroupPanelistChoice;
 use App\Models\Student;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -56,7 +57,13 @@ class ResearchGroupRegistrationService
      * $withPanelistChoices is false for the Admin's Edit Group: once a group
      * is registered its panel is changed through Assign Panel, not its picks.
      */
-    public function validate(Request $request, PresentationCategory $category, bool $isTitleProposal, bool $withPanelistChoices = true, ?string $keepAdviser = null): array
+    public function validate(
+        Request $request,
+        PresentationCategory $category,
+        bool $isTitleProposal,
+        bool $withPanelistChoices = true,
+        ?int $keepAdviserUserId = null,
+    ): array
     {
         $memberSlots = max(0, $category->maximum_members - 1);
         $requiredTitleCount = $isTitleProposal ? ($category->required_proposed_title_count ?? 1) : 0;
@@ -127,14 +134,16 @@ class ResearchGroupRegistrationService
         }
 
         if ($category->technical_adviser_required) {
-            // An edit may keep the group's current adviser even when that name
-            // is not (or no longer) in the Panelist Registry, so fixing a
-            // member's name doesn't force an adviser change.
-            $adviserChoices = $category->adviserOptions();
-            if (filled($keepAdviser)) {
-                $adviserChoices[] = $keepAdviser;
+            $adviserIds = $category->choosablePanelists()->pluck('id')->all();
+            if ($keepAdviserUserId !== null) {
+                $adviserIds[] = $keepAdviserUserId;
             }
-            $rules['technical_adviser_name'] = ['required', 'string', 'max:200', Rule::in($adviserChoices)];
+
+            $rules['technical_adviser_user_id'] = [
+                'required',
+                'integer',
+                Rule::in(array_unique($adviserIds)),
+            ];
         }
 
         // The group's own panel (user-directed 2026-10-11): exactly panel-count
@@ -146,7 +155,9 @@ class ResearchGroupRegistrationService
         }
 
         $validated = $request->validate($rules, self::PANELIST_CHOICE_MESSAGES + [
-            'technical_adviser_name.in' => 'Choose the technical adviser from the list.',
+            'technical_adviser_user_id.required' => 'Choose the technical adviser from the list.',
+            'technical_adviser_user_id.integer' => 'Choose the technical adviser from the list.',
+            'technical_adviser_user_id.in' => 'Choose the technical adviser from the list.',
             'leader_section.regex' => self::SECTION_FORMAT_MESSAGE,
             'members.*.section.regex' => self::SECTION_FORMAT_MESSAGE,
             '*.regex' => self::NAME_FORMAT_MESSAGE,
@@ -219,11 +230,20 @@ class ResearchGroupRegistrationService
             $members[] = $person;
         }
 
-        $adviserName = $category->technical_adviser_required ? trim($validated['technical_adviser_name']) : null;
+        $adviserUserId = $category->technical_adviser_required
+            ? (int) $validated['technical_adviser_user_id']
+            : null;
+        $adviser = $adviserUserId === null
+            ? null
+            : $category->choosablePanelists()->firstWhere('id', $adviserUserId);
+        if (! $adviser && $adviserUserId !== null && $adviserUserId === $keepAdviserUserId) {
+            $adviser = User::withTrashed()->with('profile')->find($adviserUserId);
+        }
+        $adviserName = $adviser ? PresentationCategory::panelistName($adviser) : null;
         $panelistChoices = $choosePanelists ? array_values(array_map('intval', $validated['panelist_choices'])) : null;
 
         if ($panelistChoices) {
-            $this->assertAdviserNotPicked($category, $adviserName, $panelistChoices);
+            $this->assertAdviserNotPicked($adviserUserId, $panelistChoices);
         }
 
         return [
@@ -232,7 +252,7 @@ class ResearchGroupRegistrationService
             'project_title' => $isTitleProposal ? null : trim($validated['project_title']),
             'proposed_titles' => $isTitleProposal ? array_values(array_map('trim', $validated['proposed_titles'])) : [],
             'technical_adviser_name' => $adviserName,
-            'technical_adviser_user_id' => $this->adviserUserId($category, $adviserName),
+            'technical_adviser_user_id' => $adviserUserId,
             // null = the category doesn't let groups choose; leave any picks alone.
             'panelist_choices' => $panelistChoices,
         ];
@@ -255,18 +275,23 @@ class ResearchGroupRegistrationService
     }
 
     /** A group's adviser can't sit on its own panel (PanelAssignmentService). */
-    private function assertAdviserNotPicked(PresentationCategory $category, ?string $adviserName, array $panelistIds): void
+    private function assertAdviserNotPicked(?int $adviserUserId, array $panelistIds, ?string $legacyAdviserName = null): void
     {
-        if (! $adviserName) {
+        if ($adviserUserId === null && trim((string) $legacyAdviserName) === '') {
             return;
         }
 
-        $panelists = $category->choosablePanelists()->keyBy('id');
+        $panelists = $adviserUserId === null
+            ? User::whereIn('id', $panelistIds)->with('profile')->get()->keyBy('id')
+            : collect();
 
         foreach ($panelistIds as $index => $panelistId) {
-            $panelist = $panelists->get($panelistId);
+            $matchesAdviser = $adviserUserId !== null
+                ? $panelistId === $adviserUserId
+                : (($panelist = $panelists->get($panelistId)) !== null
+                    && PanelAssignmentService::nameMatchesPanelist((string) $legacyAdviserName, $panelist));
 
-            if ($panelist && PanelAssignmentService::nameMatchesPanelist($adviserName, $panelist)) {
+            if ($matchesAdviser) {
                 throw ValidationException::withMessages([
                     "panelist_choices.$index" => 'Your technical adviser cannot be one of your panelists.',
                 ]);
@@ -313,7 +338,8 @@ class ResearchGroupRegistrationService
         $validated = $request->validate($this->panelistChoiceRules($category), self::PANELIST_CHOICE_MESSAGES);
         $panelistIds = array_values(array_map('intval', $validated['panelist_choices']));
 
-        $this->assertAdviserNotPicked($category, $group->technical_adviser_name, $panelistIds);
+        $adviserUserId = app(AdviseeService::class)->resolvedAdviserUserIdForGroup($group);
+        $this->assertAdviserNotPicked($adviserUserId, $panelistIds, $group->technical_adviser_name);
 
         DB::transaction(function () use ($group, $panelistIds) {
             // Locks the group so two submissions at once can't both save.
@@ -396,23 +422,6 @@ class ResearchGroupRegistrationService
         }
     }
 
-    /**
-     * The panelist account behind the chosen adviser name — the dropdown
-     * lists the category's college panelists by name (adviserOptions()).
-     * My Advisees matches on this id, so renaming the panelist later keeps
-     * the group on their list.
-     */
-    private function adviserUserId(PresentationCategory $category, ?string $adviserName): ?int
-    {
-        if (! filled($adviserName)) {
-            return null;
-        }
-
-        return $category->choosablePanelists()
-            ->first(fn (\App\Models\User $panelist) => PresentationCategory::panelistName($panelist) === $adviserName)
-            ?->id;
-    }
-
     private function studentAttributes(array $person, bool $isLeader): array
     {
         return [
@@ -470,12 +479,7 @@ class ResearchGroupRegistrationService
     public function update(ResearchGroup $group, array $data, bool $isTitleProposal): void
     {
         DB::transaction(function () use ($group, $data, $isTitleProposal) {
-            // An unchanged adviser name that is no longer in the registry
-            // (keepAdviser) keeps the account it was already linked to.
             $adviserUserId = $data['technical_adviser_user_id'] ?? null;
-            if (! $adviserUserId && $data['technical_adviser_name'] === $group->technical_adviser_name) {
-                $adviserUserId = $group->technical_adviser_user_id;
-            }
 
             $group->update([
                 'current_project_title' => $data['project_title'],

@@ -305,8 +305,12 @@ class PanelSubstitutionService
         $group = $attempt->researchGroup;
         $category = $group?->category;
 
+        $adviserUserId = $group?->technical_adviser_user_id;
+
         if ($group && $category?->technical_adviser_required
-            && PanelAssignmentService::nameMatchesPanelist((string) $group->technical_adviser_name, $substitute)) {
+            && ($adviserUserId !== null
+                ? (int) $substitute->id === (int) $adviserUserId
+                : PanelAssignmentService::nameMatchesPanelist((string) $group->technical_adviser_name, $substitute))) {
             return $this->failure("{$group->technical_adviser_name} is this group's technical adviser and cannot also be assigned as a panelist.");
         }
 

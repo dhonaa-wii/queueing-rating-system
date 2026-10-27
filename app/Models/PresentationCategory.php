@@ -142,16 +142,6 @@ class PresentationCategory extends Model
         return trim(($panelist->profile->first_name ?? '') . ' ' . ($panelist->profile->last_name ?? '')) ?: $panelist->username;
     }
 
-    /**
-     * The Technical Adviser is picked from the college's panelists
-     * (user-directed 2026-10-11) and stored by name in
-     * research_groups.technical_adviser_name.
-     */
-    public function adviserOptions(): array
-    {
-        return $this->choosablePanelists()->map(fn (User $p) => self::panelistName($p))->unique()->values()->all();
-    }
-
     public function researchGroups(): HasMany
     {
         return $this->hasMany(ResearchGroup::class, 'category_id');

@@ -30,6 +30,7 @@
                             'project_title' => $editGroup->current_project_title,
                             'proposed_titles' => $editGroup->proposedTitles->pluck('title_text')->all(),
                             'technical_adviser_name' => $editGroup->technical_adviser_name,
+                            'technical_adviser_user_id' => $editGroup->technical_adviser_user_id,
                         ],
                     ])
                 </div>

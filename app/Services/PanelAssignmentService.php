@@ -305,13 +305,16 @@ class PanelAssignmentService
         foreach ($attempts as $attempt) {
             $schedule = $attempt->attemptSchedule;
             $seats = (int) ($schedule->presentationDateRoom?->panelist_count ?: $category->panelist_count);
+            $adviserUserId = $attempt->researchGroup->technical_adviser_user_id;
             $adviser = trim((string) $attempt->researchGroup->technical_adviser_name);
 
             foreach ($attempt->researchGroup->panelistChoices->take($seats) as $index => $choice) {
                 $panelist = $eligible->get($choice->panelist_user_id);
 
                 if (! $panelist
-                    || ($adviser !== '' && self::nameMatchesPanelist($adviser, $panelist))
+                    || ($adviserUserId !== null
+                        ? (int) $panelist->id === (int) $adviserUserId
+                        : ($adviser !== '' && self::nameMatchesPanelist($adviser, $panelist)))
                     || $this->conflicts->conflictingAssignments($schedule, [$panelist->id])->isNotEmpty()) {
                     continue;
                 }
@@ -393,14 +396,7 @@ class PanelAssignmentService
         return null;
     }
 
-    /**
-     * A group's technical adviser (free-text, `research_groups.
-     * technical_adviser_name`) cannot also sit on that group's own panel —
-     * user-directed. Only enforced when the category actually requires a
-     * technical adviser; names are compared normalized (case/whitespace
-     * insensitive), checked both "first last" and "last first" since the
-     * adviser field is free text and may have been entered in either order.
-     */
+    /** A group's linked adviser cannot sit on its own panel. Legacy rows retain the name check. */
     private function findTechnicalAdviserConflict(PresentationCategory $category, Collection $attempts, array $panelistUserIds): ?string
     {
         if (! $category->technical_adviser_required) {
@@ -408,18 +404,20 @@ class PanelAssignmentService
         }
 
         $panelists = User::whereIn('id', $panelistUserIds)->with('profile')->get()->keyBy('id');
-
         foreach ($attempts as $attempt) {
+            $adviserId = $attempt->researchGroup->technical_adviser_user_id;
             $adviserName = trim((string) $attempt->researchGroup->technical_adviser_name);
 
-            if ($adviserName === '') {
+            if ($adviserId === null && $adviserName === '') {
                 continue;
             }
 
             foreach ($panelistUserIds as $panelistId) {
                 $panelist = $panelists->get($panelistId);
 
-                if ($panelist && self::nameMatchesPanelist($adviserName, $panelist)) {
+                if ($panelist && ($adviserId !== null
+                    ? (int) $panelist->id === (int) $adviserId
+                    : self::nameMatchesPanelist($adviserName, $panelist))) {
                     return "{$attempt->researchGroup->group_reference}'s technical adviser ({$adviserName}) cannot also be assigned as a panelist for this group.";
                 }
             }
@@ -608,11 +606,11 @@ class PanelAssignmentService
      * which would leave the group short a panelist with nothing on screen
      * saying why.
      */
-    public function findAssignedPanelConflictForAdviser(ResearchGroup $group, ?string $adviserName): ?string
+    public function findAssignedPanelConflictForAdviser(ResearchGroup $group, ?int $adviserUserId, ?string $adviserName): ?string
     {
         $adviserName = trim((string) $adviserName);
 
-        if ($adviserName === '') {
+        if ($adviserUserId === null && $adviserName === '') {
             return null;
         }
 
@@ -626,7 +624,9 @@ class PanelAssignmentService
             ->get();
 
         foreach ($assignments as $assignment) {
-            if ($assignment->panelist && self::nameMatchesPanelist($adviserName, $assignment->panelist)) {
+            if ($assignment->panelist && ($adviserUserId !== null
+                ? $assignment->panelist_user_id === $adviserUserId
+                : self::nameMatchesPanelist($adviserName, $assignment->panelist))) {
                 $panelistName = trim(($assignment->panelist->profile->first_name ?? '') . ' ' . ($assignment->panelist->profile->last_name ?? ''));
 
                 return trim(($panelistName ?: $adviserName) . " is already on {$group->group_reference}'s panel — change the assigned panel before setting them as this group's technical adviser.");

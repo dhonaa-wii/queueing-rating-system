@@ -127,14 +127,19 @@
 
             @if ($category->technical_adviser_required)
                 <div class="mb-1 mt-3">
-                    <label for="technical_adviser_name" class="form-label">Technical Adviser <span class="text-brand-accent">*</span></label>
-                    <select name="technical_adviser_name" id="technical_adviser_name" class="form-select" required data-adviser-select @disabled(! $isOpen)>
+                    <label for="technical_adviser_user_id" class="form-label">Technical Adviser <span class="text-brand-accent">*</span></label>
+                    <select name="technical_adviser_user_id" id="technical_adviser_user_id" class="form-select" required data-adviser-select @disabled(! $isOpen)>
                         <option value="">Select your adviser&hellip;</option>
-                        @foreach ($category->adviserOptions() as $adviserName)
-                            <option value="{{ $adviserName }}" @selected(old('technical_adviser_name') === $adviserName)>{{ $adviserName }}</option>
+                        @php
+                            $adviserOptions = $category->choosablePanelists();
+                            $adviserLabelCounts = $adviserOptions->countBy(fn ($panelist) => mb_strtolower(\App\Models\PresentationCategory::panelistName($panelist)));
+                        @endphp
+                        @foreach ($adviserOptions as $adviser)
+                            @php $adviserName = \App\Models\PresentationCategory::panelistName($adviser); @endphp
+                            <option value="{{ $adviser->id }}" @selected((string) old('technical_adviser_user_id') === (string) $adviser->id)>{{ $adviserName }}@if (($adviserLabelCounts[mb_strtolower($adviserName)] ?? 0) > 1) · {{ $adviser->username }}@endif</option>
                         @endforeach
                     </select>
-                    <div class="invalid-feedback" data-error-for="technical_adviser_name"></div>
+                    <div class="invalid-feedback" data-error-for="technical_adviser_user_id"></div>
                 </div>
             @endif
         </section>
@@ -486,8 +491,8 @@
                 }
 
                 @if ($category->technical_adviser_required)
-                    if (! val('technical_adviser_name')) {
-                        showError('technical_adviser_name', 'Technical adviser is required.');
+                    if (! val('technical_adviser_user_id')) {
+                        showError('technical_adviser_user_id', 'Technical adviser is required.');
                         valid = false;
                     }
                 @endif
@@ -501,7 +506,7 @@
                     } else if (chosen.indexOf(select.value) !== -1) {
                         showError(select.name, 'Choose a different panelist for each seat.');
                         valid = false;
-                    } else if (select.options[select.selectedIndex].text === val('technical_adviser_name')) {
+                    } else if (select.value === val('technical_adviser_user_id')) {
                         showError(select.name, 'Your technical adviser cannot be one of your panelists.');
                         valid = false;
                     }
@@ -554,7 +559,8 @@
                 }
 
                 @if ($category->technical_adviser_required)
-                    rows.push(['Technical Adviser', escapeHtml(val('technical_adviser_name'))]);
+                    var adviserSelect = document.getElementById('technical_adviser_user_id');
+                    rows.push(['Technical Adviser', escapeHtml(adviserSelect.options[adviserSelect.selectedIndex].text)]);
                 @endif
 
                 if (data.panelists.length) {

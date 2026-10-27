@@ -3,8 +3,8 @@
     2026-10-11): picking an adviser ([data-adviser-select]) disables that
     person in the same form's panel dropdowns ([data-panelist-choice]) and
     clears a seat that already had them. The server refuses it anyway
-    (ResearchGroupRegistrationService, PanelAssignmentService). Options are
-    matched by their text, which is how the adviser is stored.
+    (ResearchGroupRegistrationService, PanelAssignmentService). Both
+    dropdowns carry account ids, so duplicate names remain distinct.
 --}}
 @once
     @push('scripts')
@@ -12,11 +12,11 @@
             (function () {
                 function apply(form) {
                     var adviser = form.querySelector('[data-adviser-select]');
-                    var name = adviser ? adviser.value : (form.dataset.adviserName || '');
+                    var adviserId = adviser ? adviser.value : (form.dataset.adviserId || '');
 
                     form.querySelectorAll('[data-panelist-choice]').forEach(function (select) {
                         Array.prototype.forEach.call(select.options, function (option) {
-                            var isAdviser = name !== '' && option.value !== '' && option.text === name;
+                            var isAdviser = adviserId !== '' && option.value !== '' && option.value === adviserId;
                             option.disabled = isAdviser;
                             if (isAdviser && option.selected) select.value = '';
                         });

@@ -10,12 +10,9 @@ use Illuminate\Support\Collection;
  * Which groups a panelist advises — shared by My Advisees and the Panelist
  * Dashboard's advisee summary.
  *
- * A group belongs to a panelist when research_groups.technical_adviser_user_id
- * is theirs (set since 2026-10-19 from the adviser dropdown, backfilled for
- * older groups). A group with no linked account falls back to the old name
- * match (PanelAssignmentService::nameMatchesPanelist(), either name order)
- * within the panelist's own college — name only, because a group linked to
- * another account belongs to that account even if the names are the same.
+ * A group belongs to its linked adviser account. Unlinked legacy groups are
+ * matched only when the stored name identifies exactly one panelist in that
+ * category's college.
  */
 class AdviseeService
 {
@@ -23,8 +20,8 @@ class AdviseeService
     {
         $user->loadMissing(['profile', 'panelistProfile']);
 
-        $variants = PanelAssignmentService::panelistNameVariants($user);
         $collegeId = $user->panelistProfile?->college_id ?? 0;
+        $collegePanelists = $this->panelistsInCollege((int) $collegeId);
 
         return ResearchGroup::query()
             ->where(fn ($q) => $q->where('technical_adviser_user_id', $user->id)
@@ -54,21 +51,80 @@ class AdviseeService
                 ),
             ])
             ->get()
-            ->filter(fn (ResearchGroup $group) => $group->technical_adviser_user_id === $user->id
-                || in_array(PanelAssignmentService::normalizeName((string) $group->technical_adviser_name), $variants, true))
+            ->filter(fn (ResearchGroup $group) => $this->resolvedAdviserUserId($group, $collegePanelists) === (int) $user->id)
             ->values();
     }
 
     public function advises(User $user, ResearchGroup $group): bool
     {
         $user->loadMissing(['profile', 'panelistProfile']);
+        $group->loadMissing('category');
 
-        if ($group->technical_adviser_user_id) {
-            return $group->technical_adviser_user_id === $user->id;
+        if (! $group->category || ! $user->panelistProfile) {
+            return false;
         }
 
-        return $group->category
-            && $group->category->college_id === $user->panelistProfile?->college_id
-            && PanelAssignmentService::nameMatchesPanelist((string) $group->technical_adviser_name, $user);
+        if ($group->technical_adviser_user_id) {
+            return (int) $group->technical_adviser_user_id === (int) $user->id
+                && (int) $group->category->college_id === (int) $user->panelistProfile->college_id;
+        }
+
+        if ((int) $group->category->college_id !== (int) $user->panelistProfile->college_id) {
+            return false;
+        }
+
+        $collegePanelists = $this->panelistsInCollege((int) $group->category->college_id);
+
+        return $this->resolvedAdviserUserId($group, $collegePanelists) === (int) $user->id;
+    }
+
+    public function resolvedAdviserUserIdForGroup(ResearchGroup $group): ?int
+    {
+        $group->loadMissing('category');
+
+        if (! $group->category || ! $group->category->college_id) {
+            return $group->technical_adviser_user_id === null
+                ? null
+                : (int) $group->technical_adviser_user_id;
+        }
+
+        return $this->resolvedAdviserUserId(
+            $group,
+            $this->panelistsInCollege((int) $group->category->college_id),
+        );
+    }
+
+    public function panelistsInCollege(int $collegeId): Collection
+    {
+        return User::whereHas('userRoles.role', fn ($q) => $q->where('code', 'PANELIST'))
+            ->whereHas('panelistProfile', fn ($q) => $q->where('college_id', $collegeId))
+            ->with('profile')
+            ->get();
+    }
+
+    /**
+     * Resolve a legacy name only when exactly one account in the category's
+     * college matches. Linked groups never fall back to names.
+     */
+    public function resolvedAdviserUserId(ResearchGroup $group, Collection $collegePanelists): ?int
+    {
+        if ($group->technical_adviser_user_id !== null) {
+            $adviserId = (int) $group->technical_adviser_user_id;
+
+            return $collegePanelists->contains(fn (User $panelist) => (int) $panelist->id === $adviserId)
+                ? $adviserId
+                : null;
+        }
+
+        $name = trim((string) $group->technical_adviser_name);
+        if ($name === '') {
+            return null;
+        }
+
+        $matches = $collegePanelists->filter(
+            fn (User $panelist) => PanelAssignmentService::nameMatchesPanelist($name, $panelist)
+        );
+
+        return $matches->count() === 1 ? (int) $matches->first()->id : null;
     }
 }

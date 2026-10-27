@@ -279,6 +279,10 @@
                                 @endif
 
                                 @if (app(\App\Services\ResearchGroupRegistrationService::class)->canChoosePanelLater($selectedGroup, $selectedAttempt))
+                                    @php
+                                        $selectedAdviserId = app(\App\Services\AdviseeService::class)
+                                            ->resolvedAdviserUserIdForGroup($selectedGroup);
+                                    @endphp
                                     <button type="button" class="btn btn-brand btn-sm mt-2" data-panel-pick-toggle>
                                         <x-icon name="user-plus" /> Select Panel
                                     </button>
@@ -294,7 +298,7 @@
                                                     @foreach ($category->choosablePanelists() as $panelist)
                                                         @php $panelistName = \App\Models\PresentationCategory::panelistName($panelist); @endphp
                                                         {{-- The group's own adviser can't sit on its panel. --}}
-                                                        <option value="{{ $panelist->id }}" @disabled($panelistName === $selectedGroup->technical_adviser_name)>{{ $panelistName }}</option>
+                                                        <option value="{{ $panelist->id }}" @disabled((int) $panelist->id === $selectedAdviserId)>{{ $panelistName }} · {{ $panelist->username }}</option>
                                                     @endforeach
                                                 </select>
                                             </div>

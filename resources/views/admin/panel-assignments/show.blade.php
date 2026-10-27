@@ -329,7 +329,7 @@
                                                                data-schedule-id="{{ $schedule->id }}"
                                                                data-entry-id="{{ $schedule->queueEntry->id }}"
                                                                data-group-id="{{ $attempt->researchGroup->id }}"
-                                                               data-adviser="{{ $adviserNameByAttempt[$attempt->id] ?? '' }}"
+                                                               data-adviser-user-ids="{{ implode(',', $adviserUserIdsByAttempt[$attempt->id] ?? []) }}"
                                                                data-group-ref="{{ $attempt->researchGroup->group_reference }}"
                                                                data-current-panel="{{ $currentPanelNames }}"
                                                                data-panel-chair="{{ $assigned->firstWhere('is_lead', true)?->panelist_user_id }}"
@@ -718,7 +718,6 @@
                                     @php $counts = $panelistAssignmentCounts[$panelist->id] ?? ['assigned' => 0, 'backup' => 0]; @endphp
                                     <div class="form-check panelist-row d-flex align-items-start gap-2">
                                         <input class="form-check-input assigned-panelist-checkbox mt-1" type="checkbox" name="assigned_panelist_ids[]" value="{{ $panelist->id }}" id="assigned-{{ $panelist->id }}"
-                                               data-panelist-names="{{ implode('|', $panelistNameVariants[$panelist->id] ?? []) }}"
                                                data-display-name="{{ trim(($panelist->profile->first_name ?? '') . ' ' . ($panelist->profile->last_name ?? '')) }}">
                                         <label class="form-check-label small panelist-label flex-grow-1" for="assigned-{{ $panelist->id }}">
                                             {{ trim(($panelist->profile->first_name ?? '') . ' ' . ($panelist->profile->last_name ?? '')) }}
@@ -747,7 +746,7 @@
                                 <option value="">Select alternate panel…</option>
                                 @foreach ($panelists as $panelist)
                                     @php $counts = $panelistAssignmentCounts[$panelist->id] ?? ['assigned' => 0, 'backup' => 0]; @endphp
-                                    <option value="{{ $panelist->id }}" data-panelist-names="{{ implode('|', $panelistNameVariants[$panelist->id] ?? []) }}">
+                                    <option value="{{ $panelist->id }}">
                                         {{ trim(($panelist->profile->first_name ?? '') . ' ' . ($panelist->profile->last_name ?? '')) }}
                                         ({{ $counts['assigned'] }} assigned, {{ $counts['backup'] }} alternate)
                                     </option>
@@ -1946,23 +1945,20 @@
                 // server-side at assign time, applied here the moment a
                 // group is selected so the adviser simply isn't pickable
                 // instead of the Admin only finding out after submitting.
-                // Both sides of the comparison arrive already normalized
-                // from the server (data-adviser / data-panelist-names), so
-                // the browser never re-implements that name matching.
-                function selectedAdviserNames() {
-                    var names = {};
+                // Adviser identity is account-based; names may not be unique.
+                function selectedAdviserIds() {
+                    var ids = {};
                     checkboxes.forEach(function (cb) {
-                        if (cb.checked && cb.dataset.adviser) names[cb.dataset.adviser] = true;
+                        if (! cb.checked || ! cb.dataset.adviserUserIds) return;
+                        cb.dataset.adviserUserIds.split(',').forEach(function (id) {
+                            if (id !== '') ids[id] = true;
+                        });
                     });
-                    return names;
+                    return ids;
                 }
 
                 function matchesAdviser(el, advisers) {
-                    var variants = (el.dataset.panelistNames || '').split('|');
-                    for (var i = 0; i < variants.length; i++) {
-                        if (variants[i] !== '' && advisers[variants[i]]) return true;
-                    }
-                    return false;
+                    return !!(el.value && advisers[el.value]);
                 }
 
                 function isAdviserMuted(cb) {
@@ -2009,7 +2005,7 @@
                 }
 
                 function refresh() {
-                    var advisers = selectedAdviserNames();
+                    var advisers = selectedAdviserIds();
 
                     enforceBackupAssignedExclusion(advisers);
                     enforceAdviserMuting(advisers);

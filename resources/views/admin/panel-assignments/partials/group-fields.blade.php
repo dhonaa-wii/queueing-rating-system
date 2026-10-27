@@ -6,7 +6,7 @@
     $requiredTitleCount, $category (for research_track_required /
     technical_adviser_required), $prefill (array of current values, blank
     for Add): leader (person array), members (person arrays), project_title,
-    proposed_titles, technical_adviser_name.
+    proposed_titles, technical_adviser_user_id.
 --}}
 @php
     $personFields = ['last_name', 'first_name', 'middle_name', 'sex', 'section', 'research_track_name'];
@@ -68,20 +68,20 @@
 
     @if ($category->technical_adviser_required)
         <div class="mb-0">
-            <label for="{{ $idPrefix }}_technical_adviser_name" class="form-label small">Technical Adviser <span class="text-brand-accent">*</span></label>
-            <select name="technical_adviser_name" id="{{ $idPrefix }}_technical_adviser_name" class="form-select form-select-sm" required data-adviser-select>
+            <label for="{{ $idPrefix }}_technical_adviser_user_id" class="form-label small">Technical Adviser <span class="text-brand-accent">*</span></label>
+            <select name="technical_adviser_user_id" id="{{ $idPrefix }}_technical_adviser_user_id" class="form-select form-select-sm" required data-adviser-select>
                 <option value="">Select an adviser&hellip;</option>
                 @php
-                    $adviserOptions = $category->adviserOptions();
-                    $currentAdviser = $prefill['technical_adviser_name'] ?? null;
+                    $adviserOptions = $category->choosablePanelists();
+                    $currentAdviser = $prefill['technical_adviser_user_id'] ?? null;
+                    $adviserLabelCounts = $adviserOptions->countBy(fn ($panelist) => mb_strtolower(\App\Models\PresentationCategory::panelistName($panelist)));
                 @endphp
-                {{-- An adviser saved before the dropdown existed, or since removed
-                   from the Panelist Registry, stays listed so an edit keeps it. --}}
-                @if (filled($currentAdviser) && ! in_array($currentAdviser, $adviserOptions, true))
-                    <option value="{{ $currentAdviser }}" selected>{{ $currentAdviser }} (not in Panelist Registry)</option>
+                @if ($currentAdviser && ! $adviserOptions->contains('id', (int) $currentAdviser))
+                    <option value="{{ $currentAdviser }}" selected>{{ $prefill['technical_adviser_name'] ?? 'Current adviser' }}</option>
                 @endif
-                @foreach ($adviserOptions as $adviserName)
-                    <option value="{{ $adviserName }}" @selected($currentAdviser === $adviserName)>{{ $adviserName }}</option>
+                @foreach ($adviserOptions as $adviser)
+                    @php $adviserName = \App\Models\PresentationCategory::panelistName($adviser); @endphp
+                    <option value="{{ $adviser->id }}" @selected((string) $currentAdviser === (string) $adviser->id)>{{ $adviserName }}@if (($adviserLabelCounts[mb_strtolower($adviserName)] ?? 0) > 1) · {{ $adviser->username }}@endif</option>
                 @endforeach
             </select>
         </div>

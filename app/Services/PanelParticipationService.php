@@ -26,13 +26,17 @@ use Illuminate\Support\Collection;
  *    and counts as that.
  *  - Adviser: the evaluated group is one of the panelist's advisees, by the
  *    same rule as My Advisees (AdviseeService): technical_adviser_user_id, else
- *    the name match against the category college's panelists.
+ *    a name match only when it uniquely identifies a category-college panelist.
  * Each column counts distinct groups, so a re-defense doesn't count a group
  * twice in the same role.
  */
 class PanelParticipationService
 {
     private const COUNTED_STATUSES = ['SUBMITTED', 'FINALIZED'];
+
+    public function __construct(private AdviseeService $advisees)
+    {
+    }
 
     /**
      * @return object{
@@ -102,31 +106,26 @@ class PanelParticipationService
             ->map(fn (EvaluationSubmission $s) => $s->presentationAttempt?->research_group_id)
             ->filter()->unique()->values();
 
-        // Same rule as My Advisees (AdviseeService::advises()), so the count
-        // here is exactly the evaluated groups each panelist sees there: the
-        // linked account, else every panelist of the category's college —
-        // active or not — whose name matches the stored adviser name.
-        $collegePanelists = User::whereHas('panelistProfile', fn ($q) => $q->where('college_id', $category->college_id ?? 0))
-            ->with('profile')
-            ->get();
+        // Use the same unique-legacy-name resolver as My Advisees, so an
+        // ambiguous legacy name is not credited to multiple panelists.
+        $collegePanelists = $this->advisees->panelistsInCollege((int) ($category->college_id ?? 0));
 
         ResearchGroup::whereIn('id', $evaluatedGroupIds)
             ->with('technicalAdviser.profile')
             ->get()
             ->each(function (ResearchGroup $group) use ($collegePanelists, $touch, &$tally) {
-                if ($group->technical_adviser_user_id) {
-                    $advisers = $group->technicalAdviser ? collect([$group->technicalAdviser]) : collect();
-                } elseif (trim((string) $group->technical_adviser_name) !== '') {
-                    $advisers = $collegePanelists->filter(
-                        fn (User $p) => PanelAssignmentService::nameMatchesPanelist((string) $group->technical_adviser_name, $p)
-                    );
-                } else {
-                    $advisers = collect();
+                $adviserId = $this->advisees->resolvedAdviserUserId($group, $collegePanelists);
+                if ($adviserId === null) {
+                    return;
                 }
 
-                foreach ($advisers as $adviser) {
-                    $touch($adviser->id, $adviser);
-                    $tally[$adviser->id]['adviser'][$group->id] = true;
+                $adviser = $group->technical_adviser_user_id
+                    ? $group->technicalAdviser
+                    : $collegePanelists->firstWhere('id', $adviserId);
+
+                if ($adviser) {
+                    $touch($adviserId, $adviser);
+                    $tally[$adviserId]['adviser'][$group->id] = true;
                 }
             });
 
